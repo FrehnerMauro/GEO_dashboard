@@ -1,0 +1,19 @@
+name = "geo-platform"
+main = "src/index.ts"
+compatibility_date = "2024-11-27"
+
+[env.production]
+name = "geo-platform-prod"
+
+[[d1_databases]]
+binding = "geo_db"
+database_name = "geo-db"
+database_id = "7e73f7d1-492d-4ca3-a5f9-916139ddebec"
+
+[vars]
+ENVIRONMENT = "production"
+OPENAI_API_KEY = "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"
+MAX_PAGES = "50"
+MAX_DEPTH = "3"
+RE_RUN_SCHEDULE = "weekly"
+

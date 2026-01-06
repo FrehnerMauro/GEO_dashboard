@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Readiness Browser Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+    .error { color: red; }
+    .success { color: green; }
+    pre { background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>AI Readiness Function Browser Test</h1>
+  
+  <div class="test-section">
+    <h2>Test 1: Function Definition</h2>
+    <div id="test1-result"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>Test 2: URL Normalization</h2>
+    <input type="text" id="testUrl" value="example.com" placeholder="Enter URL">
+    <button onclick="testUrlNormalization()">Test URL Normalization</button>
+    <div id="test2-result"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>Test 3: Full Function Call</h2>
+    <input type="text" id="aiReadinessUrl" placeholder="example.com" value="example.com">
+    <button onclick="testFullFunction()">Test Full Function</button>
+    <div id="test3-result"></div>
+  </div>
+
+  <script>
+    // Simulate the exact function from routes.ts
+    window.startAIReadiness = async function() {
+      console.log('startAIReadiness called');
+      const urlInput = document.getElementById('aiReadinessUrl');
+      const url = urlInput?.value?.trim();
+      
+      if (!url) {
+        alert('Bitte geben Sie eine URL ein.');
+        return;
+      }
+      
+      // Auto-add https:// if missing
+      let websiteUrl = url;
+      if (!websiteUrl.match(/^https?:\/\//i)) {
+        websiteUrl = 'https://' + websiteUrl;
+      }
+      
+      // Validate URL
+      try {
+        new URL(websiteUrl);
+      } catch (e) {
+        alert('Ungültige URL. Bitte geben Sie eine gültige URL ein.');
+        return;
+      }
+      
+      // Update input field with normalized URL
+      if (urlInput) {
+        urlInput.value = websiteUrl;
+      }
+      
+      return { success: true, originalUrl: url, normalizedUrl: websiteUrl };
+    };
+    
+    // Test 1: Check if function is defined
+    function test1() {
+      const result = document.getElementById('test1-result');
+      if (typeof window.startAIReadiness === 'function') {
+        result.innerHTML = '<span class="success">✅ Function is defined</span>';
+      } else {
+        result.innerHTML = '<span class="error">❌ Function is not defined</span>';
+      }
+    }
+    
+    // Test 2: Test URL normalization
+    async function testUrlNormalization() {
+      const testUrl = document.getElementById('testUrl').value;
+      const result = document.getElementById('test2-result');
+      
+      let websiteUrl = testUrl;
+      if (!websiteUrl.match(/^https?:\/\//i)) {
+        websiteUrl = 'https://' + websiteUrl;
+      }
+      
+      try {
+        new URL(websiteUrl);
+        result.innerHTML = '<span class="success">✅ URL normalized successfully</span><br>' +
+          '<pre>Original: ' + testUrl + '\nNormalized: ' + websiteUrl + '</pre>';
+      } catch (e) {
+        result.innerHTML = '<span class="error">❌ Invalid URL: ' + e.message + '</span>';
+      }
+    }
+    
+    // Test 3: Test full function
+    async function testFullFunction() {
+      const result = document.getElementById('test3-result');
+      result.innerHTML = 'Testing...';
+      
+      try {
+        const functionResult = await window.startAIReadiness();
+        if (functionResult && functionResult.success) {
+          result.innerHTML = '<span class="success">✅ Function executed successfully</span><br>' +
+            '<pre>' + JSON.stringify(functionResult, null, 2) + '</pre>';
+        } else {
+          result.innerHTML = '<span class="error">❌ Function returned unexpected result</span>';
+        }
+      } catch (error) {
+        result.innerHTML = '<span class="error">❌ Error: ' + error.message + '</span><br>' +
+          '<pre>' + error.stack + '</pre>';
+      }
+    }
+    
+    // Run test 1 on load
+    window.addEventListener('DOMContentLoaded', test1);
+  </script>
+</body>
+</html>
+

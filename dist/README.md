@@ -1,0 +1,1 @@
+This folder contains the built output assets for the worker "geo-platform" generated at 2026-01-05T14:28:52.558Z.
