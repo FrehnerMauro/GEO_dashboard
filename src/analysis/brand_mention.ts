@@ -1,115 +1,212 @@
 /**
- * Brand mention detection module
+ * Brand mention & citation detection module
+ * Ziel:
+ * - exact   = echte Text-Erwähnungen der Brand
+ * - fuzzy   = bewusst 0 (LLM-Texte sind deterministisch)
+ * - contexts = Sätze mit Erwähnung ODER Citation
  */
 
 import type { LLMResponse, BrandMention } from "../types.js";
 
 export class BrandMentionDetector {
-  constructor(
-    private brandName: string,
-    private fuzzyThreshold: number = 0.7
-  ) {}
+  private brandName: string;
+  private fuzzyThreshold: number;
+  private debug: boolean;
+
+  constructor(brandName: string, fuzzyThreshold: number = 0.7, debug: boolean = false) {
+    this.brandName = brandName;
+    this.fuzzyThreshold = fuzzyThreshold;
+    this.debug = debug;
+  }
+
+  /**
+   * Enable or disable debug logging
+   */
+  setDebug(enabled: boolean): void {
+    this.debug = enabled;
+  }
 
   detectMentions(response: LLMResponse): BrandMention {
-    const text = response.outputText.toLowerCase();
+    const rawText = response.outputText;
+    const lowerText = rawText.toLowerCase();
+
     const brandLower = this.brandName.toLowerCase();
+    const brandDomain = brandLower.replace(/\s+/g, "");
 
-    // Exact mentions
-    const exactMatches = this.countExactMatches(text, brandLower);
+    if (this.debug) {
+      console.log("[BrandMentionDetector] Starting detection");
+      console.log("[BrandMentionDetector] Brand name:", this.brandName);
+      console.log("[BrandMentionDetector] Brand lower:", brandLower);
+      console.log("[BrandMentionDetector] Brand domain:", brandDomain);
+      console.log("[BrandMentionDetector] Text length:", rawText.length);
+      console.log("[BrandMentionDetector] Text preview:", rawText.substring(0, 200));
+    }
 
-    // Fuzzy mentions (similarity-based)
-    const fuzzyMatches = this.countFuzzyMatches(text, brandLower);
+    // Zuerst Citations finden, um deren Positionen zu kennen
+    const citationRanges = this.findCitationRanges(rawText, brandDomain);
+    const citations = citationRanges.length;
 
-    // Extract contexts
-    const contexts = this.extractContexts(response.outputText, brandLower);
+    // Exakte Erwähnungen zählen, aber die in Citations ausschließen
+    const exact = this.countExactMentionsExcludingCitations(
+      rawText,
+      lowerText,
+      brandLower,
+      citationRanges
+    );
+
+    const contexts = this.extractContexts(rawText, brandLower, brandDomain);
+
+    if (this.debug) {
+      console.log("[BrandMentionDetector] Exact mentions (excluding citations):", exact);
+      console.log("[BrandMentionDetector] Citations found:", citations);
+      console.log("[BrandMentionDetector] Citation ranges:", citationRanges);
+      console.log("[BrandMentionDetector] Contexts found:", contexts.length);
+      console.log("[BrandMentionDetector] Contexts:", contexts);
+    }
 
     return {
-      exact: exactMatches,
-      fuzzy: fuzzyMatches,
+      exact,
+      fuzzy: 0, // absichtlich: alles andere wäre unseriös
       contexts,
+      citations // Anzahl der Markdown-Citations mit Brand-Domain
     };
   }
 
-  private countExactMatches(text: string, brandLower: string): number {
-    const regex = new RegExp(`\\b${this.escapeRegex(brandLower)}\\b`, "gi");
-    const matches = text.match(regex);
-    return matches ? matches.length : 0;
-  }
-
-  private countFuzzyMatches(text: string, brandLower: string): number {
-    const words = text.split(/\s+/);
-    let fuzzyCount = 0;
-
-    for (const word of words) {
-      const similarity = this.calculateSimilarity(word, brandLower);
-      if (similarity >= this.fuzzyThreshold && similarity < 1.0) {
-        fuzzyCount++;
+  // --------------------------------------------------
+  // Exakte Text-Erwähnungen (kein Fuzzy, kein Ratespiel)
+  // Ausschließt Erwähnungen, die bereits in Citations sind
+  // --------------------------------------------------
+  private countExactMentionsExcludingCitations(
+    rawText: string,
+    lowerText: string,
+    brand: string,
+    citationRanges: Array<{ start: number; end: number }>
+  ): number {
+    const escapedBrand = this.escapeRegex(brand);
+    const regex = new RegExp(`\\b${escapedBrand}\\b`, "gi");
+    
+    if (this.debug) {
+      console.log("[countExactMentionsExcludingCitations] Regex pattern:", regex.source);
+      console.log("[countExactMentionsExcludingCitations] Escaped brand:", escapedBrand);
+    }
+    
+    let count = 0;
+    let match;
+    
+    // Alle Matches durchgehen
+    while ((match = regex.exec(lowerText)) !== null) {
+      const matchStart = match.index;
+      const matchEnd = matchStart + match[0].length;
+      
+      // Prüfen, ob diese Erwähnung innerhalb eines Citations liegt
+      const isInCitation = citationRanges.some(range => 
+        matchStart >= range.start && matchEnd <= range.end
+      );
+      
+      if (!isInCitation) {
+        count++;
+        if (this.debug) {
+          console.log(`[countExactMentionsExcludingCitations] Found mention at ${matchStart}-${matchEnd}: "${match[0]}"`);
+        }
+      } else {
+        if (this.debug) {
+          console.log(`[countExactMentionsExcludingCitations] Skipped mention at ${matchStart}-${matchEnd} (in citation)`);
+        }
       }
     }
-
-    return fuzzyCount;
+    
+    if (this.debug) {
+      console.log("[countExactMentionsExcludingCitations] Total count (excluding citations):", count);
+    }
+    
+    return count;
   }
 
-  private calculateSimilarity(str1: string, str2: string): number {
-    // Simple Levenshtein-based similarity
-    const longer = str1.length > str2.length ? str1 : str2;
-    const shorter = str1.length > str2.length ? str2 : str1;
+  // --------------------------------------------------
+  // Markdown-Citations wie:
+  // [frehnertec.ch](https://www.frehnertec.ch/...)
+  // Oder auch: [text](https://www.frehnertec.ch/...)
+  // Gibt die Positionen (start, end) der Citations zurück
+  // --------------------------------------------------
+  private findCitationRanges(
+    text: string,
+    brandDomain: string
+  ): Array<{ start: number; end: number }> {
+    // Pattern für Markdown-Links: [text](url)
+    // Wir suchen nach Links, die die Brand-Domain enthalten
+    const escapedDomain = this.escapeRegex(brandDomain);
+    
+    // Pattern: [irgendwas](url_mit_brand_domain)
+    const citationRegex = new RegExp(
+      `\\[([^\\]]*)\\]\\([^)]*${escapedDomain}[^)]*\\)`,
+      "gi"
+    );
 
-    if (longer.length === 0) return 1.0;
+    if (this.debug) {
+      console.log("[findCitationRanges] Regex pattern:", citationRegex.source);
+      console.log("[findCitationRanges] Escaped domain:", escapedDomain);
+    }
 
-    const distance = this.levenshteinDistance(longer, shorter);
-    return (longer.length - distance) / longer.length;
+    const ranges: Array<{ start: number; end: number }> = [];
+    let match;
+    
+    while ((match = citationRegex.exec(text)) !== null) {
+      ranges.push({
+        start: match.index,
+        end: match.index + match[0].length
+      });
+    }
+    
+    if (this.debug) {
+      console.log("[findCitationRanges] Found citations:", ranges.length);
+      console.log("[findCitationRanges] Citation ranges:", ranges);
+    }
+
+    return ranges;
   }
 
-  private levenshteinDistance(str1: string, str2: string): number {
-    const matrix: number[][] = [];
+  // --------------------------------------------------
+  // Kontext = ganze Sätze, die entweder
+  // - Brand-Namen ODER
+  // - Brand-Domain enthalten
+  // --------------------------------------------------
+  private extractContexts(
+    text: string,
+    brand: string,
+    brandDomain: string
+  ): string[] {
+    const sentences = text
+      .split(/(?<=[.!?])\s+/)
+      .map(s => s.trim())
+      .filter(Boolean);
 
-    for (let i = 0; i <= str2.length; i++) {
-      matrix[i] = [i];
+    if (this.debug) {
+      console.log("[extractContexts] Total sentences:", sentences.length);
     }
 
-    for (let j = 0; j <= str1.length; j++) {
-      matrix[0][j] = j;
-    }
+    const contexts: string[] = [];
 
-    for (let i = 1; i <= str2.length; i++) {
-      for (let j = 1; j <= str1.length; j++) {
-        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-          matrix[i][j] = matrix[i - 1][j - 1];
-        } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1,
-            matrix[i][j - 1] + 1,
-            matrix[i - 1][j] + 1
-          );
+    for (const sentence of sentences) {
+      const lower = sentence.toLowerCase();
+
+      if (lower.includes(brand) || lower.includes(brandDomain)) {
+        if (!contexts.includes(sentence)) {
+          contexts.push(sentence);
         }
       }
     }
 
-    return matrix[str2.length][str1.length];
-  }
-
-  private extractContexts(text: string, brandLower: string): string[] {
-    const contexts: string[] = [];
-    const sentences = text.split(/[.!?]+/);
-
-    for (const sentence of sentences) {
-      if (sentence.toLowerCase().includes(brandLower)) {
-        contexts.push(sentence.trim());
-      }
+    if (this.debug) {
+      console.log("[extractContexts] Found contexts:", contexts.length);
     }
 
-    return contexts.slice(0, 5); // Limit to 5 contexts
+    return contexts.slice(0, 5);
   }
 
+  // --------------------------------------------------
+  // Regex-Sicherheit
+  // --------------------------------------------------
   private escapeRegex(str: string): string {
     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 }
-
-
-
-
-
-
-

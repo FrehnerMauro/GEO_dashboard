@@ -47,8 +47,18 @@ export interface D1ExecResult {
 
 export class Database {
   public db: D1Database;
-  constructor(db: D1Database) {
-    this.db = db;
+  constructor(db?: D1Database) {
+    // No-op: create a mock db object if none provided
+    this.db = db || {
+      prepare: () => ({
+        bind: () => ({ first: async () => null, run: async () => ({ success: true }), all: async () => ({ success: true, results: [] }) }),
+        first: async () => null,
+        run: async () => ({ success: true }),
+        all: async () => ({ success: true, results: [] })
+      } as any),
+      batch: async () => [],
+      exec: async () => ({ count: 0, duration: 0 })
+    } as D1Database;
   }
 
   async saveAnalysisRun(

@@ -68,6 +68,7 @@ export interface BrandMention {
   exact: number;
   fuzzy: number;
   contexts: string[];
+  citations: number; // Anzahl der Markdown-Citations mit Brand-Domain
 }
 
 export interface CompetitorMention {

@@ -21,8 +21,9 @@ export class CompetitorDetector {
     );
 
     for (const competitor of potentialCompetitors) {
-      if (competitor.toLowerCase() === this.brandName.toLowerCase()) {
-        continue; // Skip the brand itself
+      // Skip if this is the brand itself (check various variations)
+      if (this.isBrandName(competitor)) {
+        continue;
       }
 
       const count = this.countMentions(text, competitor);
@@ -167,6 +168,58 @@ export class CompetitorDetector {
 
   private escapeRegex(str: string): string {
     return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  /**
+   * Check if a competitor name is actually the brand itself
+   * Compares various variations (case-insensitive, with/without spaces, domain, etc.)
+   */
+  private isBrandName(competitor: string): boolean {
+    const brandLower = this.brandName.toLowerCase().trim();
+    const competitorLower = competitor.toLowerCase().trim();
+    
+    // Exact match (case-insensitive)
+    if (competitorLower === brandLower) {
+      return true;
+    }
+    
+    // Match without spaces
+    const brandNoSpaces = brandLower.replace(/\s+/g, '');
+    const competitorNoSpaces = competitorLower.replace(/\s+/g, '');
+    if (competitorNoSpaces === brandNoSpaces) {
+      return true;
+    }
+    
+    // Match brand name with domain extensions (e.g., "frehnertec.ch" contains "frehnertec")
+    const brandWords = brandLower.split(/\s+/);
+    if (brandWords.length > 0) {
+      const firstBrandWord = brandWords[0];
+      // Check if competitor starts with brand word (e.g., "frehnertec.ch" starts with "frehnertec")
+      if (competitorLower.startsWith(firstBrandWord) && 
+          competitorLower.length <= firstBrandWord.length + 10) { // Allow for domain extensions
+        // Additional check: if it's just the brand word with a domain, it's the brand
+        const domainPattern = /^[a-z0-9]+\.(ch|com|de|org|net|io|co|app|dev)$/i;
+        if (domainPattern.test(competitorLower.substring(firstBrandWord.length))) {
+          return true;
+        }
+      }
+    }
+    
+    // Match if competitor contains brand name as a significant part
+    // (but not if it's just a substring in a longer name)
+    if (competitorLower.includes(brandLower) && 
+        competitorLower.length <= brandLower.length + 15) {
+      // Check if it's the brand with additional words that are common domain/business terms
+      const commonSuffixes = ['.ch', '.com', '.de', ' ag', ' gmbh', ' ltd', ' inc', ' corp', ' company', ' solutions', ' technologies', ' tech'];
+      for (const suffix of commonSuffixes) {
+        if (competitorLower === brandLower + suffix || 
+            competitorLower === brandLower.replace(/\s+/g, '') + suffix) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
   }
 }
 

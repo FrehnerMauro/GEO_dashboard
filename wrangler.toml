@@ -12,7 +12,7 @@ database_id = "7e73f7d1-492d-4ca3-a5f9-916139ddebec"
 
 [vars]
 ENVIRONMENT = "production"
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY = "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"
 MAX_PAGES = "50"
 MAX_DEPTH = "3"
 RE_RUN_SCHEDULE = "weekly"

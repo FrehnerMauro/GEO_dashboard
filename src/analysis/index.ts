@@ -101,15 +101,26 @@ export class AnalysisEngine {
   
   private findBrandCitations(response: LLMResponse): BrandCitation[] {
     const brandLower = this.brandName.toLowerCase();
+    const brandInUrl = brandLower.replace(/\s+/g, ""); // Remove spaces for URL matching
     const brandCitations: BrandCitation[] = [];
     
     for (const citation of response.citations) {
       const citationText = `${citation.title || ""} ${citation.snippet || ""}`.toLowerCase();
+      const urlLower = citation.url.toLowerCase();
       
-      // Check if brand is mentioned in citation title or snippet
-      if (citationText.includes(brandLower)) {
+      // Check if brand is mentioned in citation title, snippet, or URL
+      const mentionedInText = citationText.includes(brandLower);
+      const mentionedInUrl = urlLower.includes(brandInUrl);
+      
+      if (mentionedInText || mentionedInUrl) {
         // Extract context where brand is mentioned
-        const context = this.extractBrandContextFromCitation(citation, brandLower);
+        let context = "";
+        if (mentionedInText) {
+          context = this.extractBrandContextFromCitation(citation, brandLower);
+        } else if (mentionedInUrl) {
+          // Find context in the main text where this URL is referenced
+          context = this.findUrlContextInText(response.outputText, citation.url);
+        }
         
         brandCitations.push({
           url: citation.url,
@@ -121,6 +132,28 @@ export class AnalysisEngine {
     }
     
     return brandCitations;
+  }
+  
+  private findUrlContextInText(text: string, url: string): string {
+    // Find markdown links or plain URLs in text
+    // Pattern: [text](url) or just url
+    const urlPattern = url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const markdownPattern = new RegExp(`\\[([^\\]]+)\\]\\(${urlPattern}\\)`, "i");
+    const match = text.match(markdownPattern);
+    
+    if (match && match[1]) {
+      return match[1]; // Return the link text
+    }
+    
+    // Try to find sentence containing the URL
+    const sentences = text.split(/[.!?]+/);
+    for (const sentence of sentences) {
+      if (sentence.includes(url)) {
+        return sentence.trim();
+      }
+    }
+    
+    return "";
   }
   
   private extractBrandContextFromCitation(
