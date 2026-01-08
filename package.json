@@ -1,27 +1,28 @@
 {
   "name": "geo-platform",
   "version": "1.0.0",
-  "description": "Production-ready GEO (Generative Engine Optimization) platform",
+  "description": "Production-ready GEO (Generative Engine Optimization) platform - Monorepo",
   "type": "module",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
   "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    "deploy:backend": "cd backend && npm run deploy",
+    "deploy:frontend": "cd frontend && npm run deploy",
     "test": "vitest",
     "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit",
-    "db:migrate": "wrangler d1 migrations apply geo-db",
-    "db:migrate:remote": "wrangler d1 migrations apply geo-db --remote",
-    "db:create": "wrangler d1 create geo-db"
-  },
-  "dependencies": {
-    "@cloudflare/workers-types": "^4.20241127.0",
-    "cheerio": "^1.0.0",
-    "openai": "^4.67.0"
+    "db:migrate": "cd backend && npm run db:migrate",
+    "db:migrate:remote": "cd backend && npm run db:migrate:remote",
+    "db:create": "cd backend && npm run db:create"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
     "typescript": "^5.5.0",
-    "vitest": "^1.6.0",
-    "wrangler": "^3.60.0"
+    "vitest": "^1.6.0"
   }
 }
