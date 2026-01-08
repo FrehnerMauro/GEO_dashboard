@@ -101,6 +101,14 @@
         aiAnalysisSection.style.display = 'flex'; // Use flex to match CSS
         aiAnalysisSection.style.visibility = 'visible';
         console.log('✅ Showing aiAnalysisSection (early)');
+        
+        // Make sure the configuration card is visible
+        const configurationCard = document.getElementById('configurationCard');
+        if (configurationCard) {
+          configurationCard.style.display = 'block';
+          configurationCard.classList.remove('hidden');
+          console.log('✅ Showing configurationCard (early)');
+        }
       } else {
         console.error('❌ aiAnalysisSection not found (early)!');
       }
@@ -2287,7 +2295,6 @@
       const aiReadabilitySection = document.getElementById('aiReadabilitySection');
       const analysesSection = document.getElementById('analysesSection');
       const analysisDetailSection = document.getElementById('analysisDetailSection');
-      const configurationCard = document.querySelector('.content-area > .card');
       
       if (dashboardSection) {
         dashboardSection.style.display = 'none';
@@ -2296,13 +2303,22 @@
       if (aiReadabilitySection) aiReadabilitySection.style.display = 'none';
       if (analysesSection) analysesSection.style.display = 'none';
       if (analysisDetailSection) analysisDetailSection.style.display = 'none';
-      if (configurationCard) configurationCard.style.display = 'none';
       
       // Show AI Analysis section
       if (aiAnalysisSection) {
         aiAnalysisSection.style.display = 'flex'; // Use flex to match CSS
         aiAnalysisSection.style.visibility = 'visible';
         console.log('✅ Showing aiAnalysisSection');
+        
+        // Make sure the configuration card is visible (it's inside aiAnalysisSection)
+        const configurationCard = document.getElementById('configurationCard');
+        if (configurationCard) {
+          configurationCard.style.display = 'block';
+          configurationCard.classList.remove('hidden');
+          console.log('✅ Showing configurationCard');
+        } else {
+          console.warn('⚠️ configurationCard not found');
+        }
       } else {
         console.error('❌ aiAnalysisSection not found!');
       }
