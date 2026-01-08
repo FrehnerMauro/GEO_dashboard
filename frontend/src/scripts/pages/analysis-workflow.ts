@@ -402,6 +402,9 @@ export class AnalysisWorkflow {
       throw new Error("Missing workflow data for step 4");
     }
 
+    // Declare statusInterval outside try block so it's available in catch
+    let statusInterval: NodeJS.Timeout | null = null;
+    
     try {
       const categoryCount = this.workflowData.categories.length;
       const questionsPerCat = this.workflowData.questionsPerCategory;
@@ -412,32 +415,30 @@ export class AnalysisWorkflow {
 
       // Update status as we progress through categories
       let processedCategories = 0;
-      let statusInterval: NodeJS.Timeout | null = null;
-      try {
-        statusInterval = setInterval(() => {
-          processedCategories++;
-          if (processedCategories <= categoryCount) {
-            this.updateDetailedStatus(
-              `Generating questions for category ${processedCategories}/${categoryCount} (${questionsPerCat} questions per category)...`
-            );
-          }
-        }, 3000); // Update every 3 seconds to show progress
+      statusInterval = setInterval(() => {
+        processedCategories++;
+        if (processedCategories <= categoryCount) {
+          this.updateDetailedStatus(
+            `Generating questions for category ${processedCategories}/${categoryCount} (${questionsPerCat} questions per category)...`
+          );
+        }
+      }, 3000); // Update every 3 seconds to show progress
 
-        const result = await workflowService.step4GeneratePrompts(
-          this.workflowData.runId,
-          this.workflowData.categories,
-          {
-            websiteUrl: this.workflowData.websiteUrl,
-            country: this.workflowData.country,
-            language: this.workflowData.language,
-            region: this.workflowData.region,
-          },
-          this.workflowData.content || "",
-          this.workflowData.questionsPerCategory
-        );
+      const result = await workflowService.step4GeneratePrompts(
+        this.workflowData.runId,
+        this.workflowData.categories,
+        {
+          websiteUrl: this.workflowData.websiteUrl,
+          country: this.workflowData.country,
+          language: this.workflowData.language,
+          region: this.workflowData.region,
+        },
+        this.workflowData.content || "",
+        this.workflowData.questionsPerCategory
+      );
 
-        if (statusInterval) clearInterval(statusInterval);
-        this.hideLoadingSpinner();
+      if (statusInterval) clearInterval(statusInterval);
+      this.hideLoadingSpinner();
 
       if (result.prompts && Array.isArray(result.prompts)) {
         // Hide spinner when waiting for user input
@@ -455,6 +456,8 @@ export class AnalysisWorkflow {
         throw new Error("No prompts received from server");
       }
     } catch (error) {
+      if (statusInterval) clearInterval(statusInterval);
+      this.hideLoadingSpinner();
       console.error("Error in executeStep4:", error);
       this.showError(error instanceof Error ? error.message : "Failed to generate prompts");
       throw error;
@@ -668,6 +671,9 @@ export class AnalysisWorkflow {
       throw new Error("Missing workflow data for step 5");
     }
 
+    // Declare statusInterval outside try block so it's available in catch
+    let statusInterval: NodeJS.Timeout | null = null;
+    
     try {
       const promptsToExecute = selectedPrompts || this.workflowData.selectedPrompts || [];
       const promptCount = promptsToExecute.length;
@@ -677,26 +683,21 @@ export class AnalysisWorkflow {
 
       // Update status as prompts are executed
       let executedCount = 0;
-      let statusInterval: NodeJS.Timeout | null = null;
-      try {
-        statusInterval = setInterval(() => {
-          executedCount++;
-          if (executedCount <= promptCount) {
-            this.updateDetailedStatus(
-              `Frage ${executedCount}/${promptCount} wird an GPT mit Web-Suche gestellt...`
-            );
-          }
-        }, 2000); // Update every 2 seconds
+      statusInterval = setInterval(() => {
+        executedCount++;
+        if (executedCount <= promptCount) {
+          this.updateDetailedStatus(
+            `Frage ${executedCount}/${promptCount} wird an GPT mit Web-Suche gestellt...`
+          );
+        }
+      }, 2000); // Update every 2 seconds
 
-        await workflowService.step5ExecutePrompts(this.workflowData.runId, promptsToExecute);
+      await workflowService.step5ExecutePrompts(this.workflowData.runId, promptsToExecute);
 
-        if (statusInterval) clearInterval(statusInterval);
-      } catch (error) {
-        if (statusInterval) clearInterval(statusInterval);
-        throw error;
-      }
+      if (statusInterval) clearInterval(statusInterval);
 
       // Hide spinner after API call completes
+      if (statusInterval) clearInterval(statusInterval);
       this.hideLoadingSpinner();
 
       this.updateAnalysisUI(5, "Analyse abgeschlossen", "Alle Fragen wurden ausgeführt. Ergebnisse werden analysiert...", 95);
@@ -724,6 +725,7 @@ export class AnalysisWorkflow {
         }
       }, 2000);
     } catch (error) {
+      if (statusInterval) clearInterval(statusInterval);
       this.hideLoadingSpinner();
       console.error("Error in executeStep5:", error);
       this.showError(error instanceof Error ? error.message : "Failed to execute prompts");
