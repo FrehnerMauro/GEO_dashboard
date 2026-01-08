@@ -75,8 +75,10 @@
     };
     
     window.showAIAnalysis = function(event) {
+      console.log('🔵 showAIAnalysis (early) called');
       if (event) event.preventDefault();
-      // Hide all sections
+      
+      // Hide all sections explicitly
       const dashboardSection = document.getElementById('dashboardSection');
       const aiAnalysisSection = document.getElementById('aiAnalysisSection');
       const aiReadabilitySection = document.getElementById('aiReadabilitySection');
@@ -84,22 +86,38 @@
       const analysisDetailSection = document.getElementById('analysisDetailSection');
       const analysisSection = document.querySelector('.content-area > .card');
       
-      if (dashboardSection) dashboardSection.style.display = 'none';
-      if (aiAnalysisSection) aiAnalysisSection.style.display = 'block';
+      // Hide all sections
+      if (dashboardSection) {
+        dashboardSection.style.display = 'none';
+        console.log('✅ Hidden dashboardSection (early)');
+      }
       if (aiReadabilitySection) aiReadabilitySection.style.display = 'none';
       if (analysesSection) analysesSection.style.display = 'none';
       if (analysisDetailSection) analysisDetailSection.style.display = 'none';
       if (analysisSection) analysisSection.style.display = 'none';
       
+      // Show AI Analysis section
+      if (aiAnalysisSection) {
+        aiAnalysisSection.style.display = 'flex'; // Use flex to match CSS
+        aiAnalysisSection.style.visibility = 'visible';
+        console.log('✅ Showing aiAnalysisSection (early)');
+      } else {
+        console.error('❌ aiAnalysisSection not found (early)!');
+      }
+      
       // Update header
       const headerTitle = document.getElementById('headerTitle');
-      if (headerTitle) headerTitle.textContent = 'AI Analyse';
+      if (headerTitle) {
+        headerTitle.textContent = 'AI Analyse';
+        console.log('✅ Updated header title (early)');
+      }
       
       // Update navigation
       const navItems = document.querySelectorAll('.nav-item');
       navItems.forEach(item => item.classList.remove('active'));
       if (event && event.target) {
-        event.target.closest('.nav-item')?.classList.add('active');
+        const navItem = event.target.closest('.nav-item');
+        if (navItem) navItem.classList.add('active');
       } else {
         // Set second nav item (AI Analyse) as active
         const navItemsArray = Array.from(document.querySelectorAll('.nav-item'));
@@ -110,6 +128,7 @@
       
       // Try to call full implementation if available (after DOMContentLoaded)
       if (window.showAIAnalysisFull) {
+        console.log('✅ Calling showAIAnalysisFull');
         window.showAIAnalysisFull(event);
       }
     };
@@ -126,7 +145,7 @@
       
       if (dashboardSection) dashboardSection.style.display = 'none';
       if (aiAnalysisSection) aiAnalysisSection.style.display = 'none';
-      if (aiReadabilitySection) aiReadabilitySection.style.display = 'block';
+      if (aiReadabilitySection) aiReadabilitySection.style.display = 'flex'; // Use flex to match CSS
       if (analysesSection) analysesSection.style.display = 'none';
       if (analysisDetailSection) analysisDetailSection.style.display = 'none';
       if (analysisSection) analysisSection.style.display = 'none';
@@ -2259,28 +2278,83 @@
     
     // AI Analysis functionality
     function showAIAnalysis(event) {
-      hideAllSections();
+      console.log('🔵 showAIAnalysis called');
+      if (event) event.preventDefault();
+      
+      // Hide all sections explicitly
+      const dashboardSection = document.getElementById('dashboardSection');
       const aiAnalysisSection = document.getElementById('aiAnalysisSection');
-      if (aiAnalysisSection) {
-        aiAnalysisSection.style.display = 'block';
-        // Make sure it's visible
-        aiAnalysisSection.style.visibility = 'visible';
+      const aiReadabilitySection = document.getElementById('aiReadabilitySection');
+      const analysesSection = document.getElementById('analysesSection');
+      const analysisDetailSection = document.getElementById('analysisDetailSection');
+      const configurationCard = document.querySelector('.content-area > .card');
+      
+      if (dashboardSection) {
+        dashboardSection.style.display = 'none';
+        console.log('✅ Hidden dashboardSection');
       }
+      if (aiReadabilitySection) aiReadabilitySection.style.display = 'none';
+      if (analysesSection) analysesSection.style.display = 'none';
+      if (analysisDetailSection) analysisDetailSection.style.display = 'none';
+      if (configurationCard) configurationCard.style.display = 'none';
+      
+      // Show AI Analysis section
+      if (aiAnalysisSection) {
+        aiAnalysisSection.style.display = 'flex'; // Use flex to match CSS
+        aiAnalysisSection.style.visibility = 'visible';
+        console.log('✅ Showing aiAnalysisSection');
+      } else {
+        console.error('❌ aiAnalysisSection not found!');
+      }
+      
+      // Update header
       const headerTitle = document.getElementById('headerTitle');
-      if (headerTitle) headerTitle.textContent = 'AI Analyse';
+      if (headerTitle) {
+        headerTitle.textContent = 'AI Analyse';
+        console.log('✅ Updated header title');
+      }
+      
+      // Update navigation
       updateNavActive(event);
+      console.log('✅ showAIAnalysis completed');
     }
     
     // AI Readability functionality
     function showAIReadability(event) {
-      hideAllSections();
+      console.log('🔵 showAIReadability called');
+      if (event) event.preventDefault();
+      
+      // Hide all sections explicitly
+      const dashboardSection = document.getElementById('dashboardSection');
+      const aiAnalysisSection = document.getElementById('aiAnalysisSection');
       const aiReadabilitySection = document.getElementById('aiReadabilitySection');
+      const analysesSection = document.getElementById('analysesSection');
+      const analysisDetailSection = document.getElementById('analysisDetailSection');
+      
+      if (dashboardSection) dashboardSection.style.display = 'none';
+      if (aiAnalysisSection) aiAnalysisSection.style.display = 'none';
+      if (analysesSection) analysesSection.style.display = 'none';
+      if (analysisDetailSection) analysisDetailSection.style.display = 'none';
+      
+      // Show AI Readability section
       if (aiReadabilitySection) {
-        aiReadabilitySection.style.display = 'block';
+        aiReadabilitySection.style.display = 'flex'; // Use flex to match CSS
+        aiReadabilitySection.style.visibility = 'visible';
+        console.log('✅ Showing aiReadabilitySection');
+      } else {
+        console.error('❌ aiReadabilitySection not found!');
       }
+      
+      // Update header
       const headerTitle = document.getElementById('headerTitle');
-      if (headerTitle) headerTitle.textContent = 'AI Readability';
+      if (headerTitle) {
+        headerTitle.textContent = 'AI Readability';
+        console.log('✅ Updated header title');
+      }
+      
+      // Update navigation
       updateNavActive(event);
+      console.log('✅ showAIReadability completed');
     }
     
     // Analyses functionality
