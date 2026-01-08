@@ -1088,36 +1088,69 @@ export class Database {
   // Global view methods
   async getAllGlobalCategories(): Promise<Array<{ name: string; description: string; count: number }>> {
     // Only show categories that have prompts with web search (citations)
-    // Use EXISTS to check if prompt has citations
-    const result = await this.db
-      .prepare(
-        `SELECT 
-          c.name,
-          MAX(c.description) as description,
-          COUNT(DISTINCT p.id) as count
-         FROM categories c
-         INNER JOIN prompts p ON p.category_id = c.id
-         WHERE EXISTS (
-           SELECT 1 
-           FROM llm_responses lr
+    // Optimized query using JOINs instead of EXISTS for better performance
+    // This avoids D1 timeout issues with complex EXISTS subqueries
+    try {
+      const result = await this.db
+        .prepare(
+          `SELECT 
+            c.name,
+            MAX(c.description) as description,
+            COUNT(DISTINCT p.id) as count
+           FROM categories c
+           INNER JOIN prompts p ON p.category_id = c.id
+           INNER JOIN llm_responses lr ON lr.prompt_id = p.id
            INNER JOIN citations cit ON cit.llm_response_id = lr.id
-           WHERE lr.prompt_id = p.id
-         )
-         GROUP BY c.name
-         HAVING count > 0
-         ORDER BY count DESC, c.name ASC`
-      )
-      .all<{
-        name: string;
-        description: string;
-        count: number;
-      }>();
-    
-    return (result.results || []).map(r => ({
-      name: r.name,
-      description: r.description || "",
-      count: r.count,
-    }));
+           GROUP BY c.name
+           HAVING count > 0
+           ORDER BY count DESC, c.name ASC
+           LIMIT 100`
+        )
+        .all<{
+          name: string;
+          description: string;
+          count: number;
+        }>();
+      
+      return (result.results || []).map(r => ({
+        name: r.name,
+        description: r.description || "",
+        count: r.count,
+      }));
+    } catch (error) {
+      console.error("Error in getAllGlobalCategories, trying fallback query:", error);
+      // Fallback: simpler query without citations check if the main query times out
+      try {
+        const fallbackResult = await this.db
+          .prepare(
+            `SELECT 
+              c.name,
+              MAX(c.description) as description,
+              COUNT(DISTINCT p.id) as count
+             FROM categories c
+             INNER JOIN prompts p ON p.category_id = c.id
+             GROUP BY c.name
+             HAVING count > 0
+             ORDER BY count DESC, c.name ASC
+             LIMIT 100`
+          )
+          .all<{
+            name: string;
+            description: string;
+            count: number;
+          }>();
+        
+        return (fallbackResult.results || []).map(r => ({
+          name: r.name,
+          description: r.description || "",
+          count: r.count,
+        }));
+      } catch (fallbackError) {
+        console.error("Fallback query also failed:", fallbackError);
+        // Return empty array if both queries fail
+        return [];
+      }
+    }
   }
 
   async getGlobalPromptsByCategory(categoryName: string): Promise<Array<{

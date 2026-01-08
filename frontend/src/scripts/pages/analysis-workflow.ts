@@ -341,6 +341,15 @@ export class AnalysisWorkflow {
     const form = document.getElementById("categoryForm") as HTMLFormElement;
     if (!form) return;
 
+    // Disable/hide the button immediately to prevent spamming
+    const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = "Generating Questions...";
+      submitButton.style.opacity = "0.6";
+      submitButton.style.cursor = "not-allowed";
+    }
+
     const selectedCheckboxes = form.querySelectorAll('input[name="category"]:checked');
     const selectedCategoryIds: string[] = [];
     selectedCheckboxes.forEach((cb) => {
