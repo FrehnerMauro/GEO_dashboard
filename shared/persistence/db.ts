@@ -230,11 +230,16 @@ export class Database {
       return; // Skip empty batches
     }
 
+    // Use INSERT OR REPLACE to handle cases where categories already exist
+    // This prevents UNIQUE constraint errors when the same category ID is saved multiple times
+    // Preserve created_at if category already exists, otherwise use current timestamp
     const statements = categories.map((cat) =>
       this.db
         .prepare(
-          `INSERT INTO categories (id, analysis_run_id, name, description, confidence, source_pages, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`
+          `INSERT OR REPLACE INTO categories (id, analysis_run_id, name, description, confidence, source_pages, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, 
+             COALESCE((SELECT created_at FROM categories WHERE id = ?), ?)
+           )`
         )
         .bind(
           cat.id,
@@ -243,7 +248,8 @@ export class Database {
           cat.description,
           cat.confidence,
           JSON.stringify(cat.sourcePages),
-          new Date().toISOString()
+          cat.id, // For COALESCE subquery to preserve existing created_at
+          new Date().toISOString() // Fallback timestamp if category doesn't exist
         )
     );
 
