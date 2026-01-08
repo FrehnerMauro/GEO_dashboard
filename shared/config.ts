@@ -33,9 +33,18 @@ export interface Config {
 }
 
 export function getConfig(env: Record<string, any>): Config {
+  const debugModeValue = env.DEBUG_MODE;
+  const debugEnabled = debugModeValue === "true" || debugModeValue === "1" || debugModeValue === true;
+  
+  console.log('🔧 Config loaded - DEBUG_MODE:', debugModeValue, '→ enabled:', debugEnabled);
+  
+  if (debugEnabled) {
+    console.log('🐛 DEBUG MODE ENABLED - Using dummy values, no API calls will be made');
+  }
+  
   return {
     debug: {
-      enabled: env.DEBUG_MODE === "true" || env.DEBUG_MODE === "1",
+      enabled: debugEnabled,
     },
     openai: {
       apiKey: env.OPENAI_API_KEY || "",

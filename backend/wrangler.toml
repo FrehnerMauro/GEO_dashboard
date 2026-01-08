@@ -11,7 +11,8 @@ database_name = "geo-db"
 database_id = "7e73f7d1-492d-4ca3-a5f9-916139ddebec"
 
 [vars]
-ENVIRONMENT = "production"
+ENVIRONMENT = "development"
+DEBUG_MODE = "true"
 OPENAI_API_KEY = "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"
 OPENAI_MODEL = "gpt-4o-mini"
 MAX_PAGES = "50"
