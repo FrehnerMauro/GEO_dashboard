@@ -32,7 +32,7 @@ export function getApiBaseUrl(): string {
   if (window.location.hostname.includes("pages.dev") || window.location.hostname.includes("maurofrehner")) {
     // If we're on Cloudflare Pages, use relative URLs (they'll be proxied via _redirects)
     // Or use absolute URL to the worker
-    return "https://geo-platform.maurofrehner.workers.dev";
+    return "https://geo-platform-backend.maurofrehner.workers.dev";
   }
 
   // Development: Use relative URLs or localhost
