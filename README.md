@@ -1,6 +1,10 @@
 # GEO Platform
 
-A production-ready **Generative Engine Optimization (GEO)** platform that helps companies optimize their website, content, and brand visibility for generative AI systems, starting with ChatGPT (GPT-4).
+A production-ready **Generative Engine Optimization (GEO)** platform that helps companies optimize their website, content, and brand visibility for generative AI systems, starting with ChatGPT.
+
+**🌐 Live Production:** https://geo.socialhabit.org
+
+> 📚 **For comprehensive documentation, see [DOCUMENTATION.md](./DOCUMENTATION.md)**
 
 ## Overview
 
@@ -112,32 +116,11 @@ For each prompt execution, extracts:
 - **Brand Mentions**: Exact and fuzzy (similarity-based) matches
 - **Citations**: Count and URLs from web search
 - **Competitors**: Detected from comparison phrases and co-mentions
-- **Sentiment**: Tone (positive/neutral/negative/mixed) with confidence
+
 
 **Module**: `src/analysis/`
 
-### Step 6: Competitive & Niche Analysis
 
-- **Competitor Identification**: Based on co-mentions and comparison phrases
-- **Brand Share**: Percentage of total mentions
-- **White Space Topics**: Prompts with demand but no dominant brand
-- **Dominated Prompts**: Where competitors are mentioned more than brand
-- **Missing Brand Prompts**: Where brand is not mentioned at all
-
-**Module**: `src/analysis/index.ts` (CompetitiveAnalysis)
-
-### Step 7: Time-Series Tracking
-
-Stores all results with timestamps for trend analysis:
-
-- Visibility score over time
-- Citation growth/decline
-- Brand vs competitor share changes
-- Competitive displacement detection
-
-Re-run schedule: Daily or weekly (configurable)
-
-**Module**: `src/persistence/` (time_series table)
 
 ## Data Model
 
@@ -153,7 +136,6 @@ The platform uses Cloudflare D1 with the following main tables:
 - `prompt_analyses` - Analysis results per prompt
 - `competitor_mentions` - Detected competitors
 - `category_metrics` - Aggregated metrics per category
-- `competitive_analyses` - Overall competitive analysis
 - `time_series` - Historical trend data
 
 See `migrations/0001_initial_schema.sql` for full schema.
@@ -361,19 +343,7 @@ Run tests:
 npm test
 ```
 
-## Re-Run Logic
 
-The platform supports scheduled re-runs for trend analysis:
-
-1. **Daily**: Re-executes all prompts and updates metrics
-2. **Weekly**: Full analysis re-run
-
-Re-runs:
-- Use same prompts (deterministic)
-- Store new timestamped results
-- Enable trend analysis via time_series table
-
-To trigger a re-run, call `/api/analyze` with the same website URL. The system will create a new run or update existing one based on configuration.
 
 ## Architecture Decisions
 
