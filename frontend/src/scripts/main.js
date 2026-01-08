@@ -569,8 +569,8 @@
         let html = '<div class="metric-card">';
         html += '<h4>🌐 Website</h4>';
         html += '<p><strong>URL:</strong> ' + result.websiteUrl + '</p>';
-        html += '<p><strong>Land:</strong> ' + result.country + '</p>';
-        html += '<p><strong>Sprache:</strong> ' + result.language + '</p>';
+        html += '<p><strong>Country:</strong> ' + result.country + '</p>';
+        html += '<p><strong>Language:</strong> ' + result.language + '</p>';
         html += '</div>';
         
         if (result.categoryMetrics && result.categoryMetrics.length > 0) {
@@ -579,9 +579,9 @@
           result.categoryMetrics.forEach(metric => {
             html += '<div style="margin: 10px 0; padding: 10px; background: #f0f0f0; border-radius: 4px;">';
             html += '<strong>' + metric.categoryId + '</strong><br>';
-            html += 'Sichtbarkeit: <span class="metric-value">' + metric.visibilityScore.toFixed(1) + '</span><br>';
-            html += 'Zitationsrate: ' + metric.citationRate.toFixed(2) + '<br>';
-            html += 'Brand-Erwähnungen: ' + (metric.brandMentionRate * 100).toFixed(1) + '%';
+            html += 'Visibility: <span class="metric-value">' + metric.visibilityScore.toFixed(1) + '</span><br>';
+            html += 'Citation Rate: ' + metric.citationRate.toFixed(2) + '<br>';
+            html += 'Brand Mentions: ' + (metric.brandMentionRate * 100).toFixed(1) + '%';
             html += '</div>';
           });
           html += '</div>';
@@ -591,9 +591,9 @@
           const comp = result.competitiveAnalysis;
           html += '<div class="metric-card">';
           html += '<h4>🏆 Competitive Analysis</h4>';
-          html += '<p><span class="metric-value">' + comp.brandShare.toFixed(1) + '%</span> Brand-Anteil</p>';
+          html += '<p><span class="metric-value">' + comp.brandShare.toFixed(1) + '%</span> Brand Share</p>';
           if (Object.keys(comp.competitorShares).length > 0) {
-            html += '<p><strong>Konkurrenten:</strong></p><ul>';
+            html += '<p><strong>Competitors:</strong></p><ul>';
             for (const [name, share] of Object.entries(comp.competitorShares)) {
               html += '<li>' + name + ': ' + share.toFixed(1) + '%</li>';
             }
@@ -964,8 +964,8 @@
           if (resultContent) {
             resultContent.innerHTML = 
               '<div style="color: red; padding: 15px; background: #ffebee; border-radius: 8px; border-left: 4px solid #f44336;">' +
-              '<strong>❌ Fehler beim Anzeigen der Kategorien:</strong><br>' + 
-              (error.message || error || 'Unbekannter Fehler') + 
+              '<strong>❌ Error displaying categories:</strong><br>' + 
+              (error.message || error || 'Unknown error') + 
               '</div>';
           }
           throw error;
@@ -981,7 +981,7 @@
         console.log('📋 Showing categories:', categories.length, categories);
         
         if (!categories || !Array.isArray(categories)) {
-          throw new Error('Ungültige Kategorien-Daten: ' + typeof categories);
+          throw new Error('Invalid category data: ' + typeof categories);
         }
         
         const result = document.getElementById('result');
@@ -989,7 +989,7 @@
         
         if (!result || !resultContent) {
           console.error('❌ Result elements not found!');
-          alert('Fehler: Ergebnis-Container nicht gefunden. Bitte Seite neu laden.');
+          alert('Error: Results container not found. Please reload the page.');
           return;
         }
       
@@ -999,7 +999,7 @@
       
       let html = '<div style="margin-bottom: 20px;">';
       html += '<h3 style="margin-bottom: 16px; color: var(--gray-900); font-size: 20px;">📋 Select Categories (' + categories.length + ' found):</h3>';
-      html += '<p style="color: var(--gray-600); font-size: 14px; margin-bottom: 20px;">Wähle die Kategorien aus, für die Fragen generiert werden sollen. Du kannst auch neue Kategorien hinzufügen.</p>';
+      html += '<p style="color: var(--gray-600); font-size: 14px; margin-bottom: 20px;">Select the categories for which questions should be generated. You can also add new categories.</p>';
       html += '</div>';
       
       html += '<form id="categoryForm" style="margin-top: 20px;">';
@@ -1013,7 +1013,7 @@
         html += '<div id="categoriesGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; margin-bottom: 16px;">';
         categories.forEach(function(cat, index) {
           const catId = (cat.id || 'cat_' + index).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-          const catName = (cat.name || 'Kategorie ' + (index + 1)).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+          const catName = (cat.name || 'Category ' + (index + 1)).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
           const catDesc = (cat.description || 'No description').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
           html += '<div class="category-item-compact" data-cat-id="' + catId + '" style="padding: 10px; background: white; border: 1px solid var(--gray-200); border-radius: 6px; transition: all 0.2s; cursor: pointer;">';
           html += '<label style="display: flex; align-items: center; cursor: pointer; gap: 8px; margin: 0;">';
@@ -1030,16 +1030,16 @@
       
       // Add custom category input
       html += '<div style="margin-top: 24px; padding: 16px; background: var(--gray-50); border-radius: 8px; border: 2px dashed var(--gray-300);">';
-      html += '<h4 style="margin-bottom: 12px; color: var(--gray-900); font-size: 14px; font-weight: 600;">➕ Neue Kategorie hinzufügen</h4>';
+      html += '<h4 style="margin-bottom: 12px; color: var(--gray-900); font-size: 14px; font-weight: 600;">➕ Add New Category</h4>';
       html += '<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin-bottom: 12px;">';
-      html += '<input type="text" id="newCategoryName" placeholder="Kategorie-Name" style="padding: 10px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 14px;">';
+      html += '<input type="text" id="newCategoryName" placeholder="Category Name" style="padding: 10px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 14px;">';
       html += '<input type="text" id="newCategoryDesc" placeholder="Description" style="padding: 10px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 14px;">';
       html += '</div>';
-      html += '<button type="button" id="addCategoryBtn" class="btn" style="background: var(--gray-600); padding: 10px 20px; font-size: 14px;">Kategorie hinzufügen</button>';
+      html += '<button type="button" id="addCategoryBtn" class="btn" style="background: var(--gray-600); padding: 10px 20px; font-size: 14px;">Add Category</button>';
       html += '</div>';
       
       html += '<div style="margin-top: 24px; display: flex; gap: 12px;">';
-      html += '<button type="submit" class="btn btn-primary" style="flex: 1; padding: 14px 24px; font-size: 16px;">✅ Weiter zu Fragen generieren</button>';
+      html += '<button type="submit" class="btn btn-primary" style="flex: 1; padding: 14px 24px; font-size: 16px;">✅ Continue to Generate Questions</button>';
       html += '<button type="button" id="regenerateCategoriesBtn" class="btn" style="background: var(--gray-600); padding: 14px 24px; font-size: 16px;">🔄 Regenerate Categories</button>';
       html += '</div>';
       html += '</form>';
@@ -1069,7 +1069,7 @@
           const desc = descInput?.value?.trim();
           
           if (!name) {
-            alert('Bitte gib einen Kategorie-Namen ein.');
+            alert('Please enter a category name.');
             return;
           }
           
@@ -1176,7 +1176,7 @@
             const progressText = document.getElementById('progressText');
             // Update UI for step 4 start
             if (window.updateAnalysisUI) {
-              window.updateAnalysisUI(4, 'Fragen werden generiert', 'GPT generiert Fragen für ' + selected.length + ' ausgewählte Kategorien. Bitte warten...', 60);
+              window.updateAnalysisUI(4, 'Generating Questions', 'Generating questions for ' + selected.length + ' selected categories. Please wait...', 60);
             }
             
             // Show progress in result area too
@@ -1185,8 +1185,8 @@
               resultContent.innerHTML = 
                 '<div style="text-align: center; padding: 40px;">' +
                 '<div style="font-size: 48px; margin-bottom: 20px;">⏳</div>' +
-                '<h3 style="color: var(--gray-900); margin-bottom: 12px;">Fragen werden generiert...</h3>' +
-                '<p style="color: var(--gray-600); margin-bottom: 20px;">GPT generiert ' + (workflowData.questionsPerCategory || 3) + ' Fragen pro Kategorie für ' + selected.length + ' Kategorien.</p>' +
+                '<h3 style="color: var(--gray-900); margin-bottom: 12px;">Generating Questions...</h3>' +
+                '<p style="color: var(--gray-600); margin-bottom: 20px;">Generating ' + (workflowData.questionsPerCategory || 3) + ' questions per category for ' + selected.length + ' categories.</p>' +
                 '<div style="display: inline-block; width: 40px; height: 40px; border: 4px solid var(--gray-200); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;"></div>' +
                 '</div>';
               document.getElementById('result').style.display = 'block';
@@ -1207,12 +1207,12 @@
             } catch (error) {
               console.error('❌ Error in executeStep4:', error);
               const errorMessage = error && typeof error === 'object' && 'message' in error ? error.message : String(error);
-              alert('Fehler beim Generieren der Fragen: ' + errorMessage);
+              alert('Error generating questions: ' + errorMessage);
               
               // Re-enable button
               if (submitBtn) {
                 submitBtn.disabled = false;
-                submitBtn.textContent = '✅ Weiter zu Fragen generieren';
+                submitBtn.textContent = '✅ Continue to Generate Questions';
                 submitBtn.style.opacity = '1';
                 submitBtn.style.cursor = 'pointer';
               }
@@ -1236,9 +1236,9 @@
         if (resultContent) {
           resultContent.innerHTML = 
             '<div style="color: red; padding: 15px; background: #ffebee; border-radius: 8px; border-left: 4px solid #f44336;">' +
-            '<strong>❌ Fehler beim Anzeigen der Kategorien:</strong><br>' + 
+            '<strong>❌ Error displaying categories:</strong><br>' + 
             (error && typeof error === 'object' && 'message' in error ? error.message : String(error)) + 
-            '<br><small>Bitte versuche es erneut oder lade die Seite neu.</small>' +
+            '<br><small>Please try again or reload the page.</small>' +
             '</div>';
         }
         throw error;
@@ -1254,11 +1254,11 @@
         console.log('📊 Current runId:', currentRunId);
         
         if (!workflowData.selectedCategories || workflowData.selectedCategories.length === 0) {
-          throw new Error('Keine Kategorien ausgewählt');
+          throw new Error('No categories selected');
         }
         
         if (!workflowData.categories || workflowData.categories.length === 0) {
-          throw new Error('Keine Kategorien verfügbar');
+          throw new Error('No categories available');
         }
         
         const selectedCats = workflowData.categories.filter(c => 
@@ -1268,7 +1268,7 @@
         console.log('📋 Filtered selected categories:', selectedCats.length, selectedCats);
         
         if (selectedCats.length === 0) {
-          throw new Error('Keine passenden Kategorien gefunden. Bitte wähle Kategorien aus.');
+          throw new Error('No matching categories found. Please select categories.');
         }
         
         const questionsPerCategory = workflowData.questionsPerCategory || 3;
@@ -1278,7 +1278,7 @@
         
         // Update progress with detailed info
         if (window.updateAnalysisUI) {
-          window.updateAnalysisUI(4, 'Fragen werden generiert', 'GPT generiert ' + questionsPerCategory + ' Fragen pro Kategorie für ' + selectedCats.length + ' Kategorien. Dies kann einige Sekunden dauern...', 65);
+          window.updateAnalysisUI(4, 'Generating Questions', 'Generating ' + questionsPerCategory + ' questions per category for ' + selectedCats.length + ' categories. This may take a few seconds...', 65);
         }
         
         // Update result area with progress
@@ -1287,11 +1287,11 @@
           resultContent.innerHTML = 
             '<div style="text-align: center; padding: 40px;">' +
             '<div style="font-size: 48px; margin-bottom: 20px;">⏳</div>' +
-            '<h3 style="color: var(--gray-900); margin-bottom: 12px;">Fragen werden generiert...</h3>' +
-            '<p style="color: var(--gray-600); margin-bottom: 8px;">Generiere ' + questionsPerCategory + ' Fragen pro Kategorie</p>' +
-            '<p style="color: var(--gray-600); margin-bottom: 20px;">für ' + selectedCats.length + ' Kategorien = ' + totalQuestions + ' Fragen insgesamt</p>' +
+            '<h3 style="color: var(--gray-900); margin-bottom: 12px;">Generating Questions...</h3>' +
+            '<p style="color: var(--gray-600); margin-bottom: 8px;">Generating ' + questionsPerCategory + ' questions per category</p>' +
+            '<p style="color: var(--gray-600); margin-bottom: 20px;">for ' + selectedCats.length + ' categories = ' + totalQuestions + ' questions total</p>' +
             '<div style="display: inline-block; width: 40px; height: 40px; border: 4px solid var(--gray-200); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;"></div>' +
-            '<p style="color: var(--gray-500); font-size: 12px; margin-top: 20px;">Bitte warten, dies kann 30-60 Sekunden dauern...</p>' +
+            '<p style="color: var(--gray-500); font-size: 12px; margin-top: 20px;">Please wait, this may take 30-60 seconds...</p>' +
             '</div>';
         }
         
@@ -1314,7 +1314,7 @@
         if (!response.ok) {
           const errorText = await response.text();
           console.error('❌ API Error:', errorText);
-          throw new Error('API Fehler: ' + response.status + ' - ' + errorText.substring(0, 200));
+          throw new Error('API Error: ' + response.status + ' - ' + errorText.substring(0, 200));
         }
         
         const data = await response.json();
@@ -1322,14 +1322,14 @@
         console.log('📋 Prompts received:', data.prompts?.length || 0);
         
         if (!data.prompts || !Array.isArray(data.prompts)) {
-          throw new Error('Keine Fragen erhalten. Bitte versuche es erneut.');
+          throw new Error('No questions received. Please try again.');
         }
         
         workflowData.prompts = data.prompts;
         
         // Update progress to 80%
         if (window.updateAnalysisUI) {
-          window.updateAnalysisUI(4, 'Fragen generiert', data.prompts.length + ' Fragen erfolgreich generiert. Bitte überprüfe und bearbeite die Fragen.', 80);
+          window.updateAnalysisUI(4, 'Questions Generated', data.prompts.length + ' questions successfully generated. Please review and edit the questions.', 80);
         }
         
         // Show success message briefly before showing prompts
@@ -1337,8 +1337,8 @@
           resultContent.innerHTML = 
             '<div style="text-align: center; padding: 40px;">' +
             '<div style="font-size: 48px; margin-bottom: 20px;">✅</div>' +
-            '<h3 style="color: var(--success); margin-bottom: 12px;">Fragen erfolgreich generiert!</h3>' +
-            '<p style="color: var(--gray-600); margin-bottom: 20px;">' + data.prompts.length + ' Fragen wurden generiert und werden gleich angezeigt...</p>' +
+            '<h3 style="color: var(--success); margin-bottom: 12px;">Questions Successfully Generated!</h3>' +
+            '<p style="color: var(--gray-600); margin-bottom: 20px;">' + data.prompts.length + ' questions were generated and will be displayed shortly...</p>' +
             '</div>';
         }
         
@@ -1354,10 +1354,10 @@
         
         const statusEl = document.getElementById('currentStatus');
         const statusDetailsEl = document.getElementById('statusDetails');
-        if (statusEl) statusEl.textContent = '❌ Fehler beim Generieren der Fragen';
-        if (statusDetailsEl) statusDetailsEl.textContent = errorMessage || 'Unbekannter Fehler';
+        if (statusEl) statusEl.textContent = '❌ Error generating questions';
+        if (statusDetailsEl) statusDetailsEl.textContent = errorMessage || 'Unknown error';
         
-        alert('Fehler beim Generieren der Fragen: ' + errorMessage);
+        alert('Error generating questions: ' + errorMessage);
         throw error;
       }
     }
@@ -1372,14 +1372,14 @@
       
       let html = '<div style="margin-bottom: 20px;">';
       html += '<h3 style="margin-bottom: 16px; color: var(--gray-900); font-size: 20px;">❓ Generierte Fragen (' + prompts.length + '):</h3>';
-      html += '<p style="color: var(--gray-600); font-size: 14px; margin-bottom: 20px;">Du kannst die Fragen bearbeiten oder einzelne deaktivieren, bevor die Analyse startet.</p>';
+      html += '<p style="color: var(--gray-600); font-size: 14px; margin-bottom: 20px;">You can edit the questions or disable individual ones before the analysis starts.</p>';
       html += '</div>';
       
       html += '<form id="promptForm" style="margin-top: 20px;">';
       
       if (!prompts || prompts.length === 0) {
         html += '<div style="padding: 20px; background: var(--gray-100); border-radius: 8px; color: var(--gray-600);">';
-        html += 'Keine Fragen gefunden. Bitte versuche es erneut.';
+        html += 'No questions found. Please try again.';
         html += '</div>';
       } else {
         prompts.forEach((prompt, idx) => {
@@ -1431,7 +1431,7 @@
             console.log('✅ Updated prompts:', updatedPrompts.length);
             
             if (updatedPrompts.length === 0) {
-              alert('Bitte wähle mindestens eine Frage aus.');
+              alert('Please select at least one question.');
               return;
             }
             
@@ -1454,7 +1454,7 @@
             } catch (error) {
               console.error('❌ Error in executeStep5:', error);
               const errorMessage = error && typeof error === 'object' && 'message' in error ? error.message : String(error);
-              alert('Fehler beim Ausführen der Fragen: ' + errorMessage);
+              alert('Error executing questions: ' + errorMessage);
               if (loading) {
                 loading.style.display = 'none';
               }
@@ -1479,7 +1479,7 @@
         resultContent.innerHTML = 
           '<div style="margin-bottom: 20px;">' +
           '<h3 style="margin-bottom: 16px; color: var(--gray-900); font-size: 20px;">🤖 GPT-5 Antworten (Live):</h3>' +
-          '<p style="color: var(--gray-600); font-size: 14px;">Jede Frage wird einzeln ausgeführt und live angezeigt...</p>' +
+          '<p style="color: var(--gray-600); font-size: 14px;">Each question will be executed individually and displayed live...</p>' +
           '</div>' +
           '<div id="responsesList" style="display: flex; flex-direction: column; gap: 16px;"></div>';
         document.getElementById('result').style.display = 'block';
@@ -1531,7 +1531,7 @@
             
             if (!response.ok) {
               const errorData = await response.json();
-              throw new Error(errorData.error || 'API Fehler: ' + response.status);
+              throw new Error(errorData.error || 'API Error: ' + response.status);
             }
             
             const data = await response.json();
@@ -1573,7 +1573,7 @@
                   console.log('✅ Found text in data.outputText');
                 } else {
                   console.warn('⚠️ No answer text found anywhere! Full data:', JSON.stringify(data, null, 2));
-                  answerText = '⚠️ Keine Antwort erhalten. Bitte Browser-Konsole für Details prüfen.';
+                  answerText = '⚠️ No answer received. Please check browser console for details.';
                 }
               }
               
@@ -1640,7 +1640,7 @@
               } else {
                 // Show message if no citations available
                 citationsHtml = '<div style="margin-top: 16px; padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">';
-                citationsHtml += '<div style="font-size: 13px; color: #6b7280;">Keine Quellen verfügbar</div>';
+                citationsHtml += '<div style="font-size: 13px; color: #6b7280;">No sources available</div>';
                 citationsHtml += '</div>';
               }
               
@@ -1679,7 +1679,7 @@
               responsesList.appendChild(responseDiv);
               responseDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             } else {
-              throw new Error('Ungültige Antwort vom Server');
+              throw new Error('Invalid response from server');
             }
           } catch (error) {
             // Remove processing indicator
@@ -1691,10 +1691,10 @@
             errorDiv.innerHTML = 
               '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">' +
               '<span style="font-size: 20px;">❌</span>' +
-              '<strong style="color: #c62828;">Fehler bei Frage ' + (i + 1) + ':</strong>' +
+              '<strong style="color: #c62828;">Error in question ' + (i + 1) + ':</strong>' +
               '</div>' +
               '<p style="margin: 4px 0; color: var(--gray-700);">' + prompt.question + '</p>' +
-              '<small style="color: #d32f2f;">' + (error.message || 'Unbekannter Fehler') + '</small>';
+              '<small style="color: #d32f2f;">' + (error.message || 'Unknown error') + '</small>';
             responsesList.appendChild(errorDiv);
             errorDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
           }
@@ -1742,7 +1742,7 @@
         const responsesList = document.getElementById('responsesList');
         
         if (statusEl) {
-          statusEl.textContent = '📊 Fazit wird generiert...';
+          statusEl.textContent = '📊 Generating summary...';
           statusEl.style.color = '#7c3aed';
         }
         if (statusDetailsEl) {
@@ -1774,12 +1774,12 @@
           '<div style="display: inline-flex; align-items: center; justify-content: center; width: 80px; height: 80px; border-radius: 50%; background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); margin-bottom: 24px; animation: pulse 2s ease-in-out infinite; box-shadow: 0 0 30px rgba(255,255,255,0.3);">' +
           '<div style="width: 60px; height: 60px; border: 5px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite;"></div>' +
           '</div>' +
-          '<h3 style="color: white; font-weight: 700; font-size: 24px; margin: 0 0 12px 0; text-shadow: 0 2px 10px rgba(0,0,0,0.2);">📊 Fazit wird generiert<span class="loading-dots"></span></h3>' +
+          '<h3 style="color: white; font-weight: 700; font-size: 24px; margin: 0 0 12px 0; text-shadow: 0 2px 10px rgba(0,0,0,0.2);">📊 Generating summary<span class="loading-dots"></span></h3>' +
           '<p style="color: rgba(255,255,255,0.95); font-size: 16px; margin: 0 0 24px 0; font-weight: 500;">GPT analysiert alle Fragen und Antworten</p>' +
           '<div style="width: 100%; height: 8px; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden; position: relative;">' +
           '<div style="width: 0%; height: 100%; background: linear-gradient(90deg, rgba(255,255,255,0.8), white); border-radius: 4px; animation: progress 3s ease-in-out infinite; box-shadow: 0 0 10px rgba(255,255,255,0.5);"></div>' +
           '</div>' +
-          '<p style="color: rgba(255,255,255,0.85); font-size: 13px; margin: 16px 0 0 0; font-style: italic;">Bitte warten, dies kann einige Sekunden dauern...</p>' +
+          '<p style="color: rgba(255,255,255,0.85); font-size: 13px; margin: 16px 0 0 0; font-style: italic;">Please wait, this may take a few seconds...</p>' +
           '</div>' +
           '<div style="position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent); animation: shimmer 3s infinite;"></div>';
         responsesList.appendChild(summaryLoadingDiv);
@@ -1798,7 +1798,7 @@
         
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({}));
-          const errorMessage = errorData.message || errorData.error || 'Fehler beim Generieren des Fazits';
+          const errorMessage = errorData.message || errorData.error || 'Error generating summary';
           throw new Error(errorMessage);
         }
         
@@ -1897,7 +1897,7 @@
           '<div style="display: flex; align-items: center; gap: 16px; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 2px solid rgba(255,255,255,0.2);">' +
           '<div style="width: 64px; height: 64px; background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 36px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);">📊</div>' +
           '<div>' +
-          '<h3 style="margin: 0; font-size: 32px; font-weight: 800; color: white; text-shadow: 0 2px 20px rgba(0,0,0,0.3); font-family: \'Space Grotesk\', sans-serif; letter-spacing: -1px;">Fazit</h3>' +
+          '<h3 style="margin: 0; font-size: 32px; font-weight: 800; color: white; text-shadow: 0 2px 20px rgba(0,0,0,0.3); font-family: \'Space Grotesk\', sans-serif; letter-spacing: -1px;">Summary</h3>' +
           '<p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 15px; font-weight: 500;">Zusammenfassung der Analyse</p>' +
           '</div>' +
           '</div>' +
@@ -1915,7 +1915,7 @@
         }
         
         if (statusEl) {
-          statusEl.textContent = '✅ Fazit generiert';
+          statusEl.textContent = '✅ Summary generated';
           statusEl.style.color = '#059669';
         }
         if (statusDetailsEl) {
@@ -1931,9 +1931,9 @@
         errorDiv.innerHTML = 
           '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">' +
           '<span style="font-size: 20px;">❌</span>' +
-          '<strong style="color: #c62828;">Fehler beim Generieren des Fazits:</strong>' +
+          '<strong style="color: #c62828;">Error generating summary:</strong>' +
           '</div>' +
-          '<small style="color: #d32f2f;">' + (error.message || 'Unbekannter Fehler') + '</small>';
+          '<small style="color: #d32f2f;">' + (error.message || 'Unknown error') + '</small>';
         const responsesList = document.getElementById('responsesList');
         if (responsesList) responsesList.appendChild(errorDiv);
       }
@@ -1942,7 +1942,7 @@
     const analyzeForm = document.getElementById('analyzeForm');
     if (!analyzeForm) {
       console.error('❌ Form element not found!');
-      alert('Fehler: Formular nicht gefunden. Bitte Seite neu laden.');
+      alert('Error: Form not found. Please reload the page.');
       return;
     }
     
@@ -1952,7 +1952,7 @@
     const startBtn = document.getElementById('startAnalysisBtn');
     if (!startBtn) {
       console.error('❌ Start button not found!');
-      alert('Fehler: Start-Button nicht gefunden. Bitte Seite neu laden.');
+      alert('Error: Start button not found. Please reload the page.');
       return;
     }
     
@@ -1984,7 +1984,7 @@
         startBtn.style.cursor = 'pointer';
       } catch (error) {
         console.error('❌ Error in button click handler:', error);
-        alert('Fehler beim Starten der Analyse: ' + (error.message || error));
+        alert('Error starting analysis: ' + (error.message || error));
         
         // Re-enable button on error
         startBtn.disabled = false;
@@ -2111,7 +2111,7 @@
           if (this.dashboardSection) {
             this.dashboardSection.innerHTML = `
               <div class="error-state">
-                <p>Fehler beim Laden: ${error.message}</p>
+                <p>Error loading: ${error.message}</p>
               </div>
             `;
           }
@@ -2265,7 +2265,7 @@
               
               summaryHtml = `
                 <div class="summary-section" style="padding: 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; color: white; margin-bottom: 32px;">
-                  <h4 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 700; color: white;">📊 Fazit</h4>
+                  <h4 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 700; color: white;">📊 Summary</h4>
                   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 20px;">
                     <div style="padding: 16px; background: rgba(255,255,255,0.15); border-radius: 8px; backdrop-filter: blur(10px); text-align: center;">
                       <div style="font-size: 32px; font-weight: 700; margin-bottom: 8px;">${summary.totalMentions || 0}</div>
@@ -2283,15 +2283,15 @@
             } else {
               summaryHtml = `
                 <div class="summary-section" style="padding: 16px; background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.3); border-radius: 8px; margin-bottom: 32px;">
-                  <p style="margin: 0; color: var(--text-secondary); font-style: italic;">Kein Fazit verfügbar für diese Analyse.</p>
+                  <p style="margin: 0; color: var(--text-secondary); font-style: italic;">No summary available for this analysis.</p>
                 </div>
               `;
             }
             
             return `
               <div class="local-view">
-                <button class="back-btn">← Zurück</button>
-                <h3 style="margin-bottom: 24px;">Analyse-Details</h3>
+                <button class="back-btn">← Back</button>
+                <h3 style="margin-bottom: 24px;">Analysis Details</h3>
                 ${promptsHtml}
                 ${summaryHtml}
               </div>
@@ -2300,8 +2300,8 @@
             console.error('Error loading analysis:', error);
             return `
               <div class="error-state">
-                <p>Fehler beim Laden der Analyse: ${error.message}</p>
-                <button class="back-btn" onclick="window.dashboardPage.selectedAnalysisId = null; window.dashboardPage.render();">← Zurück</button>
+                <p>Error loading analysis: ${error.message}</p>
+                <button class="back-btn" onclick="window.dashboardPage.selectedAnalysisId = null; window.dashboardPage.render();">← Back</button>
               </div>
             `;
           }
@@ -2315,11 +2315,11 @@
           
           return `
             <div class="local-view">
-              <button class="back-btn">← Zurück</button>
-              <h3>Analysen: ${company?.name || company?.websiteUrl || 'Unbekannt'}</h3>
+              <button class="back-btn">← Back</button>
+              <h3>Analyses: ${company?.name || company?.websiteUrl || 'Unknown'}</h3>
               <div class="analyses-grid">
                 ${analyses.length === 0 
-                  ? '<div class="empty-state">Keine Analysen gefunden</div>'
+                  ? '<div class="empty-state">No analyses found</div>'
                   : analyses.map(analysis => `
                     <div class="analysis-card" data-run-id="${analysis.id}">
                       <div class="analysis-header">
@@ -2328,16 +2328,16 @@
                       </div>
                       <div class="analysis-details">
                         <div class="detail-item">
-                          <span class="label">Land:</span>
+                          <span class="label">Country:</span>
                           <span>${analysis.country}</span>
                         </div>
                         <div class="detail-item">
-                          <span class="label">Sprache:</span>
+                          <span class="label">Language:</span>
                           <span>${analysis.language}</span>
                         </div>
                         <div class="detail-item">
-                          <span class="label">Erstellt:</span>
-                          <span>${new Date(analysis.createdAt).toLocaleDateString('de-DE')}</span>
+                          <span class="label">Created:</span>
+                          <span>${new Date(analysis.createdAt).toLocaleDateString('en-US')}</span>
                         </div>
                       </div>
                     </div>
@@ -2356,7 +2356,7 @@
               <h3>Verfügbare Firmen</h3>
               <div class="companies-grid">
                 ${companies.length === 0 
-                  ? '<div class="empty-state">Keine Firmen gefunden</div>'
+                  ? '<div class="empty-state">No companies found</div>'
                   : companies.map(company => `
                     <div class="company-card" data-company-id="${company.id}">
                       <div class="company-header">
@@ -2368,11 +2368,11 @@
                           <span>${company.websiteUrl}</span>
                         </div>
                         <div class="detail-item">
-                          <span class="label">Land:</span>
+                          <span class="label">Country:</span>
                           <span>${company.country}</span>
                         </div>
                         <div class="detail-item">
-                          <span class="label">Sprache:</span>
+                          <span class="label">Language:</span>
                           <span>${company.language}</span>
                         </div>
                       </div>
@@ -2393,11 +2393,11 @@
           
           return `
             <div class="global-view">
-              <button class="back-btn">← Zurück</button>
+              <button class="back-btn">← Back</button>
               <h3>Kategorie: ${this.selectedCategory}</h3>
               <div class="prompts-list">
                 ${prompts.length === 0 
-                  ? '<div class="empty-state">Keine Fragen in dieser Kategorie gefunden</div>'
+                  ? '<div class="empty-state">No questions found in this category</div>'
                   : prompts.map(prompt => `
                     <div class="prompt-card" style="padding: 20px; background: var(--bg-glass); border: 1px solid var(--border-light); border-radius: 12px; margin-bottom: 16px;">
                       <div class="prompt-question" style="margin-bottom: 16px;">
@@ -2414,7 +2414,7 @@
                       ` : prompt.answer === null || prompt.answer === undefined ? `
                         <div class="prompt-answer" style="margin-bottom: 16px; opacity: 0.6;">
                           <h4 style="margin: 0 0 8px 0; font-size: 16px; font-weight: 700; color: var(--text);">Antwort:</h4>
-                          <p style="margin: 0; font-style: italic; color: var(--text-secondary);">Keine Antwort verfügbar</p>
+                          <p style="margin: 0; font-style: italic; color: var(--text-secondary);">No answer available</p>
                         </div>
                       ` : ''}
                       <div class="prompt-details" style="display: flex; flex-wrap: wrap; gap: 12px; padding-top: 12px; border-top: 1px solid var(--border-light);">
@@ -2423,18 +2423,18 @@
                           <span style="color: var(--text);">${new URL(prompt.websiteUrl).hostname}</span>
                         </div>
                         <div class="detail-item">
-                          <span class="label" style="font-weight: 600; color: var(--text-secondary); margin-right: 8px;">Sprache:</span>
+                          <span class="label" style="font-weight: 600; color: var(--text-secondary); margin-right: 8px;">Language:</span>
                           <span style="color: var(--text);">${prompt.language}</span>
                         </div>
                         ${prompt.country ? `
                           <div class="detail-item">
-                            <span class="label" style="font-weight: 600; color: var(--text-secondary); margin-right: 8px;">Land:</span>
+                            <span class="label" style="font-weight: 600; color: var(--text-secondary); margin-right: 8px;">Country:</span>
                             <span style="color: var(--text);">${prompt.country}</span>
                           </div>
                         ` : ''}
                         <div class="detail-item">
-                          <span class="label" style="font-weight: 600; color: var(--text-secondary); margin-right: 8px;">Erstellt:</span>
-                          <span style="color: var(--text);">${new Date(prompt.createdAt).toLocaleDateString('de-DE')}</span>
+                          <span class="label" style="font-weight: 600; color: var(--text-secondary); margin-right: 8px;">Created:</span>
+                          <span style="color: var(--text);">${new Date(prompt.createdAt).toLocaleDateString('en-US')}</span>
                         </div>
                       </div>
                     </div>
@@ -2453,7 +2453,7 @@
               <h3>Alle Kategorien</h3>
               <div class="categories-grid">
                 ${categories.length === 0 
-                  ? '<div class="empty-state">Keine Kategorien gefunden</div>'
+                  ? '<div class="empty-state">No categories found</div>'
                   : categories.map(category => `
                     <div class="category-card" data-category-name="${category.name}">
                       <div class="category-header">
@@ -2461,7 +2461,7 @@
                         <span class="count-badge">${category.count}</span>
                       </div>
                       <div class="category-description">
-                        <p>${category.description || 'Keine Beschreibung'}</p>
+                        <p>${category.description || 'No description'}</p>
                       </div>
                     </div>
                   `).join('')
@@ -2491,7 +2491,7 @@
         
         return `
           <div class="local-view">
-            <button class="back-btn">← Zurück</button>
+            <button class="back-btn">← Back</button>
             <h3>Analyse-Ergebnisse</h3>
             
             <div class="analysis-summary">
@@ -2501,7 +2501,7 @@
                 <div class="metrics-grid">
                   <div class="metric-card">
                     <div class="metric-value">${Math.round(avgVisibility)}%</div>
-                    <div class="metric-label">Sichtbarkeits-Score</div>
+                    <div class="metric-label">Visibility Score</div>
                   </div>
                   <div class="metric-card">
                     <div class="metric-value">${totalMentions}</div>
@@ -2527,7 +2527,7 @@
                       const category = analysisResult.categories?.find(c => c.id === metric.categoryId);
                       return `
                         <div class="category-metric-item">
-                          <div class="category-name">${category?.name || 'Unbekannt'}</div>
+                          <div class="category-name">${category?.name || 'Unknown'}</div>
                           <div class="category-score">
                             <div class="score-bar">
                               <div class="score-fill" style="width: ${metric.visibilityScore}%"></div>
@@ -2721,7 +2721,7 @@
         .then(res => res.json())
         .then(analyses => {
           if (analyses.length === 0) {
-            analysesList.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary); grid-column: 1 / -1;">Keine Analysen vorhanden. Starte eine neue Analyse.</div>';
+            analysesList.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary); grid-column: 1 / -1;">No analyses yet. Start a new analysis.</div>';
             return;
           }
           
@@ -2737,8 +2737,8 @@
             return '<div class="analysis-card" style="padding: 20px; background: var(--bg-glass); backdrop-filter: blur(20px); border: 1px solid var(--border-light); border-radius: var(--radius-lg); box-shadow: var(--shadow-md); transition: var(--transition); width: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: 16px;">' +
               '<div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">' +
                 '<div style="flex: 1;">' +
-                  '<h4 style="margin: 0 0 4px 0; font-size: 18px; font-weight: 600; color: var(--gray-900);">' + (analysis.websiteUrl || 'Unbekannte URL') + '</h4>' +
-                  '<p style="margin: 0; font-size: 13px; color: var(--gray-500);">' + createdAt.toLocaleString('de-DE') + '</p>' +
+                  '<h4 style="margin: 0 0 4px 0; font-size: 18px; font-weight: 600; color: var(--gray-900);">' + (analysis.websiteUrl || 'Unknown URL') + '</h4>' +
+                  '<p style="margin: 0; font-size: 13px; color: var(--gray-500);">' + createdAt.toLocaleString('en-US') + '</p>' +
                 '</div>' +
                 statusBadge +
               '</div>' +
@@ -2770,7 +2770,7 @@
         })
         .catch(err => {
           console.error('Error loading analyses:', err);
-          analysesList.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--error); grid-column: 1 / -1;">Fehler beim Laden der Analysen.</div>';
+          analysesList.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--error); grid-column: 1 / -1;">Error loading analyses.</div>';
         });
     }
     
@@ -2791,7 +2791,7 @@
         '<div style="text-align: center; padding: 40px; color: var(--gray-500);">' +
         '<div style="display: inline-block; width: 40px; height: 40px; border: 4px solid var(--gray-200); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 16px;"></div>' +
         '<p style="margin-top: 16px; font-size: 14px;">Lade Analyse-Insights...</p>' +
-        '<p style="margin-top: 8px; font-size: 12px; color: var(--gray-400);">Dies kann einige Sekunden dauern</p>' +
+        '<p style="margin-top: 8px; font-size: 12px; color: var(--gray-400);">This may take a few seconds</p>' +
         '</div>';
       
       // Add spinner animation if not already present
@@ -2825,7 +2825,7 @@
           
           if (insights.error) {
             console.error('❌ API returned error:', insights.error);
-            analysisDetailContent.innerHTML = '<div style="color: #dc2626; padding: 20px;">Fehler: ' + insights.error + '</div>';
+            analysisDetailContent.innerHTML = '<div style="color: #dc2626; padding: 20px;">Error: ' + insights.error + '</div>';
             return;
           }
           
@@ -2833,9 +2833,9 @@
           if (!insights || !insights.summary) {
             console.error('❌ Invalid insights data structure:', insights);
             analysisDetailContent.innerHTML = '<div style="color: #dc2626; padding: 20px; background: #ffebee; border-radius: 8px; border-left: 4px solid #f44336;">' +
-              '<strong>❌ Fehler beim Laden der Insights</strong><br>' +
-              '<p style="margin-top: 8px; color: #c62828;">Ungültige Datenstruktur erhalten. Bitte versuche es erneut.</p>' +
-              '<p style="margin-top: 12px; font-size: 12px; color: #666;">Empfangen: ' + JSON.stringify(insights).substring(0, 200) + '</p>' +
+              '<strong>❌ Error loading insights</strong><br>' +
+              '<p style="margin-top: 8px; color: #c62828;">Invalid data structure received. Please try again.</p>' +
+              '<p style="margin-top: 12px; font-size: 12px; color: #666;">Received: ' + JSON.stringify(insights).substring(0, 200) + '</p>' +
               '</div>';
             return;
           }
@@ -2900,7 +2900,7 @@
             html += '<div class="prompts-grid dashboard-grid" style="gap: 16px;">';
             insights.promptsWithMentions.forEach(function(prompt) {
               html += '<div style="padding: 20px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">';
-              html += '<div style="font-weight: 500; color: #111827; margin-bottom: 12px; font-size: 15px; line-height: 1.5;">' + (prompt?.question || 'Unbekannte Frage').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+              html += '<div style="font-weight: 500; color: #111827; margin-bottom: 12px; font-size: 15px; line-height: 1.5;">' + (prompt?.question || 'Unknown question').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
               html += '<div style="display: flex; gap: 24px; font-size: 13px; color: #6b7280; padding-top: 12px; border-top: 1px solid #f3f4f6;">';
               html += '<span style="display: flex; align-items: center; gap: 6px;"><span style="color: #3b82f6; font-weight: 600;">' + (prompt?.mentionCount || 0) + '</span> Erwähnungen</span>';
               html += '<span style="display: flex; align-items: center; gap: 6px;"><span style="color: #10b981; font-weight: 600;">' + (prompt?.citationCount || 0) + '</span> Zitationen</span>';
@@ -2919,7 +2919,7 @@
           html += '<div class="detailed-data-grid dashboard-grid" style="margin-top: 20px;">';
           (insights.detailedData || []).forEach(function(data) {
             html += '<div style="padding: 24px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">';
-            html += '<div style="font-weight: 500; color: #111827; margin-bottom: 16px; font-size: 16px; line-height: 1.5;">' + (data?.question || 'Unbekannte Frage').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+            html += '<div style="font-weight: 500; color: #111827; margin-bottom: 16px; font-size: 16px; line-height: 1.5;">' + (data?.question || 'Unknown question').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
             if (data?.answer) {
               const answerText = String(data.answer || '');
               html += '<div style="padding: 16px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 16px; font-size: 14px; color: #374151; line-height: 1.7;">';
@@ -2944,18 +2944,18 @@
           const loadTime = ((Date.now() - startTime) / 1000).toFixed(2);
           console.error('❌ Error loading analysis insights after', loadTime, 'seconds:', err);
           
-          let errorMessage = 'Unbekannter Fehler';
+          let errorMessage = 'Unknown error';
           if (err.name === 'AbortError') {
-            errorMessage = 'Zeitüberschreitung: Die Anfrage hat zu lange gedauert (>30 Sekunden). Bitte versuche es erneut.';
+            errorMessage = 'Timeout: The request took too long (>30 seconds). Please try again.';
           } else if (err && err.message) {
             errorMessage = err.message;
           }
           analysisDetailContent.innerHTML = 
             '<div style="color: #dc2626; padding: 20px; background: #ffebee; border-radius: 8px; border-left: 4px solid #f44336;">' +
-            '<strong>❌ Fehler beim Laden der Analyse-Insights</strong><br>' +
+            '<strong>❌ Error loading analysis insights</strong><br>' +
             '<p style="margin-top: 8px; color: #c62828;">' + errorMessage + '</p>' +
-            '<p style="margin-top: 12px; font-size: 12px; color: #666;">Bitte überprüfe die Browser-Konsole für weitere Details oder versuche es später erneut.</p>' +
-            '<button data-run-id="' + String(runId).replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '" onclick="viewAnalysisDetails(this.dataset.runId)" class="btn" style="margin-top: 12px; padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer;">🔄 Erneut versuchen</button>' +
+            '<p style="margin-top: 12px; font-size: 12px; color: #666;">Please check the browser console for more details or try again later.</p>' +
+            '<button data-run-id="' + String(runId).replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '" onclick="viewAnalysisDetails(this.dataset.runId)" class="btn" style="margin-top: 12px; padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer;">🔄 Try Again</button>' +
             '</div>';
         });
     }
@@ -2975,12 +2975,12 @@
             alert('Analyse erfolgreich gelöscht!');
             loadAnalyses(); // Reload the list
           } else {
-            alert('Fehler beim Löschen: ' + (data.error || 'Unbekannter Fehler'));
+            alert('Error deleting: ' + (data.error || 'Unknown error'));
           }
         })
         .catch(err => {
           console.error('Error deleting analysis:', err);
-          alert('Fehler beim Löschen der Analyse.');
+          alert('Error deleting analysis.');
         });
     }
     
@@ -2999,12 +2999,12 @@
             alert('Analyse erfolgreich pausiert!');
             loadAnalyses(); // Reload the list
           } else {
-            alert('Fehler beim Pausieren: ' + (data.error || 'Unbekannter Fehler'));
+            alert('Error pausing: ' + (data.error || 'Unknown error'));
           }
         })
         .catch(err => {
           console.error('Error pausing analysis:', err);
-          alert('Fehler beim Pausieren der Analyse.');
+          alert('Error pausing analysis.');
         });
     }
     
@@ -3025,7 +3025,7 @@
         const pagesSummaryDisplay = document.getElementById('pagesSummaryDisplay');
         
         if (!urlInput || !urlInput.value.trim()) {
-          alert('Bitte geben Sie eine URL ein.');
+          alert('Please enter a URL.');
           return;
         }
         
@@ -3039,7 +3039,7 @@
         try {
           new URL(url);
         } catch (e) {
-          alert('Ungültige URL. Bitte geben Sie eine gültige URL ein.');
+          alert('Invalid URL. Please enter a valid URL.');
           return;
         }
         
@@ -3148,7 +3148,7 @@
             if (data.protocol.robotsTxt.found) {
               addStep('robots', 'robots.txt gefunden', 'completed', `${data.protocol.robotsTxt.content ? data.protocol.robotsTxt.content.length + ' Zeichen' : ''}`);
             } else {
-              addStep('robots', 'Keine robots.txt gefunden', 'completed');
+              addStep('robots', 'No robots.txt found', 'completed');
             }
           }
           
@@ -3156,7 +3156,7 @@
             if (data.protocol.sitemap.found) {
               addStep('sitemap', 'Sitemap gefunden', 'completed', `${data.protocol.sitemap.urls.length} URLs gefunden`);
             } else {
-              addStep('sitemap', 'Keine Sitemap gefunden', 'completed', 'Links von Landing Page extrahiert');
+              addStep('sitemap', 'No sitemap found', 'completed', 'Links extracted from landing page');
             }
           }
           
@@ -3169,7 +3169,7 @@
           if (data.protocol.analysis) {
             addStep('gpt', 'GPT Analyse abgeschlossen', 'completed', `Score: ${data.protocol.analysis.score || 'N/A'}/100`);
           } else {
-            addStep('gpt', 'GPT Analyse übersprungen', 'completed', 'Kein API Key konfiguriert');
+            addStep('gpt', 'GPT Analysis Skipped', 'completed', 'No API Key configured');
           }
           
           // Update progress to completion
@@ -3265,18 +3265,18 @@
               <div style="display: flex; align-items: center; gap: 12px;">
                 <span style="font-size: 20px; color: #F44336;">✗</span>
                 <div style="flex: 1;">
-                  <div style="font-weight: 500; color: #F44336;">Fehler aufgetreten</div>
-                  <div style="font-size: 13px; color: #d32f2f; margin-top: 4px;">${error.message || 'Unbekannter Fehler'}</div>
+                  <div style="font-weight: 500; color: #F44336;">Error occurred</div>
+                  <div style="font-size: 13px; color: #d32f2f; margin-top: 4px;">${error.message || 'Unknown error'}</div>
                 </div>
               </div>
             `;
             stepsContainer.appendChild(errorStep);
           }
           
-          if (progressStatus) progressStatus.textContent = 'Fehler aufgetreten';
+          if (progressStatus) progressStatus.textContent = 'Error occurred';
           if (progressBar) progressBar.style.width = '0%';
           
-          alert('Fehler bei der Analyse: ' + (error.message || 'Unbekannter Fehler'));
+          alert('Analysis error: ' + (error.message || 'Unknown error'));
         } finally {
           fetchContentBtn.disabled = false;
           fetchContentBtn.textContent = 'AI Readiness Analyse starten';
