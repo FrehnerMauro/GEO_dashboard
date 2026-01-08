@@ -463,12 +463,3 @@ export class DashboardPage {
   }
 }
 
-// Export global function for backward compatibility
-(window as any).showDashboard = (event?: Event) => {
-  if (event) event.preventDefault();
-  if (!(window as any).dashboardPage) {
-    (window as any).dashboardPage = new DashboardPage();
-  }
-  (window as any).dashboardPage.show();
-};
-

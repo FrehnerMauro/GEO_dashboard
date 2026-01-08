@@ -194,15 +194,8 @@ export class App {
     // Initialize navigation
     console.log("GEO Dashboard initialized");
 
-    // Setup button event listeners
-    this.setupButtonListeners();
-
     // Show dashboard by default
     this.dashboardPage.show();
-  }
-
-  private setupButtonListeners(): void {
-    // Button listeners setup
   }
 
   private setupAnalysisFormListeners(): void {

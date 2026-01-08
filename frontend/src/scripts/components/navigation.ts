@@ -52,6 +52,6 @@ export class Navigation {
 // Global navigation instance
 export const navigation = new Navigation();
 
-// Export global function for backward compatibility
-(window as any).toggleSidebar = () => navigation.toggleSidebar();
+// Note: toggleSidebar is defined in global.ts for immediate availability
+// This ensures it's available before DOMContentLoaded for HTML onclick handlers
 

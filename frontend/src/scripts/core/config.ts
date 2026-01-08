@@ -63,11 +63,3 @@ export function getApiUrl(endpoint: string): string {
   
   return cleanEndpoint;
 }
-
-/**
- * Configuration object
- */
-export const config = {
-  apiBaseUrl: getApiBaseUrl(),
-  getApiUrl,
-};

@@ -14,12 +14,6 @@ export function hideElement(element: HTMLElement | null): void {
   }
 }
 
-export function setText(element: HTMLElement | null, text: string): void {
-  if (element) {
-    element.textContent = text;
-  }
-}
-
 export function getElement<T extends HTMLElement = HTMLElement>(id: string): T | null {
   return document.getElementById(id) as T | null;
 }
