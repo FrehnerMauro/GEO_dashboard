@@ -294,6 +294,8 @@
 
   <!-- Main JavaScript (loads after DOM) -->
   <!-- New modular architecture -->
+  <!-- TODO: Uncomment when TypeScript files are compiled to JavaScript -->
+  <!--
   <script type="module">
     import { App } from './scripts/app.js';
     if (document.readyState === 'loading') {
@@ -306,7 +308,8 @@
       app.init();
     }
   </script>
-  <!-- Legacy support - will be removed after full migration -->
+  -->
+  <!-- Legacy support - using main.js until TypeScript files are compiled -->
   <script src="/scripts/main.js" defer></script>
 </body>
 </html>
