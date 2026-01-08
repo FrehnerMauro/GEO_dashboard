@@ -6,18 +6,21 @@
 import { DashboardPage } from "./pages/dashboard-page.js";
 import { AnalysesPage } from "./pages/analyses-page.js";
 import { AnalysisWorkflow } from "./pages/analysis-workflow.js";
+import { ReadabilityWorkflow } from "./pages/readability-workflow.js";
 import { navigation } from "./components/navigation.js";
 
 export class App {
   private dashboardPage: DashboardPage;
   private analysesPage: AnalysesPage;
   private analysisWorkflow: AnalysisWorkflow;
+  private readabilityWorkflow: ReadabilityWorkflow;
 
   constructor() {
     // Initialize pages
     this.dashboardPage = new DashboardPage();
     this.analysesPage = new AnalysesPage();
     this.analysisWorkflow = new AnalysisWorkflow();
+    this.readabilityWorkflow = new ReadabilityWorkflow();
 
     // Setup global navigation functions
     this.setupGlobalFunctions();
@@ -77,7 +80,7 @@ export class App {
 
     // Update header
     const headerTitle = document.getElementById("headerTitle");
-    if (headerTitle) headerTitle.textContent = "AI Analysis";
+    if (headerTitle) headerTitle.textContent = "Prompt Analyse";
 
     // Update navigation
     navigation.setActiveNavItem(1);
@@ -106,6 +109,85 @@ export class App {
 
     // Update navigation
     navigation.setActiveNavItem(2);
+
+    // Setup form event listeners
+    this.setupReadabilityFormListeners();
+  }
+
+  private setupReadabilityFormListeners(): void {
+    const readabilityForm = document.getElementById("readabilityForm") as HTMLFormElement;
+    const fetchContentBtn = document.getElementById("fetchContentBtn") as HTMLButtonElement;
+    const readabilityUrl = document.getElementById("readabilityUrl") as HTMLInputElement;
+
+    if (!readabilityForm || !fetchContentBtn || !readabilityUrl) {
+      console.warn("Readability form elements not found");
+      return;
+    }
+
+    // Remove existing listeners to avoid duplicates
+    const newForm = readabilityForm.cloneNode(true) as HTMLFormElement;
+    readabilityForm.parentNode?.replaceChild(newForm, readabilityForm);
+
+    const newFetchBtn = document.getElementById("fetchContentBtn") as HTMLButtonElement;
+    const newUrlInput = document.getElementById("readabilityUrl") as HTMLInputElement;
+    if (!newFetchBtn || !newUrlInput) return;
+
+    // Handle button click
+    newFetchBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      await this.handleReadabilityStart();
+    });
+
+    // Handle form submission
+    newForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      await this.handleReadabilityStart();
+    });
+
+    // Handle Enter key in input field
+    newUrlInput.addEventListener("keydown", (e) => {
+      const keyEvent = e as KeyboardEvent;
+      if (keyEvent.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        newFetchBtn.click();
+      }
+    });
+  }
+
+  private async handleReadabilityStart(): Promise<void> {
+    const fetchContentBtn = document.getElementById("fetchContentBtn") as HTMLButtonElement;
+    const readabilityUrl = document.getElementById("readabilityUrl") as HTMLInputElement;
+
+    if (!readabilityUrl) {
+      alert("URL input field not found. Please reload the page.");
+      return;
+    }
+
+    const url = readabilityUrl.value;
+    if (!url || !url.trim()) {
+      alert("Please enter a URL.");
+      return;
+    }
+
+    try {
+      if (fetchContentBtn) {
+        fetchContentBtn.disabled = true;
+        fetchContentBtn.textContent = "Analyzing...";
+      }
+
+      await this.readabilityWorkflow.startAnalysis(url);
+    } catch (error) {
+      console.error("Error starting readability analysis:", error);
+      alert(error instanceof Error ? error.message : "Failed to start analysis");
+    } finally {
+      if (fetchContentBtn) {
+        fetchContentBtn.disabled = false;
+        fetchContentBtn.textContent = "Start AI Readiness Analysis";
+      }
+    }
   }
 
   init(): void {
