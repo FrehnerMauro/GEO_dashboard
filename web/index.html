@@ -15,8 +15,8 @@
   <link rel="stylesheet" href="/styles/ai-readiness.css">
   <link rel="stylesheet" href="/styles/responsive.css">
   
-  <!-- Global JavaScript (must load before body) -->
-  <script src="/scripts/global.js" defer></script>
+  <!-- Global JavaScript (must load before body - no defer to ensure functions are available immediately) -->
+  <script src="/scripts/global.js"></script>
 </head>
 <body>
   <div class="app-container">
@@ -267,7 +267,6 @@
               <button 
                 type="button" 
                 id="clearConsoleBtn" 
-                onclick="if(document.getElementById('aiReadinessConsoleContent')){document.getElementById('aiReadinessConsoleContent').innerHTML='<div style=\\'color: #6a9955;\\'>[System] Console gelöscht.</div>';}" 
                 style="background: #444; color: #fff; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: background 0.2s;">
                 Löschen
               </button>
@@ -295,6 +294,40 @@
 
   <!-- Main JavaScript (loads after DOM) -->
   <script src="/scripts/main.js" defer></script>
+  
+  <!-- Fallback: Ensure startAIReadiness and clearConsoleBtn are available via event listeners -->
+  <script>
+    // Add event listeners as fallback
+    document.addEventListener('DOMContentLoaded', function() {
+      // startAIReadiness button
+      const startBtn = document.getElementById('startAIReadinessBtn');
+      if (startBtn && !startBtn.hasAttribute('data-listener-added')) {
+        startBtn.setAttribute('data-listener-added', 'true');
+        startBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          if (window.startAIReadiness) {
+            window.startAIReadiness();
+          } else if (window.startAIReadinessFull) {
+            window.startAIReadinessFull();
+          } else {
+            alert('startAIReadiness nicht gefunden! Bitte Seite neu laden.');
+          }
+          return false;
+        });
+      }
+      
+      // clearConsoleBtn
+      const clearBtn = document.getElementById('clearConsoleBtn');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+          const consoleContent = document.getElementById('aiReadinessConsoleContent');
+          if (consoleContent) {
+            consoleContent.innerHTML = '<div style="color: #6a9955;">[System] Console gelöscht.</div>';
+          }
+        });
+      }
+    });
+  </script>
 </body>
 </html>
 

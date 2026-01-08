@@ -154,6 +154,7 @@
       
       window.startAIReadiness = async function() {
         // Direct implementation - no need to wait for DOMContentLoaded
+        console.log('✅ startAIReadiness called');
         const urlInput = document.getElementById('aiReadinessUrl');
         const url = urlInput?.value?.trim();
         
