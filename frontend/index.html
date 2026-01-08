@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -198,7 +198,7 @@
           <span>Dashboard</span>
         </div>
         <div class="nav-item" onclick="showAIAnalysis(event)">
-          <span>AI Analyse</span>
+          <span>AI Analysis</span>
         </div>
         <div class="nav-item" onclick="showAIReadability(event)">
           <span>AI Readability</span>
@@ -210,13 +210,13 @@
     <main class="main-content">
       <header class="top-header">
         <div style="display: flex; align-items: center; gap: 16px;">
-          <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Menü ausblenden">
+          <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Hide menu">
             ◀
           </button>
           <h2 id="headerTitle">Dashboard</h2>
         </div>
         <div id="headerStatus" style="display: flex; gap: 12px; align-items: center;">
-          <span style="font-size: 14px; color: var(--gray-500);">Status: Bereit</span>
+          <span style="font-size: 14px; color: var(--gray-500);">Status: Ready</span>
         </div>
       </header>
 
@@ -231,7 +231,7 @@
           <!-- Configuration Section -->
           <div class="card" id="configurationCard">
             <div class="card-header">
-              <h3>Analyse-Konfiguration</h3>
+              <h3>Analysis Configuration</h3>
             </div>
             <div class="card-body">
               <form id="analyzeForm">
@@ -242,33 +242,33 @@
                            placeholder="https://example.com" required>
                   </div>
                   <div class="form-group">
-                    <label for="country">Land (ISO Code) *</label>
+                    <label for="country">Country (ISO Code) *</label>
                     <input type="text" id="country" name="country" 
                            placeholder="CH, DE, US" maxlength="2" required>
                   </div>
                   <div class="form-group">
-                    <label for="language">Sprache (ISO Code) *</label>
+                    <label for="language">Language (ISO Code) *</label>
                     <select id="language" name="language" required>
-                      <option value="de">Deutsch (de)</option>
+                      <option value="de">German (de)</option>
                       <option value="en">English (en)</option>
-                      <option value="fr">Français (fr)</option>
+                      <option value="fr">French (fr)</option>
                     </select>
                   </div>
                   <div class="form-group">
                     <label for="region">Region (optional)</label>
                     <input type="text" id="region" name="region" 
-                           placeholder="z.B. Zurich, Berlin">
+                           placeholder="e.g. Zurich, Berlin">
                   </div>
                   <div class="form-group">
-                    <label for="questionsPerCategory">Fragen pro Kategorie</label>
+                    <label for="questionsPerCategory">Questions per Category</label>
                     <input type="number" id="questionsPerCategory" name="questionsPerCategory" 
                            value="3" min="1" max="10" style="width: 100px;">
-                    <small style="display: block; margin-top: 4px; color: var(--gray-500); font-size: 12px;">Anzahl der Fragen, die pro Kategorie generiert werden (Standard: 3)</small>
+                    <small style="display: block; margin-top: 4px; color: var(--gray-500); font-size: 12px;">Number of questions generated per category (default: 3)</small>
                   </div>
                 </div>
                 <button type="button" id="startAnalysisBtn" class="btn btn-primary btn-block" 
-                        onclick="if(window.startAnalysisNow){window.startAnalysisNow();}else{alert('startAnalysisNow nicht gefunden!');} return false;">
-                  Analyse starten
+                        onclick="if(window.startAnalysisNow){window.startAnalysisNow();}else{alert('Analysis function not found!');} return false;">
+                  Start Analysis
                 </button>
               </form>
             </div>
@@ -280,8 +280,8 @@
               <div class="current-step-indicator">
                 <div class="step-number" id="stepNumber">1</div>
                 <div class="step-content">
-                  <div class="step-title" id="currentStepTitle">Analyse wird vorbereitet</div>
-                  <div class="step-description" id="currentStepDescription">Initialisierung...</div>
+                  <div class="step-title" id="currentStepTitle">Preparing Analysis</div>
+                  <div class="step-description" id="currentStepDescription">Initializing...</div>
                 </div>
               </div>
               <div class="progress-percentage" id="progressPercentage">0%</div>
@@ -302,7 +302,7 @@
               <div class="progress-text" id="progressText">Initializing...</div>
             </div>
             <div class="status-card">
-              <div class="status-title" id="currentStatus">Bereit zum Starten...</div>
+              <div class="status-title" id="currentStatus">Ready to start...</div>
               <div class="status-details" id="statusDetails"></div>
             </div>
           </div>
@@ -311,7 +311,7 @@
           <div id="result" style="display: none; margin-top: 24px;">
             <div class="card">
               <div class="card-header">
-                <h3>Analyse-Ergebnisse</h3>
+                <h3>Analysis Results</h3>
               </div>
               <div class="card-body">
                 <div id="resultContent"></div>
@@ -322,7 +322,7 @@
           <div id="resultsContainer" style="display: none; margin-top: 24px;">
             <div class="card">
               <div class="card-header">
-                <h3>Detaillierte Analyse-Ergebnisse</h3>
+                <h3>Detailed Analysis Results</h3>
               </div>
               <div class="card-body">
                 <div id="resultsContent"></div>
@@ -343,7 +343,7 @@
                        placeholder="https://example.com" required>
               </div>
               <button type="button" id="fetchContentBtn" class="btn btn-primary btn-block">
-                AI Readiness Analyse starten
+                Start AI Readiness Analysis
               </button>
             </form>
             
@@ -351,7 +351,7 @@
             <div id="readabilityProgress" style="display: none; margin-top: 24px;">
               <div class="card">
                 <div class="card-header">
-                  <h3>Fortschritt</h3>
+                  <h3>Progress</h3>
                 </div>
                 <div class="card-body">
                   <div id="progressStatus" style="margin-bottom: 16px; font-weight: 500;"></div>
@@ -368,7 +368,7 @@
               <!-- Protocol Display -->
               <div class="card" style="margin-bottom: 24px;">
                 <div class="card-header">
-                  <h3>Protokoll</h3>
+                  <h3>Protocol</h3>
                 </div>
                 <div class="card-body">
                   <div id="readabilityProtocolDisplay" style="max-height: 400px; overflow-y: auto; padding: 16px; background: var(--bg-secondary); border-radius: 8px; font-family: monospace; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word;"></div>
@@ -378,7 +378,7 @@
               <!-- GPT Analysis -->
               <div id="gptAnalysisSection" class="card" style="display: none;">
                 <div class="card-header">
-                  <h3>GPT Analyse & Empfehlungen</h3>
+                  <h3>GPT Analysis & Recommendations</h3>
                 </div>
                 <div class="card-body">
                   <div id="gptAnalysisDisplay"></div>
@@ -388,7 +388,7 @@
               <!-- Pages Summary -->
               <div class="card" style="margin-top: 24px;">
                 <div class="card-header">
-                  <h3>Seiten Übersicht</h3>
+                  <h3>Pages Overview</h3>
                 </div>
                 <div class="card-body">
                   <div id="pagesSummaryDisplay"></div>
@@ -403,15 +403,15 @@
       <div id="analysesSection" class="dashboard-section" style="display: none;">
         <div class="card">
           <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-            <h3>Gespeicherte Analysen</h3>
+            <h3>Saved Analyses</h3>
             <button class="btn btn-primary" onclick="if(typeof hideAllSections === 'function'){hideAllSections();} (function(){var card = document.querySelector('.content-area > .card'); if(card){card.style.display = 'block';}})();" style="padding: 8px 16px; font-size: 14px;">
-              + Neue Analyse
+              + New Analysis
             </button>
           </div>
           <div class="card-body">
             <div id="analysesList" class="dashboard-grid-2">
               <div style="text-align: center; padding: 40px; color: var(--text-secondary); grid-column: 1 / -1;">
-                Lade Analysen...
+                Loading analyses...
               </div>
             </div>
           </div>
@@ -422,15 +422,15 @@
       <div id="analysisDetailSection" class="dashboard-section" style="display: none;">
         <div class="card">
           <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-            <h3 id="analysisDetailTitle">Analyse Details</h3>
+            <h3 id="analysisDetailTitle">Analysis Details</h3>
             <button class="btn" onclick="showAnalyses(event)" style="padding: 8px 16px; font-size: 14px; background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border);">
-              ← Zurück
+              ← Back
             </button>
           </div>
           <div class="card-body">
             <div id="analysisDetailContent" style="width: 100%; box-sizing: border-box;">
               <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                Lade Analyse-Details...
+                Loading analysis details...
               </div>
             </div>
           </div>

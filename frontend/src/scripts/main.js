@@ -187,7 +187,7 @@
       console.log('🔍 viewAnalysisDetails called with runId:', runId);
       if (!runId) {
         console.error('❌ No runId provided');
-        alert('Fehler: Keine Analyse-ID angegeben.');
+        alert('Error: No analysis ID provided.');
         return;
       }
       // Try to call the full implementation, with retry logic and max attempts
@@ -213,7 +213,7 @@
         if (attempts >= maxAttempts || elapsed >= maxTime) {
           console.error('❌ viewAnalysisDetailsFull not available after ' + attempts + ' attempts or ' + elapsed + 'ms');
           if (timeoutId) clearTimeout(timeoutId);
-          alert('Fehler: Funktion noch nicht geladen. Bitte Seite neu laden.');
+          alert('Error: Function not yet loaded. Please reload the page.');
           return; // Exit retry loop
         }
         
@@ -249,7 +249,7 @@
         if (attempts >= maxAttempts || elapsed >= maxTime) {
           console.error('❌ deleteAnalysisFull not available after ' + attempts + ' attempts or ' + elapsed + 'ms');
           if (timeoutId) clearTimeout(timeoutId);
-          alert('Fehler: Funktion noch nicht geladen. Bitte Seite neu laden.');
+          alert('Error: Function not yet loaded. Please reload the page.');
           return;
         }
         
@@ -283,7 +283,7 @@
         if (attempts >= maxAttempts || elapsed >= maxTime) {
           console.error('❌ pauseAnalysisFull not available after ' + attempts + ' attempts or ' + elapsed + 'ms');
           if (timeoutId) clearTimeout(timeoutId);
-          alert('Fehler: Funktion noch nicht geladen. Bitte Seite neu laden.');
+          alert('Error: Function not yet loaded. Please reload the page.');
           return;
         }
         
@@ -299,11 +299,11 @@
       const headerTitle = document.getElementById('headerTitle');
       const headerStatus = document.getElementById('headerStatus');
       if (headerTitle) {
-        headerTitle.textContent = stepTitle || 'Analyse läuft';
+        headerTitle.textContent = stepTitle || 'Analysis Running';
       }
       if (headerStatus) {
         headerStatus.innerHTML = '<div class="header-step-info"><div class="header-step-title">' + 
-          (stepTitle || 'Analyse läuft') + '</div><div class="header-step-subtitle">' + 
+          (stepTitle || 'Analysis Running') + '</div><div class="header-step-subtitle">' + 
           (stepDescription || '') + '</div></div>';
       }
       
@@ -367,7 +367,7 @@
       }
       
       // Update header
-      window.updateAnalysisUI(1, 'Analyse wird vorbereitet', 'Initialisierung...', 0);
+      window.updateAnalysisUI(1, 'Preparing Analysis', 'Initializing...', 0);
     };
 
     // GLOBAL FUNCTION - available immediately
@@ -376,7 +376,7 @@
         const btn = document.getElementById('startAnalysisBtn');
         if (btn) {
           btn.disabled = true;
-          btn.textContent = 'Starte Analyse...';
+          btn.textContent = 'Starting Analysis...';
         }
         
         const websiteUrlEl = document.getElementById('websiteUrl');
@@ -397,10 +397,10 @@
         const questionsPerCategory = questionsPerCategoryEl ? parseInt(questionsPerCategoryEl.value) || 3 : 3;
         
         if (!websiteUrl || !country || !language) {
-          alert('Bitte füllen Sie alle Pflichtfelder aus!\\n\\nURL: ' + (websiteUrl || 'FEHLT') + '\\nLand: ' + (country || 'FEHLT') + '\\nSprache: ' + (language || 'FEHLT'));
+          alert('Please fill in all required fields!\\n\\nURL: ' + (websiteUrl || 'MISSING') + '\\nCountry: ' + (country || 'MISSING') + '\\nLanguage: ' + (language || 'MISSING'));
           if (btn) {
             btn.disabled = false;
-            btn.textContent = 'Analyse starten';
+            btn.textContent = 'Start Analysis';
           }
           return;
         }
@@ -409,7 +409,7 @@
         window.startAnalysisUI();
         
         // Update progress to initial state
-        window.updateAnalysisUI(1, 'Analyse wird gestartet', 'Vorbereitung...', 5);
+        window.updateAnalysisUI(1, 'Starting Analysis', 'Preparing...', 5);
         
         // Call the API
         const response = await fetch('/api/workflow/step1', {
@@ -426,10 +426,10 @@
         if (!response.ok) {
           const errorText = await response.text();
           console.error('API error:', errorText);
-          alert('API Fehler: ' + response.status + ' - ' + errorText.substring(0, 100));
+          alert('API Error: ' + response.status + ' - ' + errorText.substring(0, 100));
           if (btn) {
             btn.disabled = false;
-            btn.textContent = 'Analyse starten';
+            btn.textContent = 'Start Analysis';
           }
           if (loading) {
             loading.style.display = 'none';
@@ -450,10 +450,10 @@
         const data = await response.json();
         
         if (data.error) {
-          alert('Fehler: ' + (data.message || data.error));
+          alert('Error: ' + (data.message || data.error));
           if (btn) {
             btn.disabled = false;
-            btn.textContent = 'Analyse starten';
+            btn.textContent = 'Start Analysis';
           }
           if (loading) {
             loading.style.display = 'none';
@@ -493,7 +493,7 @@
         
       } catch (error) {
         console.error('Error:', error);
-        alert('Fehler: ' + (error.message || error));
+        alert('Error: ' + (error.message || error));
         const btn = document.getElementById('startAnalysisBtn');
         if (btn) {
           btn.disabled = false;
@@ -550,7 +550,7 @@
           }
           document.getElementById('result').classList.add('show');
           document.getElementById('resultContent').innerHTML = 
-            '<div style="color: red;"><h4>❌ Analyse fehlgeschlagen</h4><p>' + 
+            '<div style="color: red;"><h4>❌ Analysis Failed</h4><p>' + 
             (status.error || status.progress?.message || 'Unknown error') + '</p></div>';
         }
       } catch (error) {
@@ -575,7 +575,7 @@
         
         if (result.categoryMetrics && result.categoryMetrics.length > 0) {
           html += '<div class="metric-card">';
-          html += '<h4>📈 Kategorie-Metriken</h4>';
+          html += '<h4>📈 Category Metrics</h4>';
           result.categoryMetrics.forEach(metric => {
             html += '<div style="margin: 10px 0; padding: 10px; background: #f0f0f0; border-radius: 4px;">';
             html += '<strong>' + metric.categoryId + '</strong><br>';
@@ -590,7 +590,7 @@
         if (result.competitiveAnalysis) {
           const comp = result.competitiveAnalysis;
           html += '<div class="metric-card">';
-          html += '<h4>🏆 Wettbewerbsanalyse</h4>';
+          html += '<h4>🏆 Competitive Analysis</h4>';
           html += '<p><span class="metric-value">' + comp.brandShare.toFixed(1) + '%</span> Brand-Anteil</p>';
           if (Object.keys(comp.competitorShares).length > 0) {
             html += '<p><strong>Konkurrenten:</strong></p><ul>';
@@ -606,10 +606,10 @@
         resultsContainer.style.display = 'block';
         document.getElementById('result').classList.add('show');
         document.getElementById('resultContent').innerHTML = 
-          '<div style="color: green;"><h4>✅ Analyse abgeschlossen!</h4><p>Run ID: ' + runId + '</p></div>';
+          '<div style="color: green;"><h4>✅ Analysis Completed!</h4><p>Run ID: ' + runId + '</p></div>';
       } catch (error) {
         document.getElementById('resultContent').innerHTML = 
-          '<div style="color: red;">Fehler beim Laden der Ergebnisse: ' + error.message + '</div>';
+          '<div style="color: red;">Error loading results: ' + error.message + '</div>';
       }
     }
 
@@ -669,10 +669,10 @@
           throw new Error('Website URL ist erforderlich');
         }
         if (!formData.country) {
-          throw new Error('Land ist erforderlich');
+          throw new Error('Country is required');
         }
         if (!formData.language) {
-          throw new Error('Sprache ist erforderlich');
+          throw new Error('Language is required');
         }
         
         console.log('✅ Form validation passed');
@@ -702,7 +702,7 @@
         
         // Reset progress and show initial status
         if (window.updateAnalysisUI) {
-          window.updateAnalysisUI(1, 'Analyse wird gestartet', 'Vorbereitung der Analyse...', 0);
+          window.updateAnalysisUI(1, 'Starting Analysis', 'Preparing analysis...', 0);
         }
         
         console.log('Form submitted, calling executeStep1 with:', formData);
@@ -721,8 +721,8 @@
         if (resultContent) {
           resultContent.innerHTML = 
             '<div style="color: red; padding: 15px; background: #ffebee; border-radius: 6px; border-left: 4px solid #f44336;">' +
-            '<strong>❌ Fehler:</strong><br>' + 
-            (error.message || error || 'Unbekannter Fehler') + 
+            '<strong>❌ Error:</strong><br>' +
+            (error.message || error || 'Unknown error') +
             '</div>';
         }
         if (result) result.classList.add('show');
@@ -801,12 +801,12 @@
         if (data.foundSitemap) {
           const urlCount = data.urls ? data.urls.length : 0;
           if (window.updateAnalysisUI) {
-            window.updateAnalysisUI(1, 'Sitemap gefunden', urlCount + ' URLs gefunden. Bereite nächsten Schritt vor...', 20);
+            window.updateAnalysisUI(1, 'Sitemap Found', urlCount + ' URLs found. Preparing next step...', 20);
           }
         } else {
           const urlCount = data.urls ? data.urls.length : 0;
           if (window.updateAnalysisUI) {
-            window.updateAnalysisUI(1, 'Sitemap nicht gefunden', urlCount + ' URLs von Startseite extrahiert. Bereite nächsten Schritt vor...', 20);
+            window.updateAnalysisUI(1, 'Sitemap Not Found', urlCount + ' URLs extracted from homepage. Preparing next step...', 20);
           }
         }
         
@@ -818,7 +818,7 @@
         } else {
           document.getElementById('resultContent').innerHTML = 
             '<div style="color: orange; padding: 15px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">' +
-            '⚠️ Keine URLs gefunden. Bitte manuell URLs eingeben oder Crawling verwenden.</div>';
+            '⚠️ No URLs found. Please enter URLs manually or use crawling.</div>';
           result.classList.add('show');
           loading.classList.remove('show');
           loading.style.display = 'none';
@@ -832,8 +832,8 @@
         if (resultContent) {
           resultContent.innerHTML = 
             '<div style="color: red; padding: 15px; background: #ffebee; border-radius: 8px; border-left: 4px solid #f44336;">' +
-            '<strong>❌ Fehler beim Starten der Analyse:</strong><br>' + 
-            (error.message || error || 'Unbekannter Fehler') + 
+            '<strong>❌ Error starting analysis:</strong><br>' +
+            (error.message || error || 'Unknown error') +
             '</div>';
         }
         if (result) result.classList.add('show');
@@ -850,12 +850,12 @@
       try {
         // Update UI for step 2
         if (window.updateAnalysisUI) {
-          window.updateAnalysisUI(2, 'Inhalte werden geholt', 'Lade Inhalte von ' + workflowData.urls.length + ' URLs', 25);
+          window.updateAnalysisUI(2, 'Fetching Content', 'Loading content from ' + workflowData.urls.length + ' URLs', 25);
         }
         
         // Update UI for step 2 start
         if (window.updateAnalysisUI) {
-          window.updateAnalysisUI(2, 'Inhalte werden geholt', 'Lade Inhalte von ' + workflowData.urls.length + ' URLs', 25);
+          window.updateAnalysisUI(2, 'Fetching Content', 'Loading content from ' + workflowData.urls.length + ' URLs', 25);
         }
         
         const progressText = document.getElementById('progressText');
@@ -875,7 +875,7 @@
           
           // Update UI with live progress (removed redundant direct updates)
           if (window.updateAnalysisUI) {
-            window.updateAnalysisUI(2, 'Inhalte werden geholt', 'Lade URL ' + (i + 1) + ' von ' + maxUrls, progress);
+            window.updateAnalysisUI(2, 'Fetching Content', 'Loading URL ' + (i + 1) + ' of ' + maxUrls, progress);
           }
           
           try {
@@ -898,7 +898,7 @@
           } catch (error) {
             const urlDiv = document.createElement('div');
             urlDiv.style.cssText = 'margin: 5px 0; padding: 8px; background: #ffebee; border-radius: 4px; border-left: 3px solid #f44336;';
-            urlDiv.innerHTML = '<strong>✗ ' + url + '</strong><br><small>Fehler beim Laden</small>';
+            urlDiv.innerHTML = '<strong>✗ ' + url + '</strong><br><small>Error loading</small>';
             contentList.appendChild(urlDiv);
           }
         }
@@ -907,7 +907,7 @@
         workflowData.content = allContent.join(separator);
         // Update UI for step 2 completion
         if (window.updateAnalysisUI) {
-          window.updateAnalysisUI(2, 'Inhalte geholt', fetchedCount + ' Seiten erfolgreich geladen. Bereite nächsten Schritt vor...', 40);
+          window.updateAnalysisUI(2, 'Content Fetched', fetchedCount + ' pages successfully loaded. Preparing next step...', 40);
         }
         
         // Auto-proceed to step 3
@@ -922,12 +922,12 @@
       try {
         // Update UI for step 3
         if (window.updateAnalysisUI) {
-          window.updateAnalysisUI(3, 'Kategorien werden generiert', 'GPT analysiert Inhalte und generiert Kategorien', 45);
+          window.updateAnalysisUI(3, 'Generating Categories', 'Analyzing content and generating categories', 45);
         }
         
         // Update UI for step 3 start
         if (window.updateAnalysisUI) {
-          window.updateAnalysisUI(3, 'Kategorien werden generiert', 'GPT analysiert Inhalte und generiert Kategorien/Keywords...', 50);
+          window.updateAnalysisUI(3, 'Generating Categories', 'Analyzing content and generating categories/keywords...', 50);
         }
         const response = await fetch('/api/workflow/step3', {
           method: 'POST',
@@ -944,7 +944,7 @@
         
         if (!data.categories || !Array.isArray(data.categories)) {
           console.error('❌ Invalid categories data:', data);
-          alert('Fehler: Keine Kategorien erhalten. Bitte versuche es erneut.');
+          alert('Error: No categories received. Please try again.');
           return;
         }
         
@@ -952,7 +952,7 @@
         
         // Update UI for step 3 completion
         if (window.updateAnalysisUI) {
-          window.updateAnalysisUI(3, 'Kategorien generiert', data.categories.length + ' Kategorien gefunden. Wähle Kategorien aus...', 60);
+          window.updateAnalysisUI(3, 'Categories Generated', data.categories.length + ' categories found. Select categories...', 60);
         }
         
         // Show categories for user selection
@@ -998,7 +998,7 @@
       result.classList.add('show');
       
       let html = '<div style="margin-bottom: 20px;">';
-      html += '<h3 style="margin-bottom: 16px; color: var(--gray-900); font-size: 20px;">📋 Wähle Kategorien aus (' + categories.length + ' gefunden):</h3>';
+      html += '<h3 style="margin-bottom: 16px; color: var(--gray-900); font-size: 20px;">📋 Select Categories (' + categories.length + ' found):</h3>';
       html += '<p style="color: var(--gray-600); font-size: 14px; margin-bottom: 20px;">Wähle die Kategorien aus, für die Fragen generiert werden sollen. Du kannst auch neue Kategorien hinzufügen.</p>';
       html += '</div>';
       
@@ -1006,7 +1006,7 @@
       
       if (!categories || categories.length === 0) {
         html += '<div style="padding: 20px; background: var(--gray-100); border-radius: 8px; color: var(--gray-600);">';
-        html += 'Keine Kategorien gefunden. Bitte versuche es erneut oder füge manuell Kategorien hinzu.';
+        html += 'No categories found. Please try again or add categories manually.';
         html += '</div>';
       } else {
         // Use grid layout for compact display
@@ -1014,7 +1014,7 @@
         categories.forEach(function(cat, index) {
           const catId = (cat.id || 'cat_' + index).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
           const catName = (cat.name || 'Kategorie ' + (index + 1)).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-          const catDesc = (cat.description || 'Keine Beschreibung').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+          const catDesc = (cat.description || 'No description').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
           html += '<div class="category-item-compact" data-cat-id="' + catId + '" style="padding: 10px; background: white; border: 1px solid var(--gray-200); border-radius: 6px; transition: all 0.2s; cursor: pointer;">';
           html += '<label style="display: flex; align-items: center; cursor: pointer; gap: 8px; margin: 0;">';
           html += '<input type="checkbox" name="category" value="' + catId + '" checked style="width: 16px; height: 16px; cursor: pointer; flex-shrink: 0;">';
@@ -1033,14 +1033,14 @@
       html += '<h4 style="margin-bottom: 12px; color: var(--gray-900); font-size: 14px; font-weight: 600;">➕ Neue Kategorie hinzufügen</h4>';
       html += '<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin-bottom: 12px;">';
       html += '<input type="text" id="newCategoryName" placeholder="Kategorie-Name" style="padding: 10px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 14px;">';
-      html += '<input type="text" id="newCategoryDesc" placeholder="Beschreibung" style="padding: 10px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 14px;">';
+      html += '<input type="text" id="newCategoryDesc" placeholder="Description" style="padding: 10px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 14px;">';
       html += '</div>';
       html += '<button type="button" id="addCategoryBtn" class="btn" style="background: var(--gray-600); padding: 10px 20px; font-size: 14px;">Kategorie hinzufügen</button>';
       html += '</div>';
       
       html += '<div style="margin-top: 24px; display: flex; gap: 12px;">';
       html += '<button type="submit" class="btn btn-primary" style="flex: 1; padding: 14px 24px; font-size: 16px;">✅ Weiter zu Fragen generieren</button>';
-      html += '<button type="button" id="regenerateCategoriesBtn" class="btn" style="background: var(--gray-600); padding: 14px 24px; font-size: 16px;">🔄 Kategorien neu generieren</button>';
+      html += '<button type="button" id="regenerateCategoriesBtn" class="btn" style="background: var(--gray-600); padding: 14px 24px; font-size: 16px;">🔄 Regenerate Categories</button>';
       html += '</div>';
       html += '</form>';
       
@@ -1083,7 +1083,7 @@
               '<input type="checkbox" name="category" value="custom_' + Date.now() + '" checked style="margin-top: 4px; width: 18px; height: 18px; cursor: pointer;">' +
               '<div style="flex: 1;">' +
               '<strong style="display: block; color: var(--gray-900); font-size: 16px; margin-bottom: 4px;">' + name + '</strong>' +
-              '<span style="display: block; color: var(--gray-600); font-size: 14px;">' + (desc || 'Benutzerdefinierte Kategorie') + '</span>' +
+              '<span style="display: block; color: var(--gray-600); font-size: 14px;">' + (desc || 'Custom Category') + '</span>' +
               '</div>' +
               '</label>';
             
@@ -1104,7 +1104,7 @@
             workflowData.categories.push({
               id: 'custom_' + Date.now(),
               name: name,
-              description: desc || 'Benutzerdefinierte Kategorie',
+              description: desc || 'Custom Category',
               confidence: 0.5,
               sourcePages: []
             });
@@ -1116,7 +1116,7 @@
       const regenerateBtn = document.getElementById('regenerateCategoriesBtn');
       if (regenerateBtn) {
         regenerateBtn.addEventListener('click', async () => {
-          if (confirm('Möchtest du die Kategorien wirklich neu generieren? Die aktuellen Auswahlen gehen verloren.')) {
+          if (confirm('Do you really want to regenerate the categories? Current selections will be lost.')) {
             await executeStep3();
           }
         });
@@ -1149,7 +1149,7 @@
             console.log('📊 Available categories:', workflowData.categories?.length || 0);
             
             if (selected.length === 0) {
-              alert('Bitte wähle mindestens eine Kategorie aus.');
+              alert('Please select at least one category.');
               return;
             }
             
@@ -1160,7 +1160,7 @@
             const submitBtn = e.target.closest('form')?.querySelector('button[type="submit"]');
             if (submitBtn) {
               submitBtn.disabled = true;
-              submitBtn.textContent = '⏳ Generiere Fragen...';
+              submitBtn.textContent = '⏳ Generating Questions...';
               submitBtn.style.opacity = '0.7';
               submitBtn.style.cursor = 'not-allowed';
             }

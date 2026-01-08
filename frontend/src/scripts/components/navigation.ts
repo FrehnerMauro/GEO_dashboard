@@ -25,14 +25,14 @@ export class Navigation {
       document.body.classList.remove("sidebar-collapsed");
       if (this.toggleBtn) {
         this.toggleBtn.textContent = "◀";
-        this.toggleBtn.title = "Menü ausblenden";
+        this.toggleBtn.title = "Hide menu";
       }
     } else {
       this.sidebar.classList.add("collapsed");
       document.body.classList.add("sidebar-collapsed");
       if (this.toggleBtn) {
         this.toggleBtn.textContent = "▶";
-        this.toggleBtn.title = "Menü einblenden";
+        this.toggleBtn.title = "Show menu";
       }
     }
   }

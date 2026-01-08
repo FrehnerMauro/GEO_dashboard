@@ -79,7 +79,7 @@ export class App {
 
     // Update header
     const headerTitle = document.getElementById("headerTitle");
-    if (headerTitle) headerTitle.textContent = "AI Analyse";
+    if (headerTitle) headerTitle.textContent = "AI Analysis";
 
     // Update navigation
     navigation.setActiveNavItem(1);

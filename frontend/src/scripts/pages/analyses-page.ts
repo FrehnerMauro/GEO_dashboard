@@ -25,7 +25,7 @@ export class AnalysesPage {
       // Show loading state
       this.analysesList.innerHTML = `
         <div style="text-align: center; padding: 40px; color: var(--text-secondary); grid-column: 1 / -1;">
-          Lade Analysen...
+          Loading analyses...
         </div>
       `;
 
@@ -34,7 +34,7 @@ export class AnalysesPage {
       if (analyses.length === 0) {
         this.analysesList.innerHTML = `
           <div style="text-align: center; padding: 40px; color: var(--text-secondary); grid-column: 1 / -1;">
-            Noch keine Analysen vorhanden. Starten Sie eine neue Analyse!
+            No analyses yet. Start a new analysis!
           </div>
         `;
         return;
@@ -51,7 +51,7 @@ export class AnalysesPage {
       console.error("Error loading analyses:", error);
       this.analysesList.innerHTML = `
         <div style="text-align: center; padding: 40px; color: var(--error); grid-column: 1 / -1;">
-          Fehler beim Laden der Analysen: ${error instanceof Error ? error.message : "Unbekannter Fehler"}
+          Error loading analyses: ${error instanceof Error ? error.message : "Unknown error"}
         </div>
       `;
     }
@@ -69,34 +69,34 @@ export class AnalysesPage {
         : "var(--text-secondary)";
 
     const date = analysis.created_at
-      ? new Date(analysis.created_at).toLocaleDateString("de-DE", {
+      ? new Date(analysis.created_at).toLocaleDateString("en-US", {
           year: "numeric",
           month: "short",
           day: "numeric",
           hour: "2-digit",
           minute: "2-digit",
         })
-      : "Unbekannt";
+      : "Unknown";
 
     return `
       <div class="analysis-card" data-run-id="${analysis.id}">
         <div class="analysis-card-header">
-          <h4>${analysis.website_url || "Unbekannte URL"}</h4>
+          <h4>${analysis.website_url || "Unknown URL"}</h4>
           <span class="analysis-status" style="color: ${statusColor}">
             ${this.getStatusText(status)}
           </span>
         </div>
         <div class="analysis-card-body">
-          <p><strong>Land:</strong> ${analysis.country || "N/A"}</p>
-          <p><strong>Sprache:</strong> ${analysis.language || "N/A"}</p>
-          <p><strong>Erstellt:</strong> ${date}</p>
+          <p><strong>Country:</strong> ${analysis.country || "N/A"}</p>
+          <p><strong>Language:</strong> ${analysis.language || "N/A"}</p>
+          <p><strong>Created:</strong> ${date}</p>
         </div>
         <div class="analysis-card-actions">
           <button class="btn btn-primary" data-action="view" data-run-id="${analysis.id}">
-            Details anzeigen
+            View Details
           </button>
           <button class="btn" data-action="delete" data-run-id="${analysis.id}" style="background: var(--error); color: white;">
-            Löschen
+            Delete
           </button>
         </div>
       </div>
@@ -105,10 +105,10 @@ export class AnalysesPage {
 
   private getStatusText(status: string): string {
     const statusMap: Record<string, string> = {
-      completed: "✓ Abgeschlossen",
-      running: "⟳ Läuft...",
-      failed: "✗ Fehlgeschlagen",
-      pending: "⏳ Wartend",
+      completed: "✓ Completed",
+      running: "⟳ Running...",
+      failed: "✗ Failed",
+      pending: "⏳ Pending",
     };
     return statusMap[status] || status;
   }
@@ -128,7 +128,7 @@ export class AnalysesPage {
     this.analysesList?.querySelectorAll('[data-action="delete"]').forEach((btn) => {
       btn.addEventListener("click", async (e) => {
         const runId = (e.target as HTMLElement).getAttribute("data-run-id");
-        if (runId && confirm("Möchten Sie diese Analyse wirklich löschen?")) {
+        if (runId && confirm("Are you sure you want to delete this analysis?")) {
           await this.deleteAnalysis(runId);
         }
       });
@@ -149,7 +149,7 @@ export class AnalysesPage {
       await this.loadAnalyses();
     } catch (error) {
       console.error("Error deleting analysis:", error);
-      alert(`Fehler beim Löschen: ${error instanceof Error ? error.message : "Unbekannter Fehler"}`);
+      alert(`Error deleting: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   }
 

@@ -31,7 +31,7 @@ export class DashboardPage {
         <div class="dashboard-header">
           <div class="view-toggle">
             <button class="toggle-btn ${this.viewMode === "local" ? "active" : ""}" data-mode="local">
-              Lokal
+              Local
             </button>
             <button class="toggle-btn ${this.viewMode === "global" ? "active" : ""}" data-mode="global">
               Global
@@ -118,7 +118,7 @@ export class DashboardPage {
           if (prompts.length > 0) {
             promptsHtml = `
               <div class="summary-section" style="margin-bottom: 32px;">
-                <h4 style="margin-bottom: 16px; font-size: 18px; font-weight: 700; color: var(--text);">Fragen der Analyse</h4>
+                <h4 style="margin-bottom: 16px; font-size: 18px; font-weight: 700; color: var(--text);">Analysis Questions</h4>
                 <div class="prompts-list" style="display: flex; flex-direction: column; gap: 16px;">
                   ${prompts.map((prompt: any, idx: number) => `
                     <div class="prompt-card" style="padding: 16px; background: var(--bg-glass); border: 1px solid var(--border-light); border-radius: 8px;">
@@ -149,7 +149,7 @@ export class DashboardPage {
                 <div style="margin-top: 32px; padding: 28px; background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%); border-radius: 16px; backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
                   <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
                     <span style="font-size: 28px;">🏆</span>
-                    <h5 style="margin: 0; font-size: 20px; font-weight: 700; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.2);">Beste Prompts</h5>
+                    <h5 style="margin: 0; font-size: 20px; font-weight: 700; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.2);">Top Prompts</h5>
                   </div>
                   <div style="display: flex; flex-direction: column; gap: 16px;">
                     ${bestPrompts.slice(0, 5).map((p: any, idx: number) => `
@@ -160,10 +160,10 @@ export class DashboardPage {
                         </div>
                         <div style="display: flex; gap: 20px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
                           <div style="display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 600;">
-                            <span>📌</span><span>Erwähnungen: <strong style="color: white;">${p.mentions}</strong></span>
+                            <span>📌</span>                            <span>Mentions: <strong style="color: white;">${p.mentions}</strong></span>
                           </div>
                           <div style="display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 600;">
-                            <span>🔗</span><span>Zitierungen: <strong style="color: white;">${p.citations}</strong></span>
+                            <span>🔗</span><span>Citations: <strong style="color: white;">${p.citations}</strong></span>
                           </div>
                         </div>
                       </div>
@@ -180,7 +180,7 @@ export class DashboardPage {
                 <div style="margin-top: 32px; padding: 28px; background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%); border-radius: 16px; backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
                   <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
                     <span style="font-size: 28px;">🔗</span>
-                    <h5 style="margin: 0; font-size: 20px; font-weight: 700; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.2);">Andere Links (Zitierungen)</h5>
+                    <h5 style="margin: 0; font-size: 20px; font-weight: 700; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.2);">Other Links (Citations)</h5>
                   </div>
                   <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
                     ${sourceEntries.slice(0, 10).map(([source, count]) => `
@@ -202,8 +202,8 @@ export class DashboardPage {
                     <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 2px solid rgba(255,255,255,0.2);">
                       <div style="width: 64px; height: 64px; background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 36px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);">📊</div>
                       <div>
-                        <h4 style="margin: 0; font-size: 32px; font-weight: 800; color: white; text-shadow: 0 2px 20px rgba(0,0,0,0.3); font-family: 'Space Grotesk', sans-serif; letter-spacing: -1px;">Fazit</h4>
-                        <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 15px; font-weight: 500;">Zusammenfassung der Analyse</p>
+                        <h4 style="margin: 0; font-size: 32px; font-weight: 800; color: white; text-shadow: 0 2px 20px rgba(0,0,0,0.3); font-family: 'Space Grotesk', sans-serif; letter-spacing: -1px;">Summary</h4>
+                        <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 15px; font-weight: 500;">Analysis Summary</p>
                       </div>
                     </div>
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 32px;">
@@ -211,14 +211,14 @@ export class DashboardPage {
                         <div style="position: absolute; top: -50%; right: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);"></div>
                         <div style="position: relative; z-index: 1;">
                           <div style="font-size: 48px; font-weight: 800; margin-bottom: 12px; color: white; text-shadow: 0 2px 20px rgba(0,0,0,0.2); font-family: 'Space Grotesk', sans-serif;">${summary.totalMentions || 0}</div>
-                          <div style="font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.95); text-transform: uppercase; letter-spacing: 0.5px;">Anzahl Erwähnungen</div>
+                          <div style="font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.95); text-transform: uppercase; letter-spacing: 0.5px;">Total Mentions</div>
                         </div>
                       </div>
                       <div style="padding: 28px; background: linear-gradient(135deg, rgba(236, 72, 153, 0.95) 0%, rgba(219, 39, 119, 0.95) 100%); border-radius: 16px; backdrop-filter: blur(20px); text-align: center; box-shadow: 0 8px 32px rgba(236, 72, 153, 0.3); border: 1px solid rgba(255,255,255,0.2); position: relative; overflow: hidden;">
                         <div style="position: absolute; top: -50%; right: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);"></div>
                         <div style="position: relative; z-index: 1;">
                           <div style="font-size: 48px; font-weight: 800; margin-bottom: 12px; color: white; text-shadow: 0 2px 20px rgba(0,0,0,0.2); font-family: 'Space Grotesk', sans-serif;">${summary.totalCitations || 0}</div>
-                          <div style="font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.95); text-transform: uppercase; letter-spacing: 0.5px;">Anzahl Zitierungen</div>
+                          <div style="font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.95); text-transform: uppercase; letter-spacing: 0.5px;">Total Citations</div>
                         </div>
                       </div>
                     </div>
@@ -231,15 +231,15 @@ export class DashboardPage {
           } else {
             summaryHtml = `
               <div class="summary-section" style="padding: 16px; background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.3); border-radius: 8px; margin-bottom: 32px;">
-                <p style="margin: 0; color: var(--text-secondary); font-style: italic;">Kein Fazit verfügbar für diese Analyse.</p>
+                <p style="margin: 0; color: var(--text-secondary); font-style: italic;">No summary available for this analysis.</p>
               </div>
             `;
           }
           
           return `
             <div class="local-view">
-              <button class="back-btn" onclick="window.dashboardPage?.goBack()">← Zurück</button>
-              <h3 style="margin-bottom: 24px;">Analyse-Details</h3>
+              <button class="back-btn" onclick="window.dashboardPage?.goBack()">← Back</button>
+              <h3 style="margin-bottom: 24px;">Analysis Details</h3>
               ${promptsHtml}
               ${summaryHtml}
             </div>
@@ -248,8 +248,8 @@ export class DashboardPage {
           console.error("Error loading analysis:", error);
           return `
             <div class="error-state">
-              <p>Fehler beim Laden der Analyse: ${error instanceof Error ? error.message : "Unbekannter Fehler"}</p>
-              <button class="back-btn" onclick="(window.dashboardPage as any).selectedAnalysisId = null; window.dashboardPage?.render();">← Zurück</button>
+              <p>Error loading analysis: ${error instanceof Error ? error.message : "Unknown error"}</p>
+              <button class="back-btn" onclick="(window.dashboardPage as any).selectedAnalysisId = null; window.dashboardPage?.render();">← Back</button>
             </div>
           `;
         }
@@ -260,11 +260,11 @@ export class DashboardPage {
         
         return `
           <div class="local-view">
-            <button class="back-btn" onclick="window.dashboardPage?.goBack()">← Zurück</button>
-            <h3>Analysen: ${company?.name || company?.websiteUrl || "Unbekannt"}</h3>
+            <button class="back-btn" onclick="window.dashboardPage?.goBack()">← Back</button>
+            <h3>Analyses: ${company?.name || company?.websiteUrl || "Unknown"}</h3>
             <div class="analyses-grid">
               ${analyses.length === 0 
-                ? '<div class="empty-state">Keine Analysen gefunden</div>'
+                ? '<div class="empty-state">No analyses found</div>'
                 : analyses.map(analysis => `
                   <div class="analysis-card" data-run-id="${analysis.id}">
                     <div class="analysis-header">
@@ -273,16 +273,16 @@ export class DashboardPage {
                     </div>
                     <div class="analysis-details">
                       <div class="detail-item">
-                        <span class="label">Land:</span>
+                        <span class="label">Country:</span>
                         <span>${analysis.country}</span>
                       </div>
                       <div class="detail-item">
-                        <span class="label">Sprache:</span>
+                        <span class="label">Language:</span>
                         <span>${analysis.language}</span>
                       </div>
                       <div class="detail-item">
-                        <span class="label">Erstellt:</span>
-                        <span>${new Date(analysis.createdAt).toLocaleDateString("de-DE")}</span>
+                        <span class="label">Created:</span>
+                        <span>${new Date(analysis.createdAt).toLocaleDateString("en-US")}</span>
                       </div>
                     </div>
                   </div>
@@ -295,10 +295,10 @@ export class DashboardPage {
         // Show company list
         return `
           <div class="local-view">
-            <h3>Verfügbare Firmen</h3>
+            <h3>Available Companies</h3>
             <div class="companies-grid">
               ${companies.length === 0 
-                ? '<div class="empty-state">Keine Firmen gefunden</div>'
+                ? '<div class="empty-state">No companies found</div>'
                 : companies.map(company => `
                   <div class="company-card" data-company-id="${company.id}">
                     <div class="company-header">
@@ -310,11 +310,11 @@ export class DashboardPage {
                         <span>${company.websiteUrl}</span>
                       </div>
                       <div class="detail-item">
-                        <span class="label">Land:</span>
+                        <span class="label">Country:</span>
                         <span>${company.country}</span>
                       </div>
                       <div class="detail-item">
-                        <span class="label">Sprache:</span>
+                        <span class="label">Language:</span>
                         <span>${company.language}</span>
                       </div>
                     </div>
@@ -329,7 +329,7 @@ export class DashboardPage {
       console.error("Error loading local view:", error);
       return `
         <div class="error-state">
-          <p>Fehler beim Laden der Daten: ${error instanceof Error ? error.message : "Unbekannter Fehler"}</p>
+          <p>Error loading data: ${error instanceof Error ? error.message : "Unknown error"}</p>
         </div>
       `;
     }
@@ -346,28 +346,28 @@ export class DashboardPage {
         
         return `
           <div class="global-view">
-            <button class="back-btn" onclick="window.dashboardPage?.goBack()">← Zurück</button>
-            <h3>Kategorie: ${this.selectedCategory}</h3>
+            <button class="back-btn" onclick="window.dashboardPage?.goBack()">← Back</button>
+            <h3>Category: ${this.selectedCategory}</h3>
             <div class="prompts-list">
               ${prompts.length === 0 
-                ? '<div class="empty-state">Keine Fragen in dieser Kategorie gefunden</div>'
+                ? '<div class="empty-state">No questions found in this category</div>'
                 : prompts.map(prompt => `
                   <div class="prompt-card">
                     <div class="prompt-question">
-                      <h4>Frage:</h4>
+                      <h4>Question:</h4>
                       <p>${prompt.question}</p>
                     </div>
                     ${prompt.answer && prompt.answer.trim() ? `
                       <div class="prompt-answer">
-                        <h4>Antwort:</h4>
+                        <h4>Answer:</h4>
                         <div style="max-height: 500px; overflow-y: auto; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-top: 12px;">
                           <p style="white-space: pre-wrap; line-height: 1.6;">${prompt.answer}</p>
                         </div>
                       </div>
                     ` : prompt.answer === null || prompt.answer === undefined ? `
                       <div class="prompt-answer" style="opacity: 0.6;">
-                        <h4>Antwort:</h4>
-                        <p style="font-style: italic;">Keine Antwort verfügbar</p>
+                        <h4>Answer:</h4>
+                        <p style="font-style: italic;">No answer available</p>
                       </div>
                     ` : ''}
                     <div class="prompt-details">
@@ -376,18 +376,18 @@ export class DashboardPage {
                         <span>${new URL(prompt.websiteUrl).hostname}</span>
                       </div>
                       <div class="detail-item">
-                        <span class="label">Sprache:</span>
+                        <span class="label">Language:</span>
                         <span>${prompt.language}</span>
                       </div>
                       ${prompt.country ? `
                         <div class="detail-item">
-                          <span class="label">Land:</span>
+                          <span class="label">Country:</span>
                           <span>${prompt.country}</span>
                         </div>
                       ` : ""}
                       <div class="detail-item">
-                        <span class="label">Erstellt:</span>
-                        <span>${new Date(prompt.createdAt).toLocaleDateString("de-DE")}</span>
+                        <span class="label">Created:</span>
+                        <span>${new Date(prompt.createdAt).toLocaleDateString("en-US")}</span>
                       </div>
                     </div>
                   </div>
@@ -402,10 +402,10 @@ export class DashboardPage {
         
         return `
           <div class="global-view">
-            <h3>Alle Kategorien</h3>
+            <h3>All Categories</h3>
             <div class="categories-grid">
               ${categories.length === 0 
-                ? '<div class="empty-state">Keine Kategorien gefunden</div>'
+                ? '<div class="empty-state">No categories found</div>'
                 : categories.map(category => `
                   <div class="category-card" data-category-name="${category.name}">
                     <div class="category-header">
@@ -413,7 +413,7 @@ export class DashboardPage {
                       <span class="count-badge">${category.count}</span>
                     </div>
                     <div class="category-description">
-                      <p>${category.description || "Keine Beschreibung"}</p>
+                      <p>${category.description || "No description"}</p>
                     </div>
                   </div>
                 `).join("")
@@ -426,7 +426,7 @@ export class DashboardPage {
       console.error("Error loading global view:", error);
       return `
         <div class="error-state">
-          <p>Fehler beim Laden der Daten: ${error instanceof Error ? error.message : "Unbekannter Fehler"}</p>
+          <p>Error loading data: ${error instanceof Error ? error.message : "Unknown error"}</p>
         </div>
       `;
     }
