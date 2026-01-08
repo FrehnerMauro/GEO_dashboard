@@ -1938,10 +1938,14 @@
 
     // Helper functions
     function hideAllSections() {
-      const analysisSection = document.querySelector('.content-area > .card');
+      const dashboardSection = document.getElementById('dashboardSection');
+      const aiAnalysisSection = document.getElementById('aiAnalysisSection');
+      const aiReadabilitySection = document.getElementById('aiReadabilitySection');
       const analysesSection = document.getElementById('analysesSection');
       const analysisDetailSection = document.getElementById('analysisDetailSection');
-      if (analysisSection) analysisSection.style.display = 'none';
+      if (dashboardSection) dashboardSection.style.display = 'none';
+      if (aiAnalysisSection) aiAnalysisSection.style.display = 'none';
+      if (aiReadabilitySection) aiReadabilitySection.style.display = 'none';
       if (analysesSection) analysesSection.style.display = 'none';
       if (analysisDetailSection) analysisDetailSection.style.display = 'none';
     }
@@ -1957,10 +1961,36 @@
     // Dashboard functionality
     function showDashboard(event) {
       hideAllSections();
-      const analysisSection = document.querySelector('.content-area > .card');
-      if (analysisSection) {
-        analysisSection.style.display = 'block';
+      const dashboardSection = document.getElementById('dashboardSection');
+      if (dashboardSection) {
+        dashboardSection.style.display = 'block';
       }
+      const headerTitle = document.getElementById('headerTitle');
+      if (headerTitle) headerTitle.textContent = 'Dashboard';
+      updateNavActive(event);
+    }
+    
+    // AI Analysis functionality
+    function showAIAnalysis(event) {
+      hideAllSections();
+      const aiAnalysisSection = document.getElementById('aiAnalysisSection');
+      if (aiAnalysisSection) {
+        aiAnalysisSection.style.display = 'block';
+      }
+      const headerTitle = document.getElementById('headerTitle');
+      if (headerTitle) headerTitle.textContent = 'AI Analyse';
+      updateNavActive(event);
+    }
+    
+    // AI Readability functionality
+    function showAIReadability(event) {
+      hideAllSections();
+      const aiReadabilitySection = document.getElementById('aiReadabilitySection');
+      if (aiReadabilitySection) {
+        aiReadabilitySection.style.display = 'block';
+      }
+      const headerTitle = document.getElementById('headerTitle');
+      if (headerTitle) headerTitle.textContent = 'AI Readability';
       updateNavActive(event);
     }
     
@@ -2312,6 +2342,87 @@
         });
     }
     
+    // AI Readability functionality
+    const fetchContentBtn = document.getElementById('fetchContentBtn');
+    if (fetchContentBtn) {
+      fetchContentBtn.addEventListener('click', async function(e) {
+        e.preventDefault();
+        const urlInput = document.getElementById('readabilityUrl');
+        const contentDisplay = document.getElementById('readabilityContentDisplay');
+        const contentSection = document.getElementById('readabilityContent');
+        
+        if (!urlInput || !urlInput.value.trim()) {
+          alert('Bitte geben Sie eine URL ein.');
+          return;
+        }
+        
+        let url = urlInput.value.trim();
+        // Add https:// if missing
+        if (!url.match(/^https?:\/\//i)) {
+          url = 'https://' + url;
+        }
+        
+        // Validate URL
+        try {
+          new URL(url);
+        } catch (e) {
+          alert('Ungültige URL. Bitte geben Sie eine gültige URL ein.');
+          return;
+        }
+        
+        // Update button state
+        fetchContentBtn.disabled = true;
+        fetchContentBtn.textContent = 'Lädt...';
+        
+        try {
+          // Use backend API to fetch content (avoids CORS issues)
+          const response = await (window.apiFetch 
+            ? window.apiFetch('/api/workflow/fetchUrl', {
+                method: 'POST',
+                body: JSON.stringify({ url })
+              })
+            : fetch(window.getApiUrl ? window.getApiUrl('/api/workflow/fetchUrl') : '/api/workflow/fetchUrl', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+              }));
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
+          const data = await response.json();
+          
+          // The API returns text content
+          const textContent = data.text || data.content || 'Kein Textinhalt gefunden.';
+          
+          if (contentDisplay) {
+            // Display the content with proper formatting
+            contentDisplay.textContent = textContent;
+          }
+          
+          if (contentSection) {
+            contentSection.style.display = 'block';
+          }
+          
+        } catch (error) {
+          console.error('Error fetching content:', error);
+          alert('Fehler beim Laden der Seite: ' + (error.message || 'Unbekannter Fehler'));
+          
+          // Try to show error in content display
+          if (contentDisplay) {
+            contentDisplay.textContent = 'Fehler beim Laden: ' + (error.message || 'Unbekannter Fehler');
+          }
+          if (contentSection) {
+            contentSection.style.display = 'block';
+          }
+        } finally {
+          fetchContentBtn.disabled = false;
+          fetchContentBtn.textContent = 'Inhalt holen';
+        }
+      });
+    }
+    
     // Store full implementations for use by global stubs
     window.showDashboardFull = showDashboard;
     window.showAnalysesFull = showAnalyses;
@@ -2322,6 +2433,8 @@
     
     // Update global functions to use full implementations
     window.showDashboard = showDashboard;
+    window.showAIAnalysis = showAIAnalysis;
+    window.showAIReadability = showAIReadability;
     window.showAnalyses = showAnalyses;
     window.viewAnalysisDetails = viewAnalysisDetails;
     window.deleteAnalysis = deleteAnalysis;

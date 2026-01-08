@@ -39,45 +39,113 @@
       
     window.showDashboard = function(event) {
       if (event) event.preventDefault();
+      // Hide all sections
+      const dashboardSection = document.getElementById('dashboardSection');
+      const aiAnalysisSection = document.getElementById('aiAnalysisSection');
+      const aiReadabilitySection = document.getElementById('aiReadabilitySection');
       const analysesSection = document.getElementById('analysesSection');
       const analysisDetailSection = document.getElementById('analysisDetailSection');
-      const analysisSection = document.querySelector('.content-area > .card');
+      
+      if (dashboardSection) dashboardSection.style.display = 'block';
+      if (aiAnalysisSection) aiAnalysisSection.style.display = 'none';
+      if (aiReadabilitySection) aiReadabilitySection.style.display = 'none';
       if (analysesSection) analysesSection.style.display = 'none';
       if (analysisDetailSection) analysisDetailSection.style.display = 'none';
-      if (analysisSection) analysisSection.style.display = 'block';
-        // Update navigation
-        const navItems = document.querySelectorAll('.nav-item');
-        navItems.forEach(item => item.classList.remove('active'));
-        if (event && event.target) {
-          event.target.closest('.nav-item')?.classList.add('active');
-        } else {
-          const dashboardNav = document.querySelector('.nav-item');
-          if (dashboardNav) dashboardNav.classList.add('active');
-        }
-        if (window.showDashboardFull) {
-          window.showDashboardFull(event);
-        }
-      };
+      
+      // Update header
+      const headerTitle = document.getElementById('headerTitle');
+      if (headerTitle) headerTitle.textContent = 'Dashboard';
+      
+      // Update navigation
+      const navItems = document.querySelectorAll('.nav-item');
+      navItems.forEach(item => item.classList.remove('active'));
+      if (event && event.target) {
+        event.target.closest('.nav-item')?.classList.add('active');
+      } else {
+        const dashboardNav = document.querySelector('.nav-item');
+        if (dashboardNav) dashboardNav.classList.add('active');
+      }
+    };
+    
+    window.showAIAnalysis = function(event) {
+      if (event) event.preventDefault();
+      // Hide all sections
+      const dashboardSection = document.getElementById('dashboardSection');
+      const aiAnalysisSection = document.getElementById('aiAnalysisSection');
+      const aiReadinessSection = document.getElementById('aiReadinessSection');
+      const analysesSection = document.getElementById('analysesSection');
+      const analysisDetailSection = document.getElementById('analysisDetailSection');
+      
+      if (dashboardSection) dashboardSection.style.display = 'none';
+      if (aiAnalysisSection) aiAnalysisSection.style.display = 'block';
+      if (aiReadinessSection) aiReadinessSection.style.display = 'none';
+      if (analysesSection) analysesSection.style.display = 'none';
+      if (analysisDetailSection) analysisDetailSection.style.display = 'none';
+      
+      // Update header
+      const headerTitle = document.getElementById('headerTitle');
+      if (headerTitle) headerTitle.textContent = 'AI Analyse';
+      
+      // Update navigation
+      const navItems = document.querySelectorAll('.nav-item');
+      navItems.forEach(item => item.classList.remove('active'));
+      if (event && event.target) {
+        event.target.closest('.nav-item')?.classList.add('active');
+      }
+    };
+    
+    window.showAIReadability = function(event) {
+      if (event) event.preventDefault();
+      // Hide all sections
+      const dashboardSection = document.getElementById('dashboardSection');
+      const aiAnalysisSection = document.getElementById('aiAnalysisSection');
+      const aiReadabilitySection = document.getElementById('aiReadabilitySection');
+      const analysesSection = document.getElementById('analysesSection');
+      const analysisDetailSection = document.getElementById('analysisDetailSection');
+      
+      if (dashboardSection) dashboardSection.style.display = 'none';
+      if (aiAnalysisSection) aiAnalysisSection.style.display = 'none';
+      if (aiReadabilitySection) aiReadabilitySection.style.display = 'block';
+      if (analysesSection) analysesSection.style.display = 'none';
+      if (analysisDetailSection) analysisDetailSection.style.display = 'none';
+      
+      // Update header
+      const headerTitle = document.getElementById('headerTitle');
+      if (headerTitle) headerTitle.textContent = 'AI Readability';
+      
+      // Update navigation
+      const navItems = document.querySelectorAll('.nav-item');
+      navItems.forEach(item => item.classList.remove('active'));
+      if (event && event.target) {
+        event.target.closest('.nav-item')?.classList.add('active');
+      }
+    };
       
     window.showAnalyses = function(event) {
       if (event) event.preventDefault();
       const analysesSection = document.getElementById('analysesSection');
       const analysisDetailSection = document.getElementById('analysisDetailSection');
-      const analysisSection = document.querySelector('.content-area > .card');
+      const dashboardSection = document.getElementById('dashboardSection');
+      const aiAnalysisSection = document.getElementById('aiAnalysisSection');
+      const aiReadabilitySection = document.getElementById('aiReadabilitySection');
+      
+      if (dashboardSection) dashboardSection.style.display = 'none';
+      if (aiAnalysisSection) aiAnalysisSection.style.display = 'none';
+      if (aiReadabilitySection) aiReadabilitySection.style.display = 'none';
       if (analysesSection) analysesSection.style.display = 'block';
       if (analysisDetailSection) analysisDetailSection.style.display = 'none';
-      if (analysisSection) analysisSection.style.display = 'none';
-        // Update navigation
-        const navItems = document.querySelectorAll('.nav-item');
-        navItems.forEach(item => item.classList.remove('active'));
-        if (event && event.target) {
-          event.target.closest('.nav-item')?.classList.add('active');
-        }
-        if (window.loadAnalyses) {
-          window.loadAnalyses();
-        } else if (window.showAnalysesFull) {
-          window.showAnalysesFull(event);
-        }
-      };
+      
+      // Update navigation
+      const navItems = document.querySelectorAll('.nav-item');
+      navItems.forEach(item => item.classList.remove('active'));
+      if (event && event.target) {
+        event.target.closest('.nav-item')?.classList.add('active');
+      }
+      if (window.loadAnalyses) {
+        window.loadAnalyses();
+      } else if (window.showAnalysesFull) {
+        window.showAnalysesFull(event);
+      }
+    };
     })();
   

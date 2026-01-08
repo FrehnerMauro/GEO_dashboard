@@ -5,11 +5,9 @@
       if (event) event.preventDefault();
       const analysesSection = document.getElementById('analysesSection');
       const analysisDetailSection = document.getElementById('analysisDetailSection');
-      const aiReadinessSection = document.getElementById('aiReadinessSection');
       const analysisSection = document.querySelector('.content-area > .card');
       if (analysesSection) analysesSection.style.display = 'none';
       if (analysisDetailSection) analysisDetailSection.style.display = 'none';
-      if (aiReadinessSection) aiReadinessSection.style.display = 'none';
       if (analysisSection) analysisSection.style.display = 'block';
       // Update navigation
       const navItems = document.querySelectorAll('.nav-item');
@@ -31,11 +29,9 @@
       if (event) event.preventDefault();
       const analysesSection = document.getElementById('analysesSection');
       const analysisDetailSection = document.getElementById('analysisDetailSection');
-      const aiReadinessSection = document.getElementById('aiReadinessSection');
       const analysisSection = document.querySelector('.content-area > .card');
       if (analysesSection) analysesSection.style.display = 'block';
       if (analysisDetailSection) analysisDetailSection.style.display = 'none';
-      if (aiReadinessSection) aiReadinessSection.style.display = 'none';
       if (analysisSection) analysisSection.style.display = 'none';
       // Update navigation
       const navItems = document.querySelectorAll('.nav-item');
@@ -75,29 +71,7 @@
       }
     };
     
-    window.showAIReadiness = function(event) {
-      if (event) event.preventDefault();
-      const analysesSection = document.getElementById('analysesSection');
-      const analysisDetailSection = document.getElementById('analysisDetailSection');
-      const aiReadinessSection = document.getElementById('aiReadinessSection');
-      const analysisSection = document.querySelector('.content-area > .card');
-      if (analysesSection) analysesSection.style.display = 'none';
-      if (analysisDetailSection) analysisDetailSection.style.display = 'none';
-      if (aiReadinessSection) aiReadinessSection.style.display = 'block';
-      if (analysisSection) analysisSection.style.display = 'none';
-      // Update navigation
-      const navItems = document.querySelectorAll('.nav-item');
-      navItems.forEach(item => item.classList.remove('active'));
-      if (event && event.target) {
-        event.target.closest('.nav-item')?.classList.add('active');
-      }
-      // Try to call full implementation if available
-      if (window.showAIReadinessFull) {
-        window.showAIReadinessFull(event);
-      }
-    };
-    
-    // startAIReadiness is already defined in <head> script tag above
+    // AI Readiness functionality removed
     
     window.viewAnalysisDetails = function(runId) {
       console.log('🔍 viewAnalysisDetails called with runId:', runId);
@@ -1952,20 +1926,6 @@
       startBtn.click(); // Trigger button click instead
     });
     
-    // Prevent AI Readiness form from submitting to wrong handler
-    const aiReadinessForm = document.getElementById('aiReadinessForm');
-    if (aiReadinessForm) {
-      aiReadinessForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        console.log('🔵 AI Readiness form submitted - preventing default');
-        // Call startAIReadiness if available
-        if (window.startAIReadiness) {
-          window.startAIReadiness();
-        }
-        return false;
-      });
-    }
     
     console.log('✅ All event listeners attached successfully');
     
@@ -1981,11 +1941,9 @@
       const analysisSection = document.querySelector('.content-area > .card');
       const analysesSection = document.getElementById('analysesSection');
       const analysisDetailSection = document.getElementById('analysisDetailSection');
-      const aiReadinessSection = document.getElementById('aiReadinessSection');
       if (analysisSection) analysisSection.style.display = 'none';
       if (analysesSection) analysesSection.style.display = 'none';
       if (analysisDetailSection) analysisDetailSection.style.display = 'none';
-      if (aiReadinessSection) aiReadinessSection.style.display = 'none';
     }
     
     function updateNavActive(event) {
@@ -2017,242 +1975,7 @@
       updateNavActive(event);
     }
     
-    // AI Readiness functionality
-    function showAIReadiness(event) {
-      hideAllSections();
-      const aiReadinessSection = document.getElementById('aiReadinessSection');
-      if (aiReadinessSection) {
-        aiReadinessSection.style.display = 'block';
-      }
-      updateNavActive(event);
-    }
-    
-    // Start AI Readiness Check
-    async function startAIReadiness() {
-      const urlInput = document.getElementById('aiReadinessUrl');
-      const url = urlInput?.value?.trim();
-      
-      if (!url) {
-        alert('Bitte geben Sie eine URL ein.');
-            return;
-          }
-          
-      // Validate URL
-      let websiteUrl = url;
-      const urlPattern = new RegExp('^https?:\\/\\/', 'i');
-      if (!urlPattern.test(websiteUrl)) {
-        websiteUrl = 'https://' + websiteUrl;
-      }
-      
-      try {
-        new URL(websiteUrl);
-      } catch (e) {
-        alert('Ungültige URL. Bitte geben Sie eine gültige URL ein.');
-        return;
-      }
-      
-      const loadingEl = document.getElementById('aiReadinessLoading');
-      const resultsEl = document.getElementById('aiReadinessResults');
-      const statusEl = document.getElementById('aiReadinessStatus');
-      const statusDetailsEl = document.getElementById('aiReadinessStatusDetails');
-      const progressEl = document.getElementById('aiReadinessProgress');
-      const progressTextEl = document.getElementById('aiReadinessProgressText');
-      const resultsContentEl = document.getElementById('aiReadinessResultsContent');
-      const consoleEl = document.getElementById('aiReadinessConsole');
-      const consoleContentEl = document.getElementById('aiReadinessConsoleContent');
-      
-      // Console logging function
-      const addConsoleLog = (message, type = 'info') => {
-        if (!consoleContentEl) return;
-        const timestamp = new Date().toLocaleTimeString('de-DE');
-        const colors = {
-          info: '#4fc3f7',
-          success: '#66bb6a',
-          warning: '#ffa726',
-          error: '#ef5350',
-          system: '#6a9955'
-        };
-        const icons = {
-          info: 'ℹ️',
-          success: '✅',
-          warning: '⚠️',
-          error: '❌',
-          system: '🔵'
-        };
-        const color = colors[type] || colors.info;
-        const icon = icons[type] || icons.info;
-        const logLine = document.createElement('div');
-        logLine.style.color = color;
-        logLine.style.marginBottom = '4px';
-        const timestampSpan = document.createElement('span');
-        timestampSpan.style.color = '#858585';
-        timestampSpan.textContent = '[' + timestamp + ']';
-        logLine.appendChild(timestampSpan);
-        logLine.appendChild(document.createTextNode(' ' + icon + ' ' + message));
-        consoleContentEl.appendChild(logLine);
-        consoleContentEl.scrollTop = consoleContentEl.scrollHeight;
-      };
-      
-      // Clear console function
-      const clearConsole = () => {
-        if (consoleContentEl) {
-          consoleContentEl.innerHTML = '<div style="color: #6a9955;">[System] Console gelöscht.</div>';
-        }
-      };
-      
-      // Setup clear button
-      const clearBtn = document.getElementById('clearConsoleBtn');
-      if (clearBtn) {
-        clearBtn.onclick = clearConsole;
-      }
-      
-      if (loadingEl) {
-        loadingEl.style.display = 'block';
-        loadingEl.classList.add('show');
-      }
-      // Show steps overview
-      const stepsEl = document.getElementById('aiReadinessSteps');
-      if (stepsEl) {
-        stepsEl.style.display = 'block';
-      }
-      
-      if (consoleEl) {
-        consoleEl.style.display = 'block';
-        clearConsole();
-        addConsoleLog('AI Readiness Analyse gestartet', 'system');
-        addConsoleLog('Ziel-URL: ' + websiteUrl, 'info');
-      }
-      if (resultsEl) resultsEl.style.display = 'none';
-      if (statusEl) statusEl.textContent = 'Vorbereitung...';
-      if (statusDetailsEl) statusDetailsEl.textContent = 'Starte AI Readiness Check...';
-      if (progressEl) progressEl.style.width = '0%';
-      if (progressTextEl) progressTextEl.textContent = '0%';
-      
-      try {
-        // Step 1: Start analysis
-        addConsoleLog('Starte Analyse-Request an Server...', 'info');
-        if (statusEl) statusEl.textContent = 'Schritt 1: robots.txt und Sitemap holen...';
-        if (statusDetailsEl) statusDetailsEl.textContent = 'Lade robots.txt und Sitemap...';
-        if (progressEl) progressEl.style.width = '20%';
-        if (progressTextEl) progressTextEl.textContent = '20%';
-        
-        const step1Response = await fetch('/api/ai-readiness/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ websiteUrl })
-        });
-        
-        if (!step1Response.ok) {
-          addConsoleLog('Fehler beim Starten der Analyse', 'error');
-          throw new Error('Fehler beim Starten der Analyse');
-        }
-        
-        const step1Data = await step1Response.json();
-        addConsoleLog('Analyse gestartet. Run ID: ' + step1Data.runId, 'success');
-        addConsoleLog('Warte auf Hintergrund-Verarbeitung...', 'info');
-        
-        // Wait for completion (polling)
-        let attempts = 0;
-        const maxAttempts = 120; // 10 minutes max (120 * 5 seconds)
-        let recommendations = null;
-        let lastMessage = '';
-        
-        while (attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
-          
-          const statusResponse = await fetch('/api/ai-readiness/status/' + step1Data.runId);
-          if (statusResponse.ok) {
-            const statusData = await statusResponse.json();
-            
-            // Log status updates
-            if (statusData.message && statusData.message !== lastMessage) {
-              addConsoleLog(statusData.message, 'info');
-              lastMessage = statusData.message;
-              
-              // Parse step from message
-              if (statusData.message.includes('Schritt 1')) {
-                if (progressEl) progressEl.style.width = '15%';
-                if (progressTextEl) progressTextEl.textContent = '15%';
-                if (statusEl) statusEl.textContent = 'Schritt 1/6: robots.txt';
-              } else if (statusData.message.includes('Schritt 2')) {
-                if (progressEl) progressEl.style.width = '30%';
-                if (progressTextEl) progressTextEl.textContent = '30%';
-                if (statusEl) statusEl.textContent = 'Schritt 2/6: Sitemap';
-              } else if (statusData.message.includes('Schritt 3')) {
-                if (progressEl) progressEl.style.width = '45%';
-                if (progressTextEl) progressTextEl.textContent = '45%';
-                if (statusEl) statusEl.textContent = 'Schritt 3/6: Homepage';
-              } else if (statusData.message.includes('Schritt 4')) {
-                if (progressEl) progressEl.style.width = '60%';
-                if (progressTextEl) progressTextEl.textContent = '60%';
-                if (statusEl) statusEl.textContent = 'Schritt 4/6: Seiten scrapen';
-              } else if (statusData.message.includes('Schritt 5')) {
-                if (progressEl) progressEl.style.width = '75%';
-                if (progressTextEl) progressTextEl.textContent = '75%';
-                if (statusEl) statusEl.textContent = 'Schritt 5/6: Daten analysieren';
-              } else if (statusData.message.includes('Schritt 6')) {
-                if (progressEl) progressEl.style.width = '85%';
-                if (progressTextEl) progressTextEl.textContent = '85%';
-                if (statusEl) statusEl.textContent = 'Schritt 6/6: GPT-Analyse';
-              }
-            }
-            
-            if (statusData.status === 'completed') {
-              addConsoleLog('Analyse erfolgreich abgeschlossen!', 'success');
-              recommendations = statusData.recommendations;
-              break;
-            } else if (statusData.status === 'error') {
-              addConsoleLog('Fehler: ' + (statusData.error || 'Unbekannter Fehler'), 'error');
-              throw new Error(statusData.error || 'Fehler bei der Analyse');
-            }
-            
-            // Update progress
-            if (statusDetailsEl && statusData.message) {
-              statusDetailsEl.textContent = statusData.message;
-            }
-          } else {
-            addConsoleLog('Status-Abfrage fehlgeschlagen (Versuch ' + (attempts + 1) + '/' + maxAttempts + ')', 'warning');
-          }
-          
-          attempts++;
-        }
-        
-        if (!recommendations) {
-          addConsoleLog('Timeout: Die Analyse hat zu lange gedauert.', 'error');
-          throw new Error('Timeout: Die Analyse hat zu lange gedauert.');
-        }
-        
-        // Display results
-        addConsoleLog('Ergebnisse werden angezeigt...', 'success');
-        if (statusEl) statusEl.textContent = '✅ Analyse abgeschlossen';
-        if (statusDetailsEl) statusDetailsEl.textContent = 'AI Readiness Check erfolgreich durchgeführt';
-        if (progressEl) progressEl.style.width = '100%';
-        if (progressTextEl) progressTextEl.textContent = '100%';
-        
-        if (resultsContentEl) {
-          resultsContentEl.innerHTML = 
-            '<div style="white-space: pre-wrap; font-size: 14px; line-height: 1.7; color: #374151;">' +
-            recommendations.replace(/</g, '&lt;').replace(/>/g, '&gt;') +
-            '</div>';
-        }
-        
-        if (resultsEl) resultsEl.style.display = 'block';
-        
-      } catch (error) {
-        console.error('Error in AI Readiness check:', error);
-        addConsoleLog('Fehler: ' + (error instanceof Error ? error.message : 'Unbekannter Fehler'), 'error');
-        if (statusEl) statusEl.textContent = '❌ Fehler';
-        if (statusDetailsEl) statusDetailsEl.textContent = error instanceof Error ? error.message : 'Unbekannter Fehler';
-        alert('Fehler beim AI Readiness Check: ' + (error instanceof Error ? error.message : 'Unbekannter Fehler'));
-      } finally {
-        if (loadingEl) {
-          setTimeout(() => {
-            loadingEl.style.display = 'none';
-            loadingEl.classList.remove('show');
-          }, 2000);
-        }
-      }
-    }
+    // AI Readiness functionality removed
     
     function loadAnalyses() {
       const analysesList = document.getElementById('analysesList');
@@ -2592,18 +2315,14 @@
     // Store full implementations for use by global stubs
     window.showDashboardFull = showDashboard;
     window.showAnalysesFull = showAnalyses;
-    window.showAIReadinessFull = showAIReadiness;
-    window.startAIReadinessFull = startAIReadiness;
     window.loadAnalyses = loadAnalyses;
     window.viewAnalysisDetailsFull = viewAnalysisDetails;
     window.deleteAnalysisFull = deleteAnalysis;
     window.pauseAnalysisFull = pauseAnalysis;
     
     // Update global functions to use full implementations
-    // Note: window.startAIReadiness is already defined in <head> script, don't override it
     window.showDashboard = showDashboard;
     window.showAnalyses = showAnalyses;
-    window.showAIReadiness = showAIReadiness;
     window.viewAnalysisDetails = viewAnalysisDetails;
     window.deleteAnalysis = deleteAnalysis;
     window.pauseAnalysis = pauseAnalysis;

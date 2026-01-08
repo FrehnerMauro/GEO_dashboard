@@ -358,7 +358,7 @@ export class WorkflowHandlers {
         text = text.replace(/<[^>]+>/g, " ");
         text = text.replace(/\s+/g, " ").trim();
 
-        return new Response(JSON.stringify({ content: text.substring(0, 2000) }), {
+        return new Response(JSON.stringify({ content: text, text: text }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } else {

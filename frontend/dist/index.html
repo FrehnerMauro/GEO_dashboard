@@ -12,7 +12,6 @@
   <!-- CSS Files -->
   <link rel="stylesheet" href="/styles/variables.css">
   <link rel="stylesheet" href="/styles/base.css">
-  <link rel="stylesheet" href="/styles/ai-readiness.css">
   <link rel="stylesheet" href="/styles/responsive.css">
   
   <!-- API Configuration -->
@@ -134,9 +133,6 @@
         </div>
         <div class="nav-item" onclick="showAnalyses(event)">
           <span>Analysen</span>
-        </div>
-        <div class="nav-item" onclick="showAIReadiness(event)">
-          <span>🤖 AI Readiness</span>
         </div>
       </nav>
     </aside>
@@ -292,101 +288,6 @@
               <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
                 Lade Analyse-Details...
               </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- AI Readiness Section -->
-      <div id="aiReadinessSection" class="dashboard-section" style="display: none;">
-        <!-- Hero Section -->
-        <div class="ai-readiness-hero" style="width: 100%; box-sizing: border-box;">
-          <h2>🤖 AI Readiness Check</h2>
-          <p>
-            Analysiere deine Website auf AI-Readiness: robots.txt, Sitemap und alle Seiten werden 
-            gründlich geprüft, um sicherzustellen, dass deine Website optimal für AI-Crawler vorbereitet ist.
-          </p>
-        </div>
-
-        <!-- Form Card -->
-        <div class="ai-readiness-form-card">
-          <form id="aiReadinessForm">
-            <div class="ai-readiness-input-wrapper">
-              <label for="aiReadinessUrl">Website URL</label>
-              <input 
-                type="text" 
-                id="aiReadinessUrl" 
-                name="aiReadinessUrl" 
-                placeholder="example.com oder https://example.com" 
-                required>
-            </div>
-            <button 
-              type="button" 
-              id="startAIReadinessBtn" 
-              class="ai-readiness-btn">
-              🚀 AI Readiness Check starten
-            </button>
-          </form>
-        </div>
-
-        <!-- Progress Card -->
-        <div id="aiReadinessLoading" class="loading" style="display: none;">
-          <div class="ai-readiness-progress-card">
-            <div class="ai-readiness-status-header">
-              <div class="ai-readiness-status-icon">🤖</div>
-              <div class="ai-readiness-status-text">
-                <div class="ai-readiness-status-title" id="aiReadinessStatus">Vorbereitung...</div>
-                <div class="ai-readiness-status-subtitle" id="aiReadinessStatusDetails">Starte Analyse...</div>
-              </div>
-            </div>
-            <div class="ai-readiness-progress-bar-wrapper">
-              <div class="ai-readiness-progress-bar" id="aiReadinessProgress" style="width: 0%;"></div>
-            </div>
-            <div class="ai-readiness-progress-percentage" id="aiReadinessProgressText">0%</div>
-          </div>
-        </div>
-
-        <!-- Steps Overview -->
-        <div id="aiReadinessSteps" style="display: none;">
-          <div class="ai-readiness-steps-card">
-            <div class="ai-readiness-steps-header">
-              <h4>📊 Analyse-Schritte</h4>
-            </div>
-            <div id="aiReadinessStepsContent">
-              <div style="text-align: center; color: var(--text-light); padding: 40px;">
-                Warte auf erste Schritte...
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Console Log -->
-        <div id="aiReadinessConsole" style="display: none;">
-          <div class="ai-readiness-console-card">
-            <div class="ai-readiness-console-header">
-              <h4>📋 Detailliertes Log</h4>
-              <button 
-                type="button" 
-                id="clearConsoleBtn" 
-                onclick="if(document.getElementById('aiReadinessConsoleContent')){document.getElementById('aiReadinessConsoleContent').innerHTML='<div style=\\'color: #6a9955;\\'>[System] Console gelöscht.</div>';}" 
-                style="background: #444; color: #fff; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: background 0.2s;">
-                Löschen
-              </button>
-            </div>
-            <div class="ai-readiness-console-content" id="aiReadinessConsoleContent">
-              <div style="color: #6a9955;">[System] Console bereit. Warte auf Logs...</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Results -->
-        <div id="aiReadinessResults" style="display: none;">
-          <div class="ai-readiness-results-card">
-            <div class="ai-readiness-results-header">
-              <h3>✨ AI Readiness Empfehlungen</h3>
-            </div>
-            <div class="ai-readiness-results-content" id="aiReadinessResultsContent">
-              <!-- Results werden hier angezeigt -->
             </div>
           </div>
         </div>
