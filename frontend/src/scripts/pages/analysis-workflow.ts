@@ -403,7 +403,7 @@ export class AnalysisWorkflow {
     }
 
     // Declare statusInterval outside try block so it's available in catch
-    let statusInterval: NodeJS.Timeout | null = null;
+    let statusInterval: ReturnType<typeof setInterval> | null = null;
     
     try {
       const categoryCount = this.workflowData.categories.length;
@@ -672,7 +672,7 @@ export class AnalysisWorkflow {
     }
 
     // Declare statusInterval outside try block so it's available in catch
-    let statusInterval: NodeJS.Timeout | null = null;
+    let statusInterval: ReturnType<typeof setInterval> | null = null;
     
     try {
       const promptsToExecute = selectedPrompts || this.workflowData.selectedPrompts || [];
