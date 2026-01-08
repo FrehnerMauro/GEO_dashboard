@@ -1037,10 +1037,10 @@ export class Database {
     // Only return prompts that have been executed with web search (have citations)
     // Use EXISTS to check if prompt has citations
     // Also fetch the answer (output_text) from llm_responses
-    // Use a subquery to get the most recent answer per prompt
+    // Use a correlated subquery to get the most recent answer per prompt
     const result = await this.db
       .prepare(
-        `SELECT DISTINCT
+        `SELECT 
           p.id,
           p.question,
           (SELECT lr.output_text 
@@ -1065,6 +1065,7 @@ export class Database {
            INNER JOIN citations cit ON cit.llm_response_id = lr2.id
            WHERE lr2.prompt_id = p.id
          )
+         GROUP BY p.id
          ORDER BY p.created_at DESC`
       )
       .bind(categoryName)

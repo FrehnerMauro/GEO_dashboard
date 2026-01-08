@@ -180,6 +180,9 @@ export class DashboardPage {
         // Show prompts for selected category
         const prompts = await analysisService.getGlobalPromptsByCategory(this.selectedCategory);
         
+        // Debug: Log prompts to see if answers are included
+        console.log('Prompts with answers:', prompts.map(p => ({ question: p.question.substring(0, 50), hasAnswer: !!p.answer, answerLength: p.answer?.length || 0 })));
+        
         return `
           <div class="global-view">
             <button class="back-btn" onclick="window.dashboardPage?.goBack()">← Zurück</button>
@@ -193,10 +196,15 @@ export class DashboardPage {
                       <h4>Frage:</h4>
                       <p>${prompt.question}</p>
                     </div>
-                    ${prompt.answer ? `
+                    ${prompt.answer && prompt.answer.trim() ? `
                       <div class="prompt-answer">
                         <h4>Antwort:</h4>
                         <p>${prompt.answer.length > 1000 ? prompt.answer.substring(0, 1000) + '...' : prompt.answer}</p>
+                      </div>
+                    ` : prompt.answer === null || prompt.answer === undefined ? `
+                      <div class="prompt-answer" style="opacity: 0.6;">
+                        <h4>Antwort:</h4>
+                        <p style="font-style: italic;">Keine Antwort verfügbar</p>
                       </div>
                     ` : ''}
                     <div class="prompt-details">
