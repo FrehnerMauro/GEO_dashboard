@@ -10,7 +10,7 @@ import { getConfig } from "../../../shared/config.js";
 import { Database } from "../../../shared/persistence/index.js";
 import { AnalysisEngine } from "../../../shared/analysis/index.js";
 import { extractBrandName } from "../utils.js";
-import { fetchSitemap, parseSitemap, extractLinksFromHtml, extractTextContent, shouldFetchUrl } from "../utils/sitemap.js";
+import { fetchSitemap, parseSitemap, extractLinksFromHtml, extractTextContent, shouldFetchUrl, deduplicateUrls } from "../utils/sitemap.js";
 
 export class WorkflowHandlers {
   constructor(private workflowEngine: WorkflowEngine) {}
@@ -858,6 +858,9 @@ export class WorkflowHandlers {
 
       // Filter out PDFs, images, and other non-HTML files
       urlsToFetch = urlsToFetch.filter(url => shouldFetchUrl(url));
+
+      // Deduplicate URLs to avoid fetching the same page twice
+      urlsToFetch = deduplicateUrls(urlsToFetch);
 
       // Limit total pages to fetch
       urlsToFetch = urlsToFetch.slice(0, 50);

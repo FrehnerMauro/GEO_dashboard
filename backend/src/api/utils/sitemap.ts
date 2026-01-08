@@ -154,3 +154,62 @@ export function shouldFetchUrl(url: string): boolean {
   
   return true;
 }
+
+/**
+ * Normalize URL to remove duplicates (remove trailing slash, normalize query params, etc.)
+ */
+export function normalizeUrl(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    
+    // Remove trailing slash from pathname (except for root)
+    if (urlObj.pathname.length > 1 && urlObj.pathname.endsWith('/')) {
+      urlObj.pathname = urlObj.pathname.slice(0, -1);
+    }
+    
+    // Normalize to lowercase hostname
+    urlObj.hostname = urlObj.hostname.toLowerCase();
+    
+    // Remove default ports
+    if ((urlObj.protocol === 'https:' && urlObj.port === '443') ||
+        (urlObj.protocol === 'http:' && urlObj.port === '80')) {
+      urlObj.port = '';
+    }
+    
+    // Sort query parameters for consistent comparison
+    if (urlObj.search) {
+      const params = new URLSearchParams(urlObj.search);
+      const sortedParams = new URLSearchParams();
+      Array.from(params.keys()).sort().forEach(key => {
+        sortedParams.append(key, params.get(key) || '');
+      });
+      urlObj.search = sortedParams.toString();
+    }
+    
+    // Remove fragment
+    urlObj.hash = '';
+    
+    return urlObj.toString();
+  } catch (error) {
+    // If URL parsing fails, return original
+    return url;
+  }
+}
+
+/**
+ * Deduplicate URLs by normalizing them
+ */
+export function deduplicateUrls(urls: string[]): string[] {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  
+  for (const url of urls) {
+    const normalized = normalizeUrl(url);
+    if (!seen.has(normalized)) {
+      seen.add(normalized);
+      unique.push(url); // Keep original URL, not normalized one
+    }
+  }
+  
+  return unique;
+}
