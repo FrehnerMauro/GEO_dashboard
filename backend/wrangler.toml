@@ -9,6 +9,7 @@ name = "geo-platform-backend-prod"
 binding = "geo_db"
 database_name = "geo-db"
 database_id = "7e73f7d1-492d-4ca3-a5f9-916139ddebec"
+migrations_dir = "../migrations"
 
 [vars]
 ENVIRONMENT = "development"
