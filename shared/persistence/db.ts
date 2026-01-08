@@ -740,7 +740,7 @@ export class Database {
     // Delete in order: child records first, then parent
     // Get all prompt IDs for this run
     const prompts = await this.db
-      .prepare("SELECT id FROM prompts WHERE run_id = ?")
+      .prepare("SELECT id FROM prompts WHERE analysis_run_id = ?")
       .bind(runId)
       .all<{ id: string }>();
 

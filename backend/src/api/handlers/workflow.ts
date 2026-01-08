@@ -261,7 +261,7 @@ export class WorkflowHandlers {
 
       // Load all prompts for this run
       const savedPrompts = await db.db
-        .prepare("SELECT * FROM prompts WHERE run_id = ?")
+        .prepare("SELECT * FROM prompts WHERE analysis_run_id = ?")
         .bind(runId)
         .all<any>();
 
@@ -272,7 +272,7 @@ export class WorkflowHandlers {
                  GROUP_CONCAT(c.url || '|' || COALESCE(c.title, '') || '|' || COALESCE(c.snippet, ''), '|||') as citations_data
           FROM llm_responses lr
           LEFT JOIN citations c ON c.llm_response_id = lr.id
-          WHERE lr.prompt_id IN (SELECT id FROM prompts WHERE run_id = ?)
+          WHERE lr.prompt_id IN (SELECT id FROM prompts WHERE analysis_run_id = ?)
           GROUP BY lr.id
         `)
         .bind(runId)
@@ -309,7 +309,7 @@ export class WorkflowHandlers {
                  COUNT(*) as prompt_count,
                  SUM(CASE WHEN brand_mentions > 0 THEN 1 ELSE 0 END) as mentions_count
           FROM prompt_analyses
-          WHERE prompt_id IN (SELECT id FROM prompts WHERE run_id = ?)
+          WHERE prompt_id IN (SELECT id FROM prompts WHERE analysis_run_id = ?)
           GROUP BY category_id
         `)
         .bind(runId)
@@ -321,7 +321,7 @@ export class WorkflowHandlers {
           FROM competitor_mentions
           WHERE prompt_analysis_id IN (
             SELECT id FROM prompt_analyses 
-            WHERE prompt_id IN (SELECT id FROM prompts WHERE run_id = ?)
+            WHERE prompt_id IN (SELECT id FROM prompts WHERE analysis_run_id = ?)
           )
           GROUP BY competitor_name
           ORDER BY mention_count DESC
@@ -333,7 +333,7 @@ export class WorkflowHandlers {
         .prepare(`
           SELECT DATE(created_at) as date, COUNT(*) as count
           FROM llm_responses
-          WHERE prompt_id IN (SELECT id FROM prompts WHERE run_id = ?)
+          WHERE prompt_id IN (SELECT id FROM prompts WHERE analysis_run_id = ?)
           GROUP BY DATE(created_at)
           ORDER BY date
         `)

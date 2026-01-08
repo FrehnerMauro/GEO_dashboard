@@ -314,7 +314,7 @@ export class AnalysisHandlers {
       
       // Get all prompts and responses for this run
       const prompts = await db.db
-        .prepare("SELECT * FROM prompts WHERE run_id = ?")
+        .prepare("SELECT * FROM prompts WHERE analysis_run_id = ?")
         .bind(runId)
         .all<any>();
 
@@ -324,7 +324,7 @@ export class AnalysisHandlers {
                  GROUP_CONCAT(c.url || '|' || COALESCE(c.title, '') || '|' || COALESCE(c.snippet, ''), '|||') as citations_data
           FROM llm_responses lr
           LEFT JOIN citations c ON c.llm_response_id = lr.id
-          WHERE lr.prompt_id IN (SELECT id FROM prompts WHERE run_id = ?)
+          WHERE lr.prompt_id IN (SELECT id FROM prompts WHERE analysis_run_id = ?)
           GROUP BY lr.id
         `)
         .bind(runId)
