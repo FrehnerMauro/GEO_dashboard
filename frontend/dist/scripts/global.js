@@ -77,7 +77,15 @@
       const analysisDetailSection = document.getElementById('analysisDetailSection');
       
       if (dashboardSection) dashboardSection.style.display = 'none';
-      if (aiAnalysisSection) aiAnalysisSection.style.display = 'flex'; // Use flex to match CSS
+      if (aiAnalysisSection) {
+        aiAnalysisSection.style.display = 'flex'; // Use flex to match CSS
+        // Make sure the configuration card is visible
+        const configurationCard = document.getElementById('configurationCard');
+        if (configurationCard) {
+          configurationCard.style.display = 'block';
+          configurationCard.classList.remove('hidden');
+        }
+      }
       if (aiReadabilitySection) aiReadabilitySection.style.display = 'none';
       if (analysesSection) analysesSection.style.display = 'none';
       if (analysisDetailSection) analysisDetailSection.style.display = 'none';
