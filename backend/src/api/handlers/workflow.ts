@@ -145,29 +145,64 @@ export class WorkflowHandlers {
     env: Env,
     corsHeaders: CorsHeaders
   ): Promise<Response> {
-    const body = await request.json() as {
-      runId: string;
-      categories: any[];
-      userInput?: UserInput;
-      questionsPerCategory?: number;
-      companyId?: string;
-      content?: string;
-    };
-    const { runId, categories, userInput, questionsPerCategory, companyId } = body;
+    try {
+      const body = await request.json() as {
+        runId: string;
+        categories: any[];
+        userInput?: UserInput;
+        questionsPerCategory?: number;
+        companyId?: string;
+        content?: string;
+      };
+      const { runId, categories, userInput, questionsPerCategory, companyId } = body;
 
-    const prompts = await this.workflowEngine.step4GeneratePrompts(
-      runId,
-      categories,
-      userInput || { websiteUrl: '', country: '', language: 'de' },
-      body.content || "",
-      env,
-      questionsPerCategory || 3,
-      companyId
-    );
+      if (!runId) {
+        return new Response(
+          JSON.stringify({ error: "runId is required" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
 
-    return new Response(JSON.stringify({ prompts }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+      if (!categories || categories.length === 0) {
+        return new Response(
+          JSON.stringify({ error: "categories are required" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      const prompts = await this.workflowEngine.step4GeneratePrompts(
+        runId,
+        categories,
+        userInput || { websiteUrl: '', country: '', language: 'de' },
+        body.content || "",
+        env,
+        questionsPerCategory || 3,
+        companyId
+      );
+
+      return new Response(JSON.stringify({ prompts }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } catch (error: any) {
+      console.error("Error in handleStep4:", error);
+      return new Response(
+        JSON.stringify({
+          error: "Failed to generate prompts",
+          message: error instanceof Error ? error.message : "Unknown error",
+          stack: error instanceof Error ? error.stack : undefined,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
   }
 
   async handleSavePrompts(

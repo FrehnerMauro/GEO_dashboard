@@ -543,18 +543,35 @@ Kein anderer Text, nur gültiges JSON.`;
         const categoryName = categoryData.categoryName;
         const questions = categoryData.questions || [];
         
-        // Find matching category
-        const category = categories.find(c => c.name === categoryName);
+        // Find matching category - try exact match first, then fuzzy match
+        let category = categories.find(c => c.name === categoryName);
+        
+        // If exact match fails, try case-insensitive or partial match
         if (!category) {
-          console.warn(`Category "${categoryName}" from GPT not found in original categories, skipping`);
-          continue;
+          category = categories.find(c => 
+            c.name.toLowerCase() === categoryName.toLowerCase() ||
+            categoryName.toLowerCase().includes(c.name.toLowerCase()) ||
+            c.name.toLowerCase().includes(categoryName.toLowerCase())
+          );
+        }
+        
+        if (!category) {
+          console.warn(`Category "${categoryName}" from GPT not found in original categories. Available: ${categories.map(c => c.name).join(', ')}`);
+          // Try to match by index if count matches
+          const index = categoriesData.indexOf(categoryData);
+          if (index < categories.length) {
+            category = categories[index];
+            console.log(`Using category by index: ${category.name}`);
+          } else {
+            continue;
+          }
         }
 
         for (let i = 0; i < questions.length && i < questionsPerCategory; i++) {
           const question = questions[i];
-          if (question && question.trim()) {
+          if (question && typeof question === 'string' && question.trim()) {
             allPrompts.push({
-              id: `prompt_${runId}_${category.id}_${i}_${Date.now()}`,
+              id: `prompt_${runId}_${category.id}_${i}_${Date.now()}_${Math.random().toString(36).substring(7)}`,
               categoryId: category.id,
               question: question.trim(),
               language: userInput.language,
