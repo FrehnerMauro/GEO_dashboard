@@ -103,6 +103,14 @@ export class Router {
         return await this.workflowHandlers.handleExecutePrompt(request, this.env, corsHeaders);
       case "generateSummary":
         return await this.workflowHandlers.handleGenerateSummary(request, this.env, corsHeaders);
+      case "aiReadiness":
+        return await this.workflowHandlers.handleAIReadiness(request, this.env, corsHeaders);
+      case "getAIReadinessStatus":
+        return await this.workflowHandlers.handleGetAIReadinessStatus(
+          params.param0 || "",
+          this.env,
+          corsHeaders
+        );
       default:
         return handleNotFound(corsHeaders);
     }

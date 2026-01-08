@@ -2,7 +2,7 @@
  * Workflow API Handlers
  */
 
-import type { UserInput } from "../../../shared/types.js";
+import type { UserInput, Prompt } from "../../../shared/types.js";
 import type { Env, CorsHeaders } from "../types.js";
 import { WorkflowEngine } from "../../../shared/engine_workflow.js";
 import { LLMExecutor } from "../../../shared/llm_execution/index.js";
@@ -10,6 +10,7 @@ import { getConfig } from "../../../shared/config.js";
 import { Database } from "../../../shared/persistence/index.js";
 import { AnalysisEngine } from "../../../shared/analysis/index.js";
 import { extractBrandName } from "../utils.js";
+import { fetchSitemap, parseSitemap, extractLinksFromHtml, extractTextContent } from "../utils/sitemap.js";
 
 export class WorkflowHandlers {
   constructor(private workflowEngine: WorkflowEngine) {}
@@ -715,5 +716,344 @@ export class WorkflowHandlers {
         }
       );
     }
+  }
+
+  async handleAIReadiness(
+    request: Request,
+    env: Env,
+    corsHeaders: CorsHeaders
+  ): Promise<Response> {
+    try {
+      const body = await request.json() as { url: string };
+      const baseUrl = body.url?.trim();
+      
+      if (!baseUrl) {
+        return new Response(
+          JSON.stringify({ error: "URL is required" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+
+      // Normalize URL
+      let normalizedUrl = baseUrl;
+      if (!normalizedUrl.match(/^https?:\/\//i)) {
+        normalizedUrl = 'https://' + normalizedUrl;
+      }
+
+      const protocol: {
+        timestamp: string;
+        baseUrl: string;
+        sitemap: {
+          found: boolean;
+          content?: string;
+          urls: string[];
+        };
+        pages: Array<{
+          url: string;
+          fetchTime: number;
+          content: string;
+          success: boolean;
+          error?: string;
+        }>;
+        analysis?: {
+          summary: string;
+          recommendations: string[];
+          score?: number;
+        };
+      } = {
+        timestamp: new Date().toISOString(),
+        baseUrl: normalizedUrl,
+        sitemap: {
+          found: false,
+          urls: [],
+        },
+        pages: [],
+      };
+
+      // Step 1: Try to fetch sitemap
+      const sitemapResult = await fetchSitemap(normalizedUrl);
+      protocol.sitemap = {
+        found: sitemapResult.found,
+        content: sitemapResult.content,
+        urls: sitemapResult.urls,
+      };
+
+      let urlsToFetch: string[] = [];
+
+      if (sitemapResult.found && sitemapResult.urls.length > 0) {
+        // If sitemap index, fetch individual sitemaps
+        if (sitemapResult.urls.some(url => url.includes('sitemap'))) {
+          const allUrls: string[] = [];
+          for (const sitemapUrl of sitemapResult.urls.slice(0, 10)) { // Limit to 10 sitemaps
+            try {
+              const response = await fetch(sitemapUrl, {
+                headers: { "User-Agent": "GEO-Platform/1.0" },
+                signal: AbortSignal.timeout(10000),
+              });
+              if (response.ok) {
+                const content = await response.text();
+                const parsedUrls = parseSitemap(content);
+                allUrls.push(...parsedUrls);
+              }
+            } catch (error) {
+              // Skip failed sitemaps
+              continue;
+            }
+          }
+          urlsToFetch = allUrls;
+        } else {
+          urlsToFetch = sitemapResult.urls;
+        }
+      } else {
+        // No sitemap found - extract links from landing page
+        try {
+          const response = await fetch(normalizedUrl, {
+            headers: { "User-Agent": "GEO-Platform/1.0" },
+            signal: AbortSignal.timeout(10000),
+          });
+          if (response.ok) {
+            const html = await response.text();
+            const links = extractLinksFromHtml(html, normalizedUrl);
+            urlsToFetch = links.slice(0, 50); // Limit to 50 pages
+          }
+        } catch (error) {
+          // Continue with just the base URL
+        }
+      }
+
+      // Always include the base URL
+      if (!urlsToFetch.includes(normalizedUrl)) {
+        urlsToFetch.unshift(normalizedUrl);
+      }
+
+      // Limit total pages to fetch
+      urlsToFetch = urlsToFetch.slice(0, 50);
+
+      // Step 2: Fetch all pages with timing
+      for (const url of urlsToFetch) {
+        const startTime = Date.now();
+        try {
+          const response = await fetch(url, {
+            headers: { "User-Agent": "GEO-Platform/1.0" },
+            signal: AbortSignal.timeout(15000),
+          });
+
+          const fetchTime = Date.now() - startTime;
+
+          if (response.ok) {
+            const html = await response.text();
+            const textContent = extractTextContent(html);
+            
+            protocol.pages.push({
+              url,
+              fetchTime,
+              content: textContent,
+              success: true,
+            });
+          } else {
+            protocol.pages.push({
+              url,
+              fetchTime,
+              content: "",
+              success: false,
+              error: `HTTP ${response.status}: ${response.statusText}`,
+            });
+          }
+        } catch (error) {
+          const fetchTime = Date.now() - startTime;
+          protocol.pages.push({
+            url,
+            fetchTime,
+            content: "",
+            success: false,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+        }
+      }
+
+      // Step 3: Generate initial protocol text (without GPT analysis)
+      let protocolText = this.formatProtocol(protocol);
+
+      // Step 4: Send to GPT API for analysis
+      const config = getConfig(env);
+      if (config.openai.apiKey) {
+        try {
+          const llmExecutor = new LLMExecutor(config);
+          const analysisPromptText = `Analysiere das folgende Protokoll einer Website-Analyse für AI Readiness und gib ein strukturiertes Fazit mit Empfehlungen:
+
+${protocolText}
+
+Bitte gib eine strukturierte Analyse zurück mit:
+1. Zusammenfassung (Summary)
+2. Bewertung der AI Readiness (Score 0-100)
+3. Konkrete Empfehlungen (als Liste)
+4. Identifizierte Probleme
+5. Stärken der Website
+
+Format: JSON mit den Feldern: summary, score, recommendations (Array), issues (Array), strengths (Array)`;
+
+          // Use the LLM executor to get analysis
+          const prompt: Prompt = {
+            id: 'ai-readiness-analysis',
+            categoryId: 'ai-readiness',
+            question: analysisPromptText,
+            language: 'de',
+            intent: 'high',
+          };
+          const analysisResult = await llmExecutor.executePrompt(prompt);
+          
+          try {
+            // Try to parse JSON from the response
+            const jsonMatch = analysisResult.outputText.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              protocol.analysis = JSON.parse(jsonMatch[0]);
+            } else {
+              // Fallback: create structured response from text
+              protocol.analysis = {
+                summary: analysisResult.outputText,
+                recommendations: analysisResult.outputText.split('\n').filter(line => line.trim().startsWith('-') || line.trim().startsWith('•')),
+              };
+            }
+          } catch (parseError) {
+            protocol.analysis = {
+              summary: analysisResult.outputText,
+              recommendations: [],
+            };
+          }
+          
+          // Regenerate protocol text with GPT analysis included
+          protocolText = this.formatProtocol(protocol);
+        } catch (error) {
+          console.error("Error calling GPT API:", error);
+          // Continue without analysis - protocolText already generated
+        }
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          protocol,
+          protocolText,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    } catch (error) {
+      console.error("Error in handleAIReadiness:", error);
+      return new Response(
+        JSON.stringify({
+          error: "Failed to analyze AI readiness",
+          message: error instanceof Error ? error.message : "Unknown error",
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+  }
+
+  private formatProtocol(protocol: any): string {
+    let text = `═══════════════════════════════════════════════════════════
+AI READINESS ANALYSE PROTOKOLL
+═══════════════════════════════════════════════════════════
+
+Zeitpunkt: ${protocol.timestamp}
+Website: ${protocol.baseUrl}
+
+───────────────────────────────────────────────────────────
+SITEMAP ANALYSE
+───────────────────────────────────────────────────────────
+`;
+
+    if (protocol.sitemap.found) {
+      text += `✓ Sitemap gefunden\n`;
+      text += `Anzahl URLs in Sitemap: ${protocol.sitemap.urls.length}\n`;
+      if (protocol.sitemap.content) {
+        text += `\nSitemap Inhalt (erste 1000 Zeichen):\n${protocol.sitemap.content.substring(0, 1000)}\n`;
+      }
+    } else {
+      text += `✗ Keine Sitemap gefunden\n`;
+      text += `Links wurden von der Landing Page extrahiert\n`;
+    }
+
+    text += `\n───────────────────────────────────────────────────────────
+SEITEN ANALYSE
+───────────────────────────────────────────────────────────
+Anzahl Seiten: ${protocol.pages.length}
+Erfolgreich: ${protocol.pages.filter((p: any) => p.success).length}
+Fehlgeschlagen: ${protocol.pages.filter((p: any) => !p.success).length}
+
+Durchschnittliche Ladezeit: ${Math.round(
+      protocol.pages.reduce((sum: number, p: any) => sum + p.fetchTime, 0) / protocol.pages.length
+    )}ms
+
+`;
+
+    protocol.pages.forEach((page: any, index: number) => {
+      text += `\n[${index + 1}] ${page.url}\n`;
+      text += `   Status: ${page.success ? '✓ Erfolgreich' : '✗ Fehler'}\n`;
+      text += `   Ladezeit: ${page.fetchTime}ms\n`;
+      if (page.error) {
+        text += `   Fehler: ${page.error}\n`;
+      }
+      text += `   Inhalt (erste 500 Zeichen):\n   ${page.content.substring(0, 500).replace(/\n/g, ' ')}...\n`;
+    });
+
+    if (protocol.analysis) {
+      text += `\n───────────────────────────────────────────────────────────
+GPT ANALYSE
+───────────────────────────────────────────────────────────
+`;
+      if (protocol.analysis.summary) {
+        text += `Zusammenfassung:\n${protocol.analysis.summary}\n\n`;
+      }
+      if (protocol.analysis.score !== undefined) {
+        text += `AI Readiness Score: ${protocol.analysis.score}/100\n\n`;
+      }
+      if (protocol.analysis.recommendations && protocol.analysis.recommendations.length > 0) {
+        text += `Empfehlungen:\n`;
+        protocol.analysis.recommendations.forEach((rec: string) => {
+          text += `  • ${rec}\n`;
+        });
+        text += `\n`;
+      }
+      if (protocol.analysis.issues && protocol.analysis.issues.length > 0) {
+        text += `Probleme:\n`;
+        protocol.analysis.issues.forEach((issue: string) => {
+          text += `  ⚠ ${issue}\n`;
+        });
+        text += `\n`;
+      }
+      if (protocol.analysis.strengths && protocol.analysis.strengths.length > 0) {
+        text += `Stärken:\n`;
+        protocol.analysis.strengths.forEach((strength: string) => {
+          text += `  ✓ ${strength}\n`;
+        });
+      }
+    }
+
+    text += `\n═══════════════════════════════════════════════════════════\n`;
+
+    return text;
+  }
+
+  async handleGetAIReadinessStatus(
+    runId: string,
+    env: Env,
+    corsHeaders: CorsHeaders
+  ): Promise<Response> {
+    // For now, return a simple status
+    // This can be extended to store status in database if needed
+    return new Response(
+      JSON.stringify({ status: "completed", message: "AI Readiness analysis completed" }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
 }

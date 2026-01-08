@@ -3008,14 +3008,21 @@
         });
     }
     
-    // AI Readability functionality
+    // AI Readiness functionality
     const fetchContentBtn = document.getElementById('fetchContentBtn');
     if (fetchContentBtn) {
       fetchContentBtn.addEventListener('click', async function(e) {
         e.preventDefault();
         const urlInput = document.getElementById('readabilityUrl');
-        const contentDisplay = document.getElementById('readabilityContentDisplay');
+        const progressSection = document.getElementById('readabilityProgress');
+        const progressStatus = document.getElementById('progressStatus');
+        const progressBar = document.getElementById('progressBar');
+        const progressDetails = document.getElementById('progressDetails');
         const contentSection = document.getElementById('readabilityContent');
+        const protocolDisplay = document.getElementById('readabilityProtocolDisplay');
+        const gptAnalysisSection = document.getElementById('gptAnalysisSection');
+        const gptAnalysisDisplay = document.getElementById('gptAnalysisDisplay');
+        const pagesSummaryDisplay = document.getElementById('pagesSummaryDisplay');
         
         if (!urlInput || !urlInput.value.trim()) {
           alert('Bitte geben Sie eine URL ein.');
@@ -3036,55 +3043,142 @@
           return;
         }
         
+        // Reset UI
+        if (progressSection) progressSection.style.display = 'block';
+        if (contentSection) contentSection.style.display = 'none';
+        if (gptAnalysisSection) gptAnalysisSection.style.display = 'none';
+        if (progressStatus) progressStatus.textContent = 'Initialisiere Analyse...';
+        if (progressBar) progressBar.style.width = '0%';
+        if (progressDetails) progressDetails.textContent = '';
+        
         // Update button state
         fetchContentBtn.disabled = true;
-        fetchContentBtn.textContent = 'Lädt...';
+        fetchContentBtn.textContent = 'Analysiere...';
         
         try {
-          // Use backend API to fetch content (avoids CORS issues)
-          const response = await (window.apiFetch 
-            ? window.apiFetch('/api/workflow/fetchUrl', {
-                method: 'POST',
-                body: JSON.stringify({ url })
-              })
-            : fetch(window.getApiUrl ? window.getApiUrl('/api/workflow/fetchUrl') : '/api/workflow/fetchUrl', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url })
-              }));
+          // Show initial progress
+          if (progressStatus) progressStatus.textContent = 'Sitemap wird gesucht...';
+          if (progressBar) progressBar.style.width = '10%';
+          if (progressDetails) progressDetails.textContent = 'Suche nach Sitemap...\n';
+          
+          // Use backend API for AI Readiness analysis
+          const apiUrl = window.getApiUrl ? window.getApiUrl('/api/workflow/aiReadiness') : '/api/workflow/aiReadiness';
+          const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+          });
           
           if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
           }
+          
+          // Update progress
+          if (progressStatus) progressStatus.textContent = 'Analysiere Website...';
+          if (progressBar) progressBar.style.width = '30%';
+          if (progressDetails) progressDetails.textContent += 'Sitemap gefunden, analysiere Seiten...\n';
           
           const data = await response.json();
           
-          // The API returns text content
-          const textContent = data.text || data.content || 'Kein Textinhalt gefunden.';
-          
-          if (contentDisplay) {
-            // Display the content with proper formatting
-            contentDisplay.textContent = textContent;
+          if (!data.success) {
+            throw new Error(data.error || 'Analyse fehlgeschlagen');
           }
           
+          // Update progress to completion
+          if (progressStatus) progressStatus.textContent = 'Analyse abgeschlossen!';
+          if (progressBar) progressBar.style.width = '100%';
+          if (progressDetails) progressDetails.textContent += `\n✓ ${data.protocol.pages.length} Seiten analysiert\n`;
+          if (progressDetails) progressDetails.textContent += `✓ Durchschnittliche Ladezeit: ${Math.round(data.protocol.pages.reduce((sum, p) => sum + p.fetchTime, 0) / data.protocol.pages.length)}ms\n`;
+          
+          // Display protocol
+          if (protocolDisplay && data.protocolText) {
+            protocolDisplay.textContent = data.protocolText;
+          }
+          
+          // Display GPT analysis if available
+          if (data.protocol.analysis) {
+            if (gptAnalysisSection) gptAnalysisSection.style.display = 'block';
+            if (gptAnalysisDisplay) {
+              let html = '';
+              if (data.protocol.analysis.summary) {
+                html += `<div style="margin-bottom: 16px;"><strong>Zusammenfassung:</strong><p style="margin-top: 8px; line-height: 1.6;">${data.protocol.analysis.summary}</p></div>`;
+              }
+              if (data.protocol.analysis.score !== undefined) {
+                html += `<div style="margin-bottom: 16px;"><strong>AI Readiness Score:</strong> <span style="font-size: 24px; font-weight: bold; color: ${data.protocol.analysis.score >= 70 ? '#4CAF50' : data.protocol.analysis.score >= 50 ? '#FF9800' : '#F44336'}">${data.protocol.analysis.score}/100</span></div>`;
+              }
+              if (data.protocol.analysis.recommendations && data.protocol.analysis.recommendations.length > 0) {
+                html += `<div style="margin-bottom: 16px;"><strong>Empfehlungen:</strong><ul style="margin-top: 8px; padding-left: 20px;">`;
+                data.protocol.analysis.recommendations.forEach(rec => {
+                  html += `<li style="margin-bottom: 4px; line-height: 1.6;">${rec}</li>`;
+                });
+                html += `</ul></div>`;
+              }
+              if (data.protocol.analysis.issues && data.protocol.analysis.issues.length > 0) {
+                html += `<div style="margin-bottom: 16px;"><strong style="color: #F44336;">Probleme:</strong><ul style="margin-top: 8px; padding-left: 20px; color: #F44336;">`;
+                data.protocol.analysis.issues.forEach(issue => {
+                  html += `<li style="margin-bottom: 4px; line-height: 1.6;">${issue}</li>`;
+                });
+                html += `</ul></div>`;
+              }
+              if (data.protocol.analysis.strengths && data.protocol.analysis.strengths.length > 0) {
+                html += `<div><strong style="color: #4CAF50;">Stärken:</strong><ul style="margin-top: 8px; padding-left: 20px; color: #4CAF50;">`;
+                data.protocol.analysis.strengths.forEach(strength => {
+                  html += `<li style="margin-bottom: 4px; line-height: 1.6;">${strength}</li>`;
+                });
+                html += `</ul></div>`;
+              }
+              gptAnalysisDisplay.innerHTML = html;
+            }
+          }
+          
+          // Display pages summary
+          if (pagesSummaryDisplay && data.protocol.pages) {
+            const successful = data.protocol.pages.filter(p => p.success).length;
+            const failed = data.protocol.pages.filter(p => !p.success).length;
+            const avgTime = Math.round(data.protocol.pages.reduce((sum, p) => sum + p.fetchTime, 0) / data.protocol.pages.length);
+            
+            let html = `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">`;
+            html += `<div style="padding: 16px; background: var(--bg-secondary); border-radius: 8px;"><strong>Gesamt Seiten</strong><div style="font-size: 24px; font-weight: bold; margin-top: 8px;">${data.protocol.pages.length}</div></div>`;
+            html += `<div style="padding: 16px; background: var(--bg-secondary); border-radius: 8px;"><strong>Erfolgreich</strong><div style="font-size: 24px; font-weight: bold; margin-top: 8px; color: #4CAF50;">${successful}</div></div>`;
+            html += `<div style="padding: 16px; background: var(--bg-secondary); border-radius: 8px;"><strong>Fehlgeschlagen</strong><div style="font-size: 24px; font-weight: bold; margin-top: 8px; color: ${failed > 0 ? '#F44336' : '#4CAF50'}">${failed}</div></div>`;
+            html += `<div style="padding: 16px; background: var(--bg-secondary); border-radius: 8px;"><strong>Ø Ladezeit</strong><div style="font-size: 24px; font-weight: bold; margin-top: 8px;">${avgTime}ms</div></div>`;
+            html += `</div>`;
+            
+            html += `<div style="max-height: 400px; overflow-y: auto;"><table style="width: 100%; border-collapse: collapse;">`;
+            html += `<thead><tr style="background: var(--bg-secondary);"><th style="padding: 12px; text-align: left; border-bottom: 2px solid var(--border-color);">URL</th><th style="padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color);">Status</th><th style="padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color);">Zeit</th></tr></thead><tbody>`;
+            data.protocol.pages.forEach((page, index) => {
+              html += `<tr style="border-bottom: 1px solid var(--border-color);">`;
+              html += `<td style="padding: 12px; font-size: 13px; word-break: break-all;">${page.url}</td>`;
+              html += `<td style="padding: 12px; text-align: center;"><span style="color: ${page.success ? '#4CAF50' : '#F44336'}; font-weight: bold;">${page.success ? '✓' : '✗'}</span></td>`;
+              html += `<td style="padding: 12px; text-align: center;">${page.fetchTime}ms</td>`;
+              html += `</tr>`;
+            });
+            html += `</tbody></table></div>`;
+            
+            pagesSummaryDisplay.innerHTML = html;
+          }
+          
+          // Show content section
           if (contentSection) {
             contentSection.style.display = 'block';
           }
+          
+          // Hide progress after a short delay
+          setTimeout(() => {
+            if (progressSection) progressSection.style.display = 'none';
+          }, 2000);
           
         } catch (error) {
-          console.error('Error fetching content:', error);
-          alert('Fehler beim Laden der Seite: ' + (error.message || 'Unbekannter Fehler'));
+          console.error('Error in AI Readiness analysis:', error);
+          alert('Fehler bei der Analyse: ' + (error.message || 'Unbekannter Fehler'));
           
-          // Try to show error in content display
-          if (contentDisplay) {
-            contentDisplay.textContent = 'Fehler beim Laden: ' + (error.message || 'Unbekannter Fehler');
-          }
-          if (contentSection) {
-            contentSection.style.display = 'block';
-          }
+          if (progressStatus) progressStatus.textContent = 'Fehler aufgetreten';
+          if (progressBar) progressBar.style.width = '0%';
+          if (progressDetails) progressDetails.textContent += `\n✗ Fehler: ${error.message}\n`;
         } finally {
           fetchContentBtn.disabled = false;
-          fetchContentBtn.textContent = 'Inhalt holen';
+          fetchContentBtn.textContent = 'AI Readiness Analyse starten';
         }
       });
     }
