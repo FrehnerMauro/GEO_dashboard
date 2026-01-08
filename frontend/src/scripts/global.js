@@ -77,7 +77,7 @@
       const analysisDetailSection = document.getElementById('analysisDetailSection');
       
       if (dashboardSection) dashboardSection.style.display = 'none';
-      if (aiAnalysisSection) aiAnalysisSection.style.display = 'block';
+      if (aiAnalysisSection) aiAnalysisSection.style.display = 'flex'; // Use flex to match CSS
       if (aiReadabilitySection) aiReadabilitySection.style.display = 'none';
       if (analysesSection) analysesSection.style.display = 'none';
       if (analysisDetailSection) analysisDetailSection.style.display = 'none';
@@ -110,7 +110,7 @@
       
       if (dashboardSection) dashboardSection.style.display = 'none';
       if (aiAnalysisSection) aiAnalysisSection.style.display = 'none';
-      if (aiReadabilitySection) aiReadabilitySection.style.display = 'block';
+      if (aiReadabilitySection) aiReadabilitySection.style.display = 'flex'; // Use flex to match CSS
       if (analysesSection) analysesSection.style.display = 'none';
       if (analysisDetailSection) analysisDetailSection.style.display = 'none';
       
