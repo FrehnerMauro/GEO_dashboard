@@ -2017,6 +2017,7 @@
         this.viewMode = 'local';
         this.selectedCompanyId = null;
         this.selectedCategory = null;
+        this.selectedAnalysisId = null;
       }
       
       async render() {
@@ -2069,18 +2070,31 @@
               this.viewMode = mode;
               this.selectedCompanyId = null;
               this.selectedCategory = null;
+              this.selectedAnalysisId = null;
               this.render();
             }
           });
         });
         
         // Company cards (local view)
-        if (this.viewMode === 'local' && !this.selectedCompanyId) {
+        if (this.viewMode === 'local' && !this.selectedCompanyId && !this.selectedAnalysisId) {
           const companyCards = this.dashboardSection.querySelectorAll('.company-card');
           companyCards.forEach(card => {
             card.addEventListener('click', () => {
               this.selectedCompanyId = card.dataset.companyId;
+              this.selectedAnalysisId = null;
               this.render();
+            });
+          });
+        }
+        
+        // Analysis cards (local view - when company is selected)
+        if (this.viewMode === 'local' && this.selectedCompanyId && !this.selectedAnalysisId) {
+          const analysisCards = this.dashboardSection.querySelectorAll('.analysis-card');
+          analysisCards.forEach(card => {
+            card.addEventListener('click', async () => {
+              this.selectedAnalysisId = card.dataset.runId;
+              await this.render();
             });
           });
         }
@@ -2101,7 +2115,11 @@
         if (backBtn) {
           backBtn.addEventListener('click', () => {
             if (this.viewMode === 'local') {
-              this.selectedCompanyId = null;
+              if (this.selectedAnalysisId) {
+                this.selectedAnalysisId = null;
+              } else {
+                this.selectedCompanyId = null;
+              }
             } else {
               this.selectedCategory = null;
             }
@@ -2111,7 +2129,23 @@
       }
       
       async renderLocalView() {
-        if (this.selectedCompanyId) {
+        if (this.selectedAnalysisId) {
+          // Show analysis results/summary
+          try {
+            const response = await fetch(window.getApiUrl('/api/analysis/' + this.selectedAnalysisId));
+            const analysisResult = await response.json();
+            
+            return await this.renderAnalysisSummary(analysisResult);
+          } catch (error) {
+            console.error('Error loading analysis:', error);
+            return `
+              <div class="error-state">
+                <p>Fehler beim Laden der Analyse: ${error.message}</p>
+                <button class="back-btn" onclick="window.dashboardPage.selectedAnalysisId = null; window.dashboardPage.render();">← Zurück</button>
+              </div>
+            `;
+          }
+        } else if (this.selectedCompanyId) {
           // Show analyses for selected company
           const response = await fetch(window.getApiUrl('/api/companies/' + this.selectedCompanyId + '/analyses'));
           const analyses = await response.json();
@@ -2262,6 +2296,118 @@
             </div>
           `;
         }
+      }
+      
+      async renderAnalysisSummary(analysisResult) {
+        const competitive = analysisResult.competitiveAnalysis || {};
+        const categoryMetrics = analysisResult.categoryMetrics || [];
+        const analyses = analysisResult.analyses || [];
+        
+        // Calculate summary statistics
+        const totalMentions = analyses.reduce((sum, a) => sum + (a.brandMentions?.exact || 0) + (a.brandMentions?.fuzzy || 0), 0);
+        const totalCitations = analyses.reduce((sum, a) => sum + (a.citationCount || 0), 0);
+        const avgVisibility = categoryMetrics.length > 0 
+          ? categoryMetrics.reduce((sum, m) => sum + (m.visibilityScore || 0), 0) / categoryMetrics.length 
+          : 0;
+        
+        // Get top competitors
+        const competitors = Object.entries(competitive.competitorShares || {})
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5);
+        
+        return `
+          <div class="local-view">
+            <button class="back-btn">← Zurück</button>
+            <h3>Analyse-Ergebnisse</h3>
+            
+            <div class="analysis-summary">
+              <!-- Key Metrics -->
+              <div class="summary-section">
+                <h4>Zusammenfassung</h4>
+                <div class="metrics-grid">
+                  <div class="metric-card">
+                    <div class="metric-value">${Math.round(avgVisibility)}%</div>
+                    <div class="metric-label">Sichtbarkeits-Score</div>
+                  </div>
+                  <div class="metric-card">
+                    <div class="metric-value">${totalMentions}</div>
+                    <div class="metric-label">Marken-Erwähnungen</div>
+                  </div>
+                  <div class="metric-card">
+                    <div class="metric-value">${totalCitations}</div>
+                    <div class="metric-label">Zitate</div>
+                  </div>
+                  <div class="metric-card">
+                    <div class="metric-value">${Math.round(competitive.brandShare || 0)}%</div>
+                    <div class="metric-label">Marktanteil</div>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Category Performance -->
+              ${categoryMetrics.length > 0 ? `
+                <div class="summary-section">
+                  <h4>Kategorie-Performance</h4>
+                  <div class="category-metrics">
+                    ${categoryMetrics.map(metric => {
+                      const category = analysisResult.categories?.find(c => c.id === metric.categoryId);
+                      return `
+                        <div class="category-metric-item">
+                          <div class="category-name">${category?.name || 'Unbekannt'}</div>
+                          <div class="category-score">
+                            <div class="score-bar">
+                              <div class="score-fill" style="width: ${metric.visibilityScore}%"></div>
+                            </div>
+                            <span class="score-value">${Math.round(metric.visibilityScore)}%</span>
+                          </div>
+                        </div>
+                      `;
+                    }).join('')}
+                  </div>
+                </div>
+              ` : ''}
+              
+              <!-- Competitive Analysis -->
+              ${competitors.length > 0 ? `
+                <div class="summary-section">
+                  <h4>Wettbewerber</h4>
+                  <div class="competitors-list">
+                    ${competitors.map(([name, share]) => `
+                      <div class="competitor-item">
+                        <span class="competitor-name">${name}</span>
+                        <span class="competitor-share">${Math.round(share)}%</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : ''}
+              
+              <!-- White Space Topics -->
+              ${competitive.whiteSpaceTopics && competitive.whiteSpaceTopics.length > 0 ? `
+                <div class="summary-section">
+                  <h4>White Space Themen</h4>
+                  <div class="topics-list">
+                    ${competitive.whiteSpaceTopics.map(topic => `
+                      <div class="topic-item">${topic}</div>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : ''}
+              
+              <!-- Missing Brand Prompts -->
+              ${competitive.missingBrandPrompts && competitive.missingBrandPrompts.length > 0 ? `
+                <div class="summary-section">
+                  <h4>Fehlende Marken-Erwähnungen</h4>
+                  <div class="prompts-list">
+                    ${competitive.missingBrandPrompts.slice(0, 5).map(prompt => `
+                      <div class="prompt-item">${prompt}</div>
+                    `).join('')}
+                  </div>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        `;
       }
       
       show() {
