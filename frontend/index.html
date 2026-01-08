@@ -334,65 +334,77 @@
 
       <!-- AI Readability Section (hidden by default) -->
       <div id="aiReadabilitySection" class="dashboard-section" style="display: none;">
-        <div class="card">
-          <div class="card-body">
-            <form id="readabilityForm">
-              <div class="form-group">
-                <label for="readabilityUrl">Website URL</label>
-                <input type="url" id="readabilityUrl" name="readabilityUrl" 
-                       placeholder="https://example.com" required>
-              </div>
-              <button type="button" id="fetchContentBtn" class="btn btn-primary btn-block">
-                Start AI Readiness Analysis
-              </button>
-            </form>
-            
-            <!-- Progress Section -->
-            <div id="readabilityProgress" style="display: none; margin-top: 24px;">
-              <div class="card">
-                <div class="card-header">
-                  <h3>Progress</h3>
-                </div>
-                <div class="card-body">
-                  <div id="progressStatus" style="margin-bottom: 16px; font-weight: 500;"></div>
-                  <div class="progress" style="height: 24px; margin-bottom: 16px; border-radius: 8px; overflow: hidden; background: var(--bg-secondary);">
-                    <div id="progressBar" style="height: 100%; background: linear-gradient(90deg, #4CAF50, #45a049); width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: 500; font-size: 12px;"></div>
+        <div class="content-area">
+          <!-- Configuration Section -->
+          <div class="card" id="readabilityConfigurationCard">
+            <div class="card-header">
+              <h3>AI Readiness Configuration</h3>
+            </div>
+            <div class="card-body">
+              <form id="readabilityForm">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label for="readabilityUrl">Website URL *</label>
+                    <input type="url" id="readabilityUrl" name="readabilityUrl" 
+                           placeholder="https://example.com" required>
                   </div>
-                  <div id="stepsContainer" style="display: flex; flex-direction: column; gap: 12px; max-height: 400px; overflow-y: auto;"></div>
                 </div>
+                <button type="button" id="fetchContentBtn" class="btn btn-primary btn-block">
+                  Start AI Readiness Analysis
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Progress Section (shown during analysis) -->
+          <div class="analysis-progress" id="readabilityProgress" style="display: none;">
+            <div class="progress-header">
+              <div class="current-step-indicator">
+                <div class="step-number" id="readabilityStepNumber">1</div>
+                <div class="step-content">
+                  <div class="step-title" id="readabilityStepTitle">Preparing Analysis</div>
+                  <div class="step-description" id="readabilityStepDescription">Initializing...</div>
+                </div>
+              </div>
+              <div class="progress-percentage" id="readabilityProgressPercentage">0%</div>
+            </div>
+            <div class="progress-bar-container">
+              <div class="progress-bar-track">
+                <div class="progress-bar-fill" id="readabilityProgressFill"></div>
               </div>
             </div>
+            <div id="readabilityStepsContainer" style="display: flex; flex-direction: column; gap: 12px; margin-top: 24px; max-height: 400px; overflow-y: auto;"></div>
+          </div>
             
-            <!-- Results Section -->
-            <div id="readabilityContent" style="display: none; margin-top: 24px;">
-              <!-- Protocol Display -->
-              <div class="card" style="margin-bottom: 24px;">
-                <div class="card-header">
-                  <h3>Protocol</h3>
-                </div>
-                <div class="card-body">
-                  <div id="readabilityProtocolDisplay" style="max-height: 400px; overflow-y: auto; padding: 16px; background: var(--bg-secondary); border-radius: 8px; font-family: monospace; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word;"></div>
-                </div>
+          <!-- Results Section -->
+          <div id="readabilityContent" style="display: none; margin-top: 24px;">
+            <!-- Protocol Display -->
+            <div class="card" style="margin-bottom: 24px;">
+              <div class="card-header">
+                <h3>Protocol</h3>
               </div>
-              
-              <!-- GPT Analysis -->
-              <div id="gptAnalysisSection" class="card" style="display: none;">
-                <div class="card-header">
-                  <h3>GPT Analysis & Recommendations</h3>
-                </div>
-                <div class="card-body">
-                  <div id="gptAnalysisDisplay"></div>
-                </div>
+              <div class="card-body">
+                <div id="readabilityProtocolDisplay" style="max-height: 400px; overflow-y: auto; padding: 16px; background: var(--bg-secondary); border-radius: 8px; font-family: monospace; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word;"></div>
               </div>
+            </div>
               
-              <!-- Pages Summary -->
-              <div class="card" style="margin-top: 24px;">
-                <div class="card-header">
-                  <h3>Pages Overview</h3>
-                </div>
-                <div class="card-body">
-                  <div id="pagesSummaryDisplay"></div>
-                </div>
+            <!-- GPT Analysis -->
+            <div id="gptAnalysisSection" class="card" style="display: none;">
+              <div class="card-header">
+                <h3>GPT Analysis & Recommendations</h3>
+              </div>
+              <div class="card-body">
+                <div id="gptAnalysisDisplay"></div>
+              </div>
+            </div>
+              
+            <!-- Pages Summary -->
+            <div class="card" style="margin-top: 24px;">
+              <div class="card-header">
+                <h3>Pages Overview</h3>
+              </div>
+              <div class="card-body">
+                <div id="pagesSummaryDisplay"></div>
               </div>
             </div>
           </div>
@@ -440,9 +452,7 @@
   </div>
 
   <!-- Main JavaScript (loads after DOM) -->
-  <!-- New modular architecture -->
-  <!-- TODO: Uncomment when TypeScript files are compiled to JavaScript -->
-  <!--
+  <!-- TypeScript modular architecture -->
   <script type="module">
     import { App } from './scripts/app.js';
     if (document.readyState === 'loading') {
@@ -455,9 +465,6 @@
       app.init();
     }
   </script>
-  -->
-  <!-- Legacy support - using main.js until TypeScript files are compiled -->
-  <script src="/scripts/main.js" defer></script>
 </body>
 </html>
 

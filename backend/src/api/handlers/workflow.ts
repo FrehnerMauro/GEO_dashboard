@@ -49,8 +49,8 @@ export class WorkflowHandlers {
         urls: result.urls,
         foundSitemap: result.foundSitemap,
         message: result.foundSitemap 
-          ? `Sitemap gefunden: ${result.urls.length} URLs` 
-          : `Keine Sitemap gefunden. ${result.urls.length} URLs von Startseite extrahiert`
+          ? `Sitemap found: ${result.urls.length} URLs`
+          : `No sitemap found. ${result.urls.length} URLs extracted from homepage`
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -928,25 +928,25 @@ export class WorkflowHandlers {
       if (config.openai.apiKey) {
         try {
           const llmExecutor = new LLMExecutor(config);
-          const analysisPromptText = `Analysiere das folgende Protokoll einer Website-Analyse. Fokus: Wie gut kann eine KI den Inhalt lesen und verstehen? Was fehlt noch?
+          const analysisPromptText = `Analyze the following website analysis protocol. Focus: How well can an AI read and understand the content? What is missing?
 
 ${protocolText}
 
-Bitte gib eine strukturierte Analyse zurück mit:
-1. Zusammenfassung (Summary) - Wie gut kann eine KI den Inhalt lesen?
-2. Bewertung der AI Readiness (Score 0-100) - Wie gut ist die Website für KI-Lesbarkeit optimiert?
-3. Konkrete Empfehlungen (als Liste) - Was fehlt noch für bessere KI-Lesbarkeit?
-4. Identifizierte Probleme - Was verhindert, dass KI den Inhalt gut lesen kann?
-5. Stärken der Website - Was ist bereits gut für KI-Lesbarkeit?
+Please provide a structured analysis with:
+1. Summary - How well can an AI read the content?
+2. AI Readiness Score (0-100) - How well is the website optimized for AI readability?
+3. Concrete Recommendations (as a list) - What is missing for better AI readability?
+4. Identified Issues - What prevents AI from reading the content well?
+5. Website Strengths - What is already good for AI readability?
 
-Format: JSON mit den Feldern: summary, score, recommendations (Array), issues (Array), strengths (Array)`;
+Format: JSON with fields: summary, score, recommendations (Array), issues (Array), strengths (Array)`;
 
           // Use the LLM executor to get analysis
           const prompt: Prompt = {
             id: 'ai-readiness-analysis',
             categoryId: 'ai-readiness',
             question: analysisPromptText,
-            language: 'de',
+            language: 'en',
             intent: 'high',
           };
           const analysisResult = await llmExecutor.executePrompt(prompt);
@@ -1005,48 +1005,48 @@ Format: JSON mit den Feldern: summary, score, recommendations (Array), issues (A
 
   private formatProtocol(protocol: any): string {
     let text = `═══════════════════════════════════════════════════════════
-PROTOKOLL
+PROTOCOL
 ═══════════════════════════════════════════════════════════
 
-Zeitpunkt: ${protocol.timestamp}
+Timestamp: ${protocol.timestamp}
 Website: ${protocol.baseUrl}
 
 ───────────────────────────────────────────────────────────
-ROBOTS.TXT ANALYSE
+ROBOTS.TXT ANALYSIS
 ───────────────────────────────────────────────────────────
 `;
 
     if (protocol.robotsTxt.found) {
-      text += `✓ robots.txt gefunden\n`;
-      text += `\nInhalt:\n${protocol.robotsTxt.content}\n`;
+      text += `✓ robots.txt found\n`;
+      text += `\nContent:\n${protocol.robotsTxt.content}\n`;
     } else {
-      text += `✗ Keine robots.txt gefunden\n`;
+      text += `✗ No robots.txt found\n`;
     }
 
     text += `\n───────────────────────────────────────────────────────────
-SITEMAP ANALYSE
+SITEMAP ANALYSIS
 ───────────────────────────────────────────────────────────
 `;
 
     if (protocol.sitemap.found) {
-      text += `✓ Sitemap gefunden\n`;
-      text += `Anzahl URLs in Sitemap: ${protocol.sitemap.urls.length}\n`;
+      text += `✓ Sitemap found\n`;
+      text += `Number of URLs in Sitemap: ${protocol.sitemap.urls.length}\n`;
       if (protocol.sitemap.content) {
-        text += `\nSitemap Inhalt (erste 1000 Zeichen):\n${protocol.sitemap.content.substring(0, 1000)}\n`;
+        text += `\nSitemap Content (first 1000 characters):\n${protocol.sitemap.content.substring(0, 1000)}\n`;
       }
     } else {
-      text += `✗ Keine Sitemap gefunden\n`;
-      text += `Links wurden von der Landing Page extrahiert\n`;
+      text += `✗ No sitemap found\n`;
+      text += `Links were extracted from the landing page\n`;
     }
 
     text += `\n───────────────────────────────────────────────────────────
-SEITEN ANALYSE
+PAGES ANALYSIS
 ───────────────────────────────────────────────────────────
-Anzahl Seiten: ${protocol.pages.length}
-Erfolgreich: ${protocol.pages.filter((p: any) => p.success).length}
-Fehlgeschlagen: ${protocol.pages.filter((p: any) => !p.success).length}
+Number of Pages: ${protocol.pages.length}
+Successful: ${protocol.pages.filter((p: any) => p.success).length}
+Failed: ${protocol.pages.filter((p: any) => !p.success).length}
 
-Durchschnittliche Ladezeit: ${Math.round(
+Average Load Time: ${Math.round(
       protocol.pages.reduce((sum: number, p: any) => sum + p.fetchTime, 0) / protocol.pages.length
     )}ms
 
@@ -1054,12 +1054,12 @@ Durchschnittliche Ladezeit: ${Math.round(
 
     protocol.pages.forEach((page: any, index: number) => {
       text += `\n[${index + 1}] ${page.url}\n`;
-      text += `   Status: ${page.success ? '✓ Erfolgreich' : '✗ Fehler'}\n`;
-      text += `   Ladezeit: ${page.fetchTime}ms\n`;
+      text += `   Status: ${page.success ? '✓ Successful' : '✗ Error'}\n`;
+      text += `   Load Time: ${page.fetchTime}ms\n`;
       if (page.error) {
-        text += `   Fehler: ${page.error}\n`;
+        text += `   Error: ${page.error}\n`;
       }
-      text += `   Inhalt (erste 3000 Zeichen):\n   ${page.content.substring(0, 3000).replace(/\n/g, ' ')}${page.content.length > 3000 ? '...' : ''}\n`;
+      text += `   Content (first 3000 characters):\n   ${page.content.substring(0, 3000).replace(/\n/g, ' ')}${page.content.length > 3000 ? '...' : ''}\n`;
     });
 
     text += `\n═══════════════════════════════════════════════════════════\n`;

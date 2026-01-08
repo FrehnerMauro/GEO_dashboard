@@ -73,12 +73,15 @@ if (existsSync(tsconfigPath)) {
   console.log('🔨 Compiling TypeScript...');
   try {
     // Use tsc to compile TypeScript files
-    execSync('npx tsc --project tsconfig.json --outDir dist/scripts', {
+    // The tsconfig.json already has outDir configured, so we just need to run tsc
+    execSync('npx tsc --project tsconfig.json', {
       cwd: rootDir,
       stdio: 'inherit'
     });
+    console.log('✅ TypeScript compilation successful');
   } catch (error) {
-    console.warn('⚠️  TypeScript compilation failed or not needed. Continuing...');
+    console.error('❌ TypeScript compilation failed:', error.message);
+    process.exit(1);
   }
 } else {
   console.log('ℹ️  No tsconfig.json found, skipping TypeScript compilation');

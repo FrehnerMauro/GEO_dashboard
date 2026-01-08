@@ -3015,9 +3015,13 @@
         e.preventDefault();
         const urlInput = document.getElementById('readabilityUrl');
         const progressSection = document.getElementById('readabilityProgress');
-        const progressStatus = document.getElementById('progressStatus');
-        const progressBar = document.getElementById('progressBar');
-        const stepsContainer = document.getElementById('stepsContainer');
+        const stepNumber = document.getElementById('readabilityStepNumber');
+        const stepTitle = document.getElementById('readabilityStepTitle');
+        const stepDescription = document.getElementById('readabilityStepDescription');
+        const progressPercentage = document.getElementById('readabilityProgressPercentage');
+        const progressFill = document.getElementById('readabilityProgressFill');
+        const stepsContainer = document.getElementById('readabilityStepsContainer');
+        const configurationCard = document.getElementById('readabilityConfigurationCard');
         const contentSection = document.getElementById('readabilityContent');
         const protocolDisplay = document.getElementById('readabilityProtocolDisplay');
         const gptAnalysisSection = document.getElementById('gptAnalysisSection');
@@ -3044,16 +3048,25 @@
         }
         
         // Reset UI
+        if (configurationCard) {
+          configurationCard.style.display = 'none';
+          configurationCard.classList.add('hidden');
+        }
         if (progressSection) progressSection.style.display = 'block';
         if (contentSection) contentSection.style.display = 'none';
         if (gptAnalysisSection) gptAnalysisSection.style.display = 'none';
-        if (progressStatus) progressStatus.textContent = 'Initialisiere Analyse...';
-        if (progressBar) progressBar.style.width = '0%';
+        
+        // Initialize progress UI
+        if (stepNumber) stepNumber.textContent = '1';
+        if (stepTitle) stepTitle.textContent = 'Preparing Analysis';
+        if (stepDescription) stepDescription.textContent = 'Initializing...';
+        if (progressPercentage) progressPercentage.textContent = '0%';
+        if (progressFill) progressFill.style.width = '0%';
         if (stepsContainer) stepsContainer.innerHTML = '';
         
         // Update button state
         fetchContentBtn.disabled = true;
-        fetchContentBtn.textContent = 'Analysiere...';
+        fetchContentBtn.textContent = 'Analyzing...';
         
         // Helper function to add/update a step
         const addStep = (stepId, title, status = 'running', details = '') => {
@@ -3099,19 +3112,23 @@
         
         try {
           // Step 1: Fetch robots.txt
-          addStep('robots', 'robots.txt wird gesucht...', 'running');
-          if (progressBar) progressBar.style.width = '5%';
+          addStep('robots', 'Searching for robots.txt...', 'running');
+          if (stepNumber) stepNumber.textContent = '1';
+          if (stepTitle) stepTitle.textContent = 'Searching for robots.txt...';
+          if (stepDescription) stepDescription.textContent = 'Checking robots.txt file';
+          if (progressPercentage) progressPercentage.textContent = '5%';
+          if (progressFill) progressFill.style.width = '5%';
           
           // Use backend API for AI Readiness analysis
           const apiUrl = window.getApiUrl ? window.getApiUrl('/api/workflow/aiReadiness') : '/api/workflow/aiReadiness';
           
           // Simulate step-by-step progress while waiting for response
           const progressSteps = [
-            { id: 'robots', title: 'robots.txt wird gesucht...', progress: 5 },
-            { id: 'sitemap', title: 'Sitemap wird gesucht...', progress: 15 },
-            { id: 'links', title: 'Links werden extrahiert...', progress: 25 },
-            { id: 'pages', title: 'Seiten werden analysiert...', progress: 50 },
-            { id: 'gpt', title: 'GPT Analyse wird durchgeführt...', progress: 80 },
+            { id: 'robots', title: 'Searching for robots.txt...', description: 'Checking robots.txt file', step: 1, progress: 5 },
+            { id: 'sitemap', title: 'Searching for sitemap...', description: 'Looking for sitemap.xml', step: 2, progress: 15 },
+            { id: 'links', title: 'Extracting links...', description: 'Collecting page URLs', step: 3, progress: 25 },
+            { id: 'pages', title: 'Analyzing pages...', description: 'Fetching and analyzing content', step: 4, progress: 50 },
+            { id: 'gpt', title: 'Running GPT analysis...', description: 'Generating AI readiness score', step: 5, progress: 80 },
           ];
           
           let currentStepIndex = 0;
@@ -3119,7 +3136,11 @@
             if (currentStepIndex < progressSteps.length) {
               const step = progressSteps[currentStepIndex];
               addStep(step.id, step.title, 'running');
-              if (progressBar) progressBar.style.width = step.progress + '%';
+              if (stepNumber) stepNumber.textContent = step.step.toString();
+              if (stepTitle) stepTitle.textContent = step.title;
+              if (stepDescription) stepDescription.textContent = step.description;
+              if (progressPercentage) progressPercentage.textContent = step.progress + '%';
+              if (progressFill) progressFill.style.width = step.progress + '%';
               currentStepIndex++;
             }
           }, 800);
@@ -3140,13 +3161,13 @@
           const data = await response.json();
           
           if (!data.success) {
-            throw new Error(data.error || 'Analyse fehlgeschlagen');
+            throw new Error(data.error || 'Analysis failed');
           }
           
           // Update all steps with actual results
           if (data.protocol.robotsTxt) {
             if (data.protocol.robotsTxt.found) {
-              addStep('robots', 'robots.txt gefunden', 'completed', `${data.protocol.robotsTxt.content ? data.protocol.robotsTxt.content.length + ' Zeichen' : ''}`);
+              addStep('robots', 'robots.txt found', 'completed', `${data.protocol.robotsTxt.content ? data.protocol.robotsTxt.content.length + ' characters' : ''}`);
             } else {
               addStep('robots', 'No robots.txt found', 'completed');
             }
@@ -3154,27 +3175,30 @@
           
           if (data.protocol.sitemap) {
             if (data.protocol.sitemap.found) {
-              addStep('sitemap', 'Sitemap gefunden', 'completed', `${data.protocol.sitemap.urls.length} URLs gefunden`);
+              addStep('sitemap', 'Sitemap found', 'completed', `${data.protocol.sitemap.urls.length} URLs found`);
             } else {
               addStep('sitemap', 'No sitemap found', 'completed', 'Links extracted from landing page');
             }
           }
           
-          addStep('links', 'Links extrahiert', 'completed', `${data.protocol.pages.length} Seiten zum Analysieren`);
+          addStep('links', 'Links extracted', 'completed', `${data.protocol.pages.length} pages to analyze`);
           
           const successful = data.protocol.pages.filter(p => p.success).length;
           const failed = data.protocol.pages.filter(p => !p.success).length;
-          addStep('pages', 'Seiten analysiert', 'completed', `${successful} erfolgreich, ${failed} fehlgeschlagen`);
+          addStep('pages', 'Pages analyzed', 'completed', `${successful} successful, ${failed} failed`);
           
           if (data.protocol.analysis) {
-            addStep('gpt', 'GPT Analyse abgeschlossen', 'completed', `Score: ${data.protocol.analysis.score || 'N/A'}/100`);
+            addStep('gpt', 'GPT analysis completed', 'completed', `Score: ${data.protocol.analysis.score || 'N/A'}/100`);
           } else {
             addStep('gpt', 'GPT Analysis Skipped', 'completed', 'No API Key configured');
           }
           
           // Update progress to completion
-          if (progressStatus) progressStatus.textContent = 'Analyse abgeschlossen!';
-          if (progressBar) progressBar.style.width = '100%';
+          if (stepNumber) stepNumber.textContent = '5';
+          if (stepTitle) stepTitle.textContent = 'Analysis Completed';
+          if (stepDescription) stepDescription.textContent = 'All steps finished successfully';
+          if (progressPercentage) progressPercentage.textContent = '100%';
+          if (progressFill) progressFill.style.width = '100%';
           
           // Display protocol
           if (protocolDisplay && data.protocolText) {
@@ -3187,27 +3211,27 @@
             if (gptAnalysisDisplay) {
               let html = '';
               if (data.protocol.analysis.summary) {
-                html += `<div style="margin-bottom: 16px;"><strong>Zusammenfassung:</strong><p style="margin-top: 8px; line-height: 1.6;">${data.protocol.analysis.summary}</p></div>`;
+                html += `<div style="margin-bottom: 16px;"><strong>Summary:</strong><p style="margin-top: 8px; line-height: 1.6;">${data.protocol.analysis.summary}</p></div>`;
               }
               if (data.protocol.analysis.score !== undefined) {
                 html += `<div style="margin-bottom: 16px;"><strong>AI Readiness Score:</strong> <span style="font-size: 24px; font-weight: bold; color: ${data.protocol.analysis.score >= 70 ? '#4CAF50' : data.protocol.analysis.score >= 50 ? '#FF9800' : '#F44336'}">${data.protocol.analysis.score}/100</span></div>`;
               }
               if (data.protocol.analysis.recommendations && data.protocol.analysis.recommendations.length > 0) {
-                html += `<div style="margin-bottom: 16px;"><strong>Empfehlungen:</strong><ul style="margin-top: 8px; padding-left: 20px;">`;
+                html += `<div style="margin-bottom: 16px;"><strong>Recommendations:</strong><ul style="margin-top: 8px; padding-left: 20px;">`;
                 data.protocol.analysis.recommendations.forEach(rec => {
                   html += `<li style="margin-bottom: 4px; line-height: 1.6;">${rec}</li>`;
                 });
                 html += `</ul></div>`;
               }
               if (data.protocol.analysis.issues && data.protocol.analysis.issues.length > 0) {
-                html += `<div style="margin-bottom: 16px;"><strong style="color: #F44336;">Probleme:</strong><ul style="margin-top: 8px; padding-left: 20px; color: #F44336;">`;
+                html += `<div style="margin-bottom: 16px;"><strong style="color: #F44336;">Issues:</strong><ul style="margin-top: 8px; padding-left: 20px; color: #F44336;">`;
                 data.protocol.analysis.issues.forEach(issue => {
                   html += `<li style="margin-bottom: 4px; line-height: 1.6;">${issue}</li>`;
                 });
                 html += `</ul></div>`;
               }
               if (data.protocol.analysis.strengths && data.protocol.analysis.strengths.length > 0) {
-                html += `<div><strong style="color: #4CAF50;">Stärken:</strong><ul style="margin-top: 8px; padding-left: 20px; color: #4CAF50;">`;
+                html += `<div><strong style="color: #4CAF50;">Strengths:</strong><ul style="margin-top: 8px; padding-left: 20px; color: #4CAF50;">`;
                 data.protocol.analysis.strengths.forEach(strength => {
                   html += `<li style="margin-bottom: 4px; line-height: 1.6;">${strength}</li>`;
                 });
@@ -3224,14 +3248,14 @@
             const avgTime = Math.round(data.protocol.pages.reduce((sum, p) => sum + p.fetchTime, 0) / data.protocol.pages.length);
             
             let html = `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">`;
-            html += `<div style="padding: 16px; background: var(--bg-secondary); border-radius: 8px;"><strong>Gesamt Seiten</strong><div style="font-size: 24px; font-weight: bold; margin-top: 8px;">${data.protocol.pages.length}</div></div>`;
-            html += `<div style="padding: 16px; background: var(--bg-secondary); border-radius: 8px;"><strong>Erfolgreich</strong><div style="font-size: 24px; font-weight: bold; margin-top: 8px; color: #4CAF50;">${successful}</div></div>`;
-            html += `<div style="padding: 16px; background: var(--bg-secondary); border-radius: 8px;"><strong>Fehlgeschlagen</strong><div style="font-size: 24px; font-weight: bold; margin-top: 8px; color: ${failed > 0 ? '#F44336' : '#4CAF50'}">${failed}</div></div>`;
-            html += `<div style="padding: 16px; background: var(--bg-secondary); border-radius: 8px;"><strong>Ø Ladezeit</strong><div style="font-size: 24px; font-weight: bold; margin-top: 8px;">${avgTime}ms</div></div>`;
+            html += `<div style="padding: 16px; background: var(--bg-secondary); border-radius: 8px;"><strong>Total Pages</strong><div style="font-size: 24px; font-weight: bold; margin-top: 8px;">${data.protocol.pages.length}</div></div>`;
+            html += `<div style="padding: 16px; background: var(--bg-secondary); border-radius: 8px;"><strong>Successful</strong><div style="font-size: 24px; font-weight: bold; margin-top: 8px; color: #4CAF50;">${successful}</div></div>`;
+            html += `<div style="padding: 16px; background: var(--bg-secondary); border-radius: 8px;"><strong>Failed</strong><div style="font-size: 24px; font-weight: bold; margin-top: 8px; color: ${failed > 0 ? '#F44336' : '#4CAF50'}">${failed}</div></div>`;
+            html += `<div style="padding: 16px; background: var(--bg-secondary); border-radius: 8px;"><strong>Avg Load Time</strong><div style="font-size: 24px; font-weight: bold; margin-top: 8px;">${avgTime}ms</div></div>`;
             html += `</div>`;
             
             html += `<div style="max-height: 400px; overflow-y: auto;"><table style="width: 100%; border-collapse: collapse;">`;
-            html += `<thead><tr style="background: var(--bg-secondary);"><th style="padding: 12px; text-align: left; border-bottom: 2px solid var(--border-color);">URL</th><th style="padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color);">Status</th><th style="padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color);">Zeit</th></tr></thead><tbody>`;
+            html += `<thead><tr style="background: var(--bg-secondary);"><th style="padding: 12px; text-align: left; border-bottom: 2px solid var(--border-color);">URL</th><th style="padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color);">Status</th><th style="padding: 12px; text-align: center; border-bottom: 2px solid var(--border-color);">Time</th></tr></thead><tbody>`;
             data.protocol.pages.forEach((page, index) => {
               html += `<tr style="border-bottom: 1px solid var(--border-color);">`;
               html += `<td style="padding: 12px; font-size: 13px; word-break: break-all;">${page.url}</td>`;
@@ -3249,9 +3273,13 @@
             contentSection.style.display = 'block';
           }
           
-          // Hide progress after a short delay
+          // Hide progress after a short delay and show configuration again
           setTimeout(() => {
             if (progressSection) progressSection.style.display = 'none';
+            if (configurationCard) {
+              configurationCard.style.display = 'block';
+              configurationCard.classList.remove('hidden');
+            }
           }, 2000);
           
         } catch (error) {
@@ -3273,13 +3301,21 @@
             stepsContainer.appendChild(errorStep);
           }
           
-          if (progressStatus) progressStatus.textContent = 'Error occurred';
-          if (progressBar) progressBar.style.width = '0%';
+          if (stepTitle) stepTitle.textContent = 'Error Occurred';
+          if (stepDescription) stepDescription.textContent = error.message || 'Unknown error';
+          if (progressPercentage) progressPercentage.textContent = '0%';
+          if (progressFill) progressFill.style.width = '0%';
+          
+          // Show configuration again on error
+          if (configurationCard) {
+            configurationCard.style.display = 'block';
+            configurationCard.classList.remove('hidden');
+          }
           
           alert('Analysis error: ' + (error.message || 'Unknown error'));
         } finally {
           fetchContentBtn.disabled = false;
-          fetchContentBtn.textContent = 'AI Readiness Analyse starten';
+          fetchContentBtn.textContent = 'Start AI Readiness Analysis';
         }
       });
     }

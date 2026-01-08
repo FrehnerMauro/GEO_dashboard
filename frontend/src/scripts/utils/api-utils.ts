@@ -31,8 +31,14 @@ export async function apiGet<T>(endpoint: string): Promise<T> {
   const response = await apiFetch(endpoint, { method: "GET" });
   
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Unknown error" }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+    let errorMessage = `HTTP ${response.status}`;
+    try {
+      const error = await response.json() as { message?: string };
+      errorMessage = error.message || errorMessage;
+    } catch {
+      // If JSON parsing fails, use default message
+    }
+    throw new Error(errorMessage);
   }
   
   return await response.json();
@@ -48,8 +54,14 @@ export async function apiPost<T>(endpoint: string, data?: any): Promise<T> {
   });
   
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Unknown error" }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+    let errorMessage = `HTTP ${response.status}`;
+    try {
+      const error = await response.json() as { message?: string };
+      errorMessage = error.message || errorMessage;
+    } catch {
+      // If JSON parsing fails, use default message
+    }
+    throw new Error(errorMessage);
   }
   
   return await response.json();
@@ -65,8 +77,14 @@ export async function apiPut<T>(endpoint: string, data?: any): Promise<T> {
   });
   
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Unknown error" }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+    let errorMessage = `HTTP ${response.status}`;
+    try {
+      const error = await response.json() as { message?: string };
+      errorMessage = error.message || errorMessage;
+    } catch {
+      // If JSON parsing fails, use default message
+    }
+    throw new Error(errorMessage);
   }
   
   return await response.json();
@@ -79,8 +97,14 @@ export async function apiDelete<T>(endpoint: string): Promise<T> {
   const response = await apiFetch(endpoint, { method: "DELETE" });
   
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "Unknown error" }));
-    throw new Error(error.message || `HTTP ${response.status}`);
+    let errorMessage = `HTTP ${response.status}`;
+    try {
+      const error = await response.json() as { message?: string };
+      errorMessage = error.message || errorMessage;
+    } catch {
+      // If JSON parsing fails, use default message
+    }
+    throw new Error(errorMessage);
   }
   
   return await response.json();
