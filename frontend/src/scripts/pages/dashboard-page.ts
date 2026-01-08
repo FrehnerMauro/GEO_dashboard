@@ -190,8 +190,15 @@ export class DashboardPage {
                 : prompts.map(prompt => `
                   <div class="prompt-card">
                     <div class="prompt-question">
-                      <h4>${prompt.question}</h4>
+                      <h4>Frage:</h4>
+                      <p>${prompt.question}</p>
                     </div>
+                    ${prompt.answer ? `
+                      <div class="prompt-answer">
+                        <h4>Antwort:</h4>
+                        <p>${prompt.answer.length > 1000 ? prompt.answer.substring(0, 1000) + '...' : prompt.answer}</p>
+                      </div>
+                    ` : ''}
                     <div class="prompt-details">
                       <div class="detail-item">
                         <span class="label">Website:</span>

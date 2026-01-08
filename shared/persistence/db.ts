@@ -1025,6 +1025,7 @@ export class Database {
   async getGlobalPromptsByCategory(categoryName: string): Promise<Array<{
     id: string;
     question: string;
+    answer: string | null;
     language: string;
     country: string | null;
     region: string | null;
@@ -1035,11 +1036,18 @@ export class Database {
   }>> {
     // Only return prompts that have been executed with web search (have citations)
     // Use EXISTS to check if prompt has citations
+    // Also fetch the answer (output_text) from llm_responses
+    // Use a subquery to get the most recent answer per prompt
     const result = await this.db
       .prepare(
         `SELECT DISTINCT
           p.id,
           p.question,
+          (SELECT lr.output_text 
+           FROM llm_responses lr 
+           WHERE lr.prompt_id = p.id 
+           ORDER BY lr.timestamp DESC 
+           LIMIT 1) as answer,
           p.language,
           p.country,
           p.region,
@@ -1053,9 +1061,9 @@ export class Database {
          WHERE c.name = ?
          AND EXISTS (
            SELECT 1 
-           FROM llm_responses lr
-           INNER JOIN citations cit ON cit.llm_response_id = lr.id
-           WHERE lr.prompt_id = p.id
+           FROM llm_responses lr2
+           INNER JOIN citations cit ON cit.llm_response_id = lr2.id
+           WHERE lr2.prompt_id = p.id
          )
          ORDER BY p.created_at DESC`
       )
@@ -1063,6 +1071,7 @@ export class Database {
       .all<{
         id: string;
         question: string;
+        answer: string | null;
         language: string;
         country: string | null;
         region: string | null;
@@ -1075,6 +1084,7 @@ export class Database {
     return (result.results || []).map(r => ({
       id: r.id,
       question: r.question,
+      answer: r.answer || null,
       language: r.language,
       country: r.country || undefined,
       region: r.region || undefined,
