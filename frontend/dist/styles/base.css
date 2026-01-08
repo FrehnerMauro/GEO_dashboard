@@ -726,3 +726,262 @@
       color: var(--text-light);
     }
     
+    /* Dashboard Styles */
+    .dashboard-container {
+      width: 100%;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+    
+    .dashboard-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    
+    .dashboard-header h2 {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text);
+      font-family: 'Space Grotesk', sans-serif;
+    }
+    
+    .view-toggle {
+      display: flex;
+      gap: 8px;
+      background: var(--bg-secondary);
+      padding: 4px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+    
+    .toggle-btn {
+      padding: 10px 20px;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    
+    .toggle-btn:hover {
+      background: var(--bg);
+      color: var(--text);
+    }
+    
+    .toggle-btn.active {
+      background: var(--primary);
+      color: white;
+      box-shadow: var(--shadow-md);
+    }
+    
+    .dashboard-content {
+      width: 100%;
+    }
+    
+    .back-btn {
+      padding: 10px 20px;
+      margin-bottom: 24px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    
+    .back-btn:hover {
+      background: var(--bg);
+      border-color: var(--primary-light);
+    }
+    
+    /* Local View Styles */
+    .companies-grid,
+    .analyses-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 24px;
+    }
+    
+    .company-card,
+    .analysis-card {
+      background: var(--bg-glass);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      cursor: pointer;
+      transition: var(--transition);
+      box-shadow: var(--shadow-md);
+    }
+    
+    .company-card:hover,
+    .analysis-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-lg);
+      border-color: var(--primary-light);
+    }
+    
+    .company-header,
+    .analysis-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    
+    .company-header h4,
+    .analysis-header h4 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      font-family: 'Space Grotesk', sans-serif;
+    }
+    
+    .status-badge {
+      padding: 6px 12px;
+      border-radius: var(--radius);
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    
+    .status-badge.completed {
+      background: rgba(34, 197, 94, 0.1);
+      color: #22c55e;
+    }
+    
+    .status-badge.running {
+      background: rgba(59, 130, 246, 0.1);
+      color: #3b82f6;
+    }
+    
+    .status-badge.pending {
+      background: rgba(251, 191, 36, 0.1);
+      color: #fbbf24;
+    }
+    
+    .company-details,
+    .analysis-details {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .detail-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+    }
+    
+    .detail-item .label {
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    
+    /* Global View Styles */
+    .categories-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 24px;
+    }
+    
+    .category-card {
+      background: var(--bg-glass);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      cursor: pointer;
+      transition: var(--transition);
+      box-shadow: var(--shadow-md);
+    }
+    
+    .category-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-lg);
+      border-color: var(--primary-light);
+    }
+    
+    .category-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    
+    .category-header h4 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      font-family: 'Space Grotesk', sans-serif;
+    }
+    
+    .count-badge {
+      padding: 6px 12px;
+      background: var(--primary);
+      color: white;
+      border-radius: var(--radius);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    
+    .category-description {
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    
+    .prompts-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .prompt-card {
+      background: var(--bg-glass);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: var(--shadow-md);
+    }
+    
+    .prompt-question {
+      margin-bottom: 16px;
+    }
+    
+    .prompt-question h4 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.6;
+    }
+    
+    .prompt-details {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    
+    .empty-state,
+    .error-state {
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--text-secondary);
+      font-size: 16px;
+    }
+    
+    .error-state {
+      color: #ef4444;
+    }
+    
