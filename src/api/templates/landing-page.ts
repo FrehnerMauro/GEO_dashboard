@@ -1784,7 +1784,7 @@ export const LANDING_PAGE_HTML = `<!DOCTYPE html>
                           responseTimeDetailHtml +
                           '<span><strong>Zeit:</strong> ' + time + '</span>' +
                         '</div>' +
-                        '<div style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; font-family: \\'Courier New\\', monospace; font-size: 12px; color: var(--text); max-height: 300px; overflow-y: auto; border: 1px solid var(--border);">' +
+                        '<div style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; font-family: \'Courier New\', monospace; font-size: 12px; color: var(--text); max-height: 300px; overflow-y: auto; border: 1px solid var(--border);">' +
                           '<pre style="margin: 0; white-space: pre-wrap; word-wrap: break-word;">' + (detailsText || '').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') + '</pre>' +
                         '</div>' +
                       '</div>' +
@@ -1854,7 +1854,7 @@ export const LANDING_PAGE_HTML = `<!DOCTYPE html>
                         '<span style="color: #d4d4d4; font-weight: 600; font-size: 13px;">' + (log.stepName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + responseTimeText + '</span>' +
                         latestBadge +
                       '</div>' +
-                      '<div style="margin-left: 20px; margin-top: 4px; color: #ce9178; font-size: 11px; font-family: \\'Courier New\\', monospace; white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow-y: auto;">' +
+                      '<div style="margin-left: 20px; margin-top: 4px; color: #ce9178; font-size: 11px; font-family: \'Courier New\', monospace; white-space: pre-wrap; word-break: break-word; max-height: 200px; overflow-y: auto;">' +
                         detailsDisplay +
                       '</div>' +
                     '</div>';
