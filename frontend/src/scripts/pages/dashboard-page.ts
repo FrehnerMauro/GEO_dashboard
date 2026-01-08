@@ -84,12 +84,10 @@ export class DashboardPage {
     const configurationCard = querySelector(".content-area > .card");
     const analysesSection = getElement("analysesSection");
     const analysisDetailSection = getElement("analysisDetailSection");
-    const aiReadinessSection = getElement("aiReadinessSection");
 
     showElement(configurationCard);
     hideElement(analysesSection);
     hideElement(analysisDetailSection);
-    hideElement(aiReadinessSection);
     
     navigation.setActiveNavItem(0);
   }

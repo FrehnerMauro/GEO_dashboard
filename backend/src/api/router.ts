@@ -8,14 +8,12 @@ import { matchRoute } from "./routes/route-definitions.js";
 import { handleCors, getCorsHeaders, handleError, handleNotFound } from "./middleware/index.js";
 import { WorkflowHandlers } from "./handlers/workflow.js";
 import { AnalysisHandlers } from "./handlers/analysis.js";
-import { AIReadinessHandler } from "./handlers/ai-readiness-handler.js";
 import { WorkflowEngine } from "../../../shared/engine_workflow.js";
 import { GEOEngine } from "../../../shared/engine.js";
 
 export class Router {
   private workflowHandlers: WorkflowHandlers;
   private analysisHandlers: AnalysisHandlers;
-  private aiReadinessHandler: AIReadinessHandler;
 
   constructor(
     private engine: GEOEngine,
@@ -24,7 +22,6 @@ export class Router {
     const workflowEngine = new WorkflowEngine(env);
     this.workflowHandlers = new WorkflowHandlers(workflowEngine);
     this.analysisHandlers = new AnalysisHandlers(engine);
-    this.aiReadinessHandler = new AIReadinessHandler(env);
   }
 
   async route(request: Request, ctx?: ExecutionContext): Promise<Response> {
@@ -54,8 +51,6 @@ export class Router {
           return await this.routeWorkflow(methodName, request, params, corsHeaders);
         case "analysis":
           return await this.routeAnalysis(methodName, request, params, corsHeaders);
-        case "aiReadiness":
-          return await this.routeAIReadiness(methodName, request, params, corsHeaders, ctx);
         case "health":
           return new Response(
             JSON.stringify({ status: "ok", timestamp: new Date().toISOString() }),
@@ -132,27 +127,6 @@ export class Router {
         return await this.analysisHandlers.handleGetMetrics(runId, this.env, corsHeaders);
       case "delete":
         return await this.analysisHandlers.handleDeleteAnalysis(runId, this.env, corsHeaders);
-      default:
-        return handleNotFound(corsHeaders);
-    }
-  }
-
-  private async routeAIReadiness(
-    method: string,
-    request: Request,
-    params: Record<string, string>,
-    corsHeaders: ReturnType<typeof getCorsHeaders>,
-    ctx?: ExecutionContext
-  ): Promise<Response> {
-    switch (method) {
-      case "analyze":
-        return await this.aiReadinessHandler.handleAnalyze(request, corsHeaders, ctx);
-      case "getStatus":
-        const runId = params.param0 || "";
-        if (!runId) {
-          return handleNotFound(corsHeaders);
-        }
-        return await this.aiReadinessHandler.handleGetStatus(runId, corsHeaders);
       default:
         return handleNotFound(corsHeaders);
     }

@@ -234,7 +234,6 @@
     /* Apply unified styling to all main sections */
     #analysesSection,
     #analysisDetailSection,
-    #aiReadinessSection,
     .dashboard-section {
       width: 100%;
       box-sizing: border-box;
@@ -251,7 +250,6 @@
     .dashboard-section > .card,
     #analysesSection > .card,
     #analysisDetailSection > .card,
-    #aiReadinessSection > .card,
     .content-area > .card {
       width: 100%;
       box-sizing: border-box;
@@ -260,24 +258,12 @@
     }
     
     /* Unified spacing for all section children */
-    #aiReadinessSection > *,
     #analysesSection > *,
     #analysisDetailSection > * {
       width: 100%;
       box-sizing: border-box;
     }
     
-    /* Consistent margin for AI Readiness cards */
-    #aiReadinessSection .ai-readiness-hero,
-    #aiReadinessSection .ai-readiness-form-card,
-    #aiReadinessSection .ai-readiness-progress-card,
-    #aiReadinessSection .ai-readiness-steps-card,
-    #aiReadinessSection .ai-readiness-console-card,
-    #aiReadinessSection .ai-readiness-results-card {
-      margin-left: 0;
-      margin-right: 0;
-      margin-bottom: 24px;
-    }
     
     /* Unified Grid System for all sections */
     .dashboard-grid {

@@ -28,10 +28,6 @@ export const ROUTES: RouteDefinition[] = [
   { method: "GET", path: /^\/api\/analysis\/([^\/]+)\/metrics$/, handler: "analysis.getMetrics" },
   { method: "DELETE", path: /^\/api\/analysis\/([^\/]+)$/, handler: "analysis.delete" },
   
-  // AI Readiness routes (used by frontend)
-  { method: "POST", path: "/api/ai-readiness/analyze", handler: "aiReadiness.analyze" },
-  { method: "GET", path: /^\/api\/ai-readiness\/status\/([^\/]+)$/, handler: "aiReadiness.getStatus" },
-  
   // Health check (for monitoring)
   { method: "GET", path: "/api/health", handler: "health.check" },
 ];

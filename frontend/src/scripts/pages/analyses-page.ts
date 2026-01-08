@@ -156,12 +156,10 @@ export class AnalysesPage {
   show(): void {
     const analysesSection = getElement("analysesSection");
     const analysisDetailSection = getElement("analysisDetailSection");
-    const aiReadinessSection = getElement("aiReadinessSection");
     const configurationCard = querySelector(".content-area > .card");
 
     showElement(analysesSection);
     hideElement(analysisDetailSection);
-    hideElement(aiReadinessSection);
     hideElement(configurationCard);
 
     navigation.setActiveNavItem(1);
