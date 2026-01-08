@@ -4,8 +4,8 @@
 name: geo-platform-frontend
 production_branch: main
 build_command: echo "No build step needed - static files"
-build_output_dir: web
-root_dir: .
+build_output_dir: .
+root_dir: web
 
 # Environment variables (set in Cloudflare dashboard)
 # OPENAI_API_KEY
