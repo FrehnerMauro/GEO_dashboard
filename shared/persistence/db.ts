@@ -379,8 +379,6 @@ export class Database {
   }
 
   async getAnalysisRun(runId: string): Promise<AnalysisResult | null> {
-    // This would reconstruct the full analysis result from the database
-    // For brevity, implementing a simplified version
     const run = await this.db
       .prepare("SELECT * FROM analysis_runs WHERE id = ?")
       .bind(runId)
@@ -396,24 +394,193 @@ export class Database {
 
     if (!run) return null;
 
-    // Fetch related data (simplified - would need full joins in production)
+    // Fetch categories
+    const categoriesResult = await this.db
+      .prepare("SELECT * FROM categories WHERE analysis_run_id = ?")
+      .bind(runId)
+      .all<{
+        id: string;
+        name: string;
+        description: string;
+        confidence: number;
+        source_pages: string;
+      }>();
+    
+    const categories: Category[] = (categoriesResult.results || []).map(c => ({
+      id: c.id,
+      name: c.name,
+      description: c.description,
+      confidence: c.confidence,
+      sourcePages: JSON.parse(c.source_pages || '[]'),
+    }));
+
+    // Fetch prompts
+    const promptsResult = await this.db
+      .prepare("SELECT * FROM prompts WHERE analysis_run_id = ?")
+      .bind(runId)
+      .all<{
+        id: string;
+        category_id: string;
+        question: string;
+        language: string;
+        country: string | null;
+        region: string | null;
+        intent: string;
+        created_at: string;
+      }>();
+    
+    const prompts: Prompt[] = (promptsResult.results || []).map(p => ({
+      id: p.id,
+      categoryId: p.category_id,
+      question: p.question,
+      language: p.language,
+      country: p.country || undefined,
+      region: p.region || undefined,
+      intent: p.intent,
+      createdAt: p.created_at,
+    }));
+
+    // Fetch prompt analyses
+    const analysesResult = await this.db
+      .prepare(`
+        SELECT pa.*, 
+               GROUP_CONCAT(cm.competitor_name || '|' || cm.mention_count, '|||') as competitors_data
+        FROM prompt_analyses pa
+        LEFT JOIN competitor_mentions cm ON cm.prompt_analysis_id = pa.id
+        WHERE pa.prompt_id IN (SELECT id FROM prompts WHERE analysis_run_id = ?)
+        GROUP BY pa.id
+      `)
+      .bind(runId)
+      .all<{
+        id: string;
+        prompt_id: string;
+        brand_mentions_exact: number;
+        brand_mentions_fuzzy: number;
+        brand_mentions_contexts: string;
+        citation_count: number;
+        citation_urls: string;
+        sentiment_tone: string;
+        sentiment_confidence: number;
+        sentiment_keywords: string;
+        timestamp: string;
+        competitors_data: string | null;
+      }>();
+    
+    const analyses: PromptAnalysis[] = (analysesResult.results || []).map(a => {
+      const competitors: any[] = a.competitors_data
+        ? a.competitors_data.split('|||').map(c => {
+            const [name, count] = c.split('|');
+            return { name, count: parseInt(count || '0', 10), contexts: [], citations: [] };
+          })
+        : [];
+      
+      return {
+        promptId: a.prompt_id,
+        brandMentions: {
+          exact: a.brand_mentions_exact,
+          fuzzy: a.brand_mentions_fuzzy,
+          contexts: JSON.parse(a.brand_mentions_contexts || '[]'),
+        },
+        citationCount: a.citation_count,
+        citationUrls: JSON.parse(a.citation_urls || '[]'),
+        brandCitations: [],
+        competitors,
+        sentiment: {
+          tone: a.sentiment_tone,
+          confidence: a.sentiment_confidence,
+          keywords: JSON.parse(a.sentiment_keywords || '[]'),
+        },
+        timestamp: a.timestamp,
+        isMentioned: (a.brand_mentions_exact + a.brand_mentions_fuzzy) > 0,
+        mentionCount: a.brand_mentions_exact + a.brand_mentions_fuzzy,
+        isCited: a.citation_count > 0,
+        citationDetails: JSON.parse(a.citation_urls || '[]').map((url: string) => ({ url })),
+        competitorDetails: competitors.map(c => ({ name: c.name, count: c.count, locations: [] })),
+      };
+    });
+
+    // Fetch category metrics
+    const metricsResult = await this.db
+      .prepare("SELECT * FROM category_metrics WHERE analysis_run_id = ?")
+      .bind(runId)
+      .all<{
+        id: string;
+        category_id: string;
+        visibility_score: number;
+        citation_rate: number;
+        brand_mention_rate: number;
+        competitor_mention_rate: number;
+        timestamp: string;
+      }>();
+    
+    const categoryMetrics: CategoryMetrics[] = (metricsResult.results || []).map(m => ({
+      categoryId: m.category_id,
+      visibilityScore: m.visibility_score,
+      citationRate: m.citation_rate,
+      brandMentionRate: m.brand_mention_rate,
+      competitorMentionRate: m.competitor_mention_rate,
+      timestamp: m.timestamp,
+    }));
+
+    // Fetch competitive analysis
+    const competitiveResult = await this.db
+      .prepare("SELECT * FROM competitive_analyses WHERE analysis_run_id = ? ORDER BY timestamp DESC LIMIT 1")
+      .bind(runId)
+      .first<{
+        brand_share: number;
+        competitor_shares: string;
+        white_space_topics: string;
+        dominated_prompts: string;
+        missing_brand_prompts: string;
+        timestamp: string;
+      }>();
+    
+    const competitiveAnalysis: CompetitiveAnalysis = competitiveResult ? {
+      brandShare: competitiveResult.brand_share,
+      competitorShares: JSON.parse(competitiveResult.competitor_shares || '{}'),
+      whiteSpaceTopics: JSON.parse(competitiveResult.white_space_topics || '[]'),
+      dominatedPrompts: JSON.parse(competitiveResult.dominated_prompts || '[]'),
+      missingBrandPrompts: JSON.parse(competitiveResult.missing_brand_prompts || '[]'),
+      timestamp: competitiveResult.timestamp,
+    } : {
+      brandShare: 0,
+      competitorShares: {},
+      whiteSpaceTopics: [],
+      dominatedPrompts: [],
+      missingBrandPrompts: [],
+      timestamp: run.updated_at,
+    };
+
+    // Fetch time series
+    const timeSeriesResult = await this.db
+      .prepare("SELECT * FROM time_series WHERE analysis_run_id = ? ORDER BY timestamp ASC")
+      .bind(runId)
+      .all<{
+        timestamp: string;
+        visibility_score: number;
+        citation_count: number;
+        brand_mention_count: number;
+        competitor_mention_count: number;
+      }>();
+    
+    const timeSeries: TimeSeriesData[] = (timeSeriesResult.results || []).map(ts => ({
+      timestamp: ts.timestamp,
+      visibilityScore: ts.visibility_score,
+      citationCount: ts.citation_count,
+      brandMentionCount: ts.brand_mention_count,
+      competitorMentionCount: ts.competitor_mention_count,
+    }));
+
     return {
       websiteUrl: run.website_url,
       country: run.country,
       language: run.language,
-      categories: [],
-      prompts: [],
-      analyses: [],
-      categoryMetrics: [],
-      competitiveAnalysis: {
-        brandShare: 0,
-        competitorShares: {},
-        whiteSpaceTopics: [],
-        dominatedPrompts: [],
-        missingBrandPrompts: [],
-        timestamp: run.updated_at,
-      },
-      timeSeries: [],
+      categories,
+      prompts,
+      analyses,
+      categoryMetrics,
+      competitiveAnalysis,
+      timeSeries,
       createdAt: run.created_at,
       updatedAt: run.updated_at,
     };
