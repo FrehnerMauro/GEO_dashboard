@@ -103,8 +103,11 @@ export class Database {
           throw error;
         }
         
-        // Exponential backoff: 100ms, 200ms, 400ms
-        const delay = baseDelay * Math.pow(2, attempt);
+        // For startup errors, use longer delays to give D1 time to initialize
+        const isStartupError = errorMessage.includes("Internal error while starting up");
+        const delayMultiplier = isStartupError ? 3 : 1; // 3x longer delay for startup errors
+        const delay = baseDelay * Math.pow(2, attempt) * delayMultiplier;
+        
         console.warn(`[D1 RETRY] ${opName} failed (attempt ${attempt + 1}/${maxRetries}), retrying in ${delay}ms:`, errorMessage);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
@@ -188,12 +191,14 @@ export class Database {
     progress?: { step: string; progress: number; message?: string }
   ): Promise<void> {
     const progressJson = progress ? JSON.stringify(progress) : null;
-    await this.db
-      .prepare(
-        `UPDATE analysis_runs SET status = ?, progress = ?, updated_at = ? WHERE id = ?`
-      )
-      .bind(status, progressJson, new Date().toISOString(), runId)
-      .run();
+    await this.retryD1Operation(async () => {
+      await this.db
+        .prepare(
+          `UPDATE analysis_runs SET status = ?, progress = ?, updated_at = ? WHERE id = ?`
+        )
+        .bind(status, progressJson, new Date().toISOString(), runId)
+        .run();
+    }, 3, 150, "updateAnalysisStatus");
   }
 
   async getAnalysisStatus(runId: string): Promise<{

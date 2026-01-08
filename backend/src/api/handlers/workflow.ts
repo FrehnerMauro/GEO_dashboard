@@ -247,10 +247,12 @@ export class WorkflowHandlers {
       const db = new Database(env.geo_db as any);
 
       // Get run info to extract brand name
-      const runInfo = await db.db
-        .prepare("SELECT website_url FROM analysis_runs WHERE id = ?")
-        .bind(runId)
-        .first<{ website_url: string }>();
+      const runInfo = await db.retryD1Operation(async () => {
+        return await db.db
+          .prepare("SELECT website_url FROM analysis_runs WHERE id = ?")
+          .bind(runId)
+          .first<{ website_url: string }>();
+      }, 3, 200, "getRunInfoForStep5");
 
       if (!runInfo) {
         throw new Error("Analysis run not found");
@@ -262,10 +264,12 @@ export class WorkflowHandlers {
       // Load all prompts for this run
       console.log(`[D1 DEBUG] Loading prompts for runId: ${runId}`);
       const startPrompts = Date.now();
-      const savedPrompts = await db.db
-        .prepare("SELECT * FROM prompts WHERE analysis_run_id = ?")
-        .bind(runId)
-        .all<any>();
+      const savedPrompts = await db.retryD1Operation(async () => {
+        return await db.db
+          .prepare("SELECT * FROM prompts WHERE analysis_run_id = ?")
+          .bind(runId)
+          .all<any>();
+      }, 3, 200, "loadPromptsForStep5");
       console.log(`[D1 DEBUG] Loaded ${savedPrompts.results?.length || 0} prompts in ${Date.now() - startPrompts}ms`);
 
       // Load all responses for this run
@@ -275,31 +279,35 @@ export class WorkflowHandlers {
       const startResponses = Date.now();
       let savedResponses;
       try {
-        savedResponses = await db.db
-          .prepare(`
-            SELECT lr.*, 
-                   GROUP_CONCAT(c.url || '|' || COALESCE(c.title, '') || '|' || COALESCE(c.snippet, ''), '|||') as citations_data
-            FROM llm_responses lr
-            INNER JOIN prompts p ON lr.prompt_id = p.id
-            LEFT JOIN citations c ON c.llm_response_id = lr.id
-            WHERE p.analysis_run_id = ?
-            GROUP BY lr.id
-          `)
-          .bind(runId)
-          .all<any>();
+        savedResponses = await db.retryD1Operation(async () => {
+          return await db.db
+            .prepare(`
+              SELECT lr.*, 
+                     GROUP_CONCAT(c.url || '|' || COALESCE(c.title, '') || '|' || COALESCE(c.snippet, ''), '|||') as citations_data
+              FROM llm_responses lr
+              INNER JOIN prompts p ON lr.prompt_id = p.id
+              LEFT JOIN citations c ON c.llm_response_id = lr.id
+              WHERE p.analysis_run_id = ?
+              GROUP BY lr.id
+            `)
+            .bind(runId)
+            .all<any>();
+        }, 3, 200, "loadResponsesWithCitations");
         console.log(`[D1 DEBUG] Loaded ${savedResponses.results?.length || 0} responses in ${Date.now() - startResponses}ms`);
       } catch (error: any) {
         console.error(`[D1 ERROR] Failed to load responses with GROUP_CONCAT, trying alternative approach:`, error.message);
         // Fallback: Load responses and citations separately if GROUP_CONCAT times out
-        const responsesOnly = await db.db
-          .prepare(`
-            SELECT lr.*
-            FROM llm_responses lr
-            INNER JOIN prompts p ON lr.prompt_id = p.id
-            WHERE p.analysis_run_id = ?
-          `)
-          .bind(runId)
-          .all<any>();
+        const responsesOnly = await db.retryD1Operation(async () => {
+          return await db.db
+            .prepare(`
+              SELECT lr.*
+              FROM llm_responses lr
+              INNER JOIN prompts p ON lr.prompt_id = p.id
+              WHERE p.analysis_run_id = ?
+            `)
+            .bind(runId)
+            .all<any>();
+        }, 3, 200, "loadResponsesOnly");
         
         const responseIds = (responsesOnly.results || []).map((r: any) => r.id);
         const citationsMap = new Map<string, any[]>();
@@ -309,10 +317,12 @@ export class WorkflowHandlers {
           const chunkSize = 50;
           for (let i = 0; i < responseIds.length; i += chunkSize) {
             const chunk = responseIds.slice(i, i + chunkSize);
-            const citations = await db.db
-              .prepare(`SELECT * FROM citations WHERE llm_response_id IN (${chunk.map(() => '?').join(',')})`)
-              .bind(...chunk)
-              .all<any>();
+            const citations = await db.retryD1Operation(async () => {
+              return await db.db
+                .prepare(`SELECT * FROM citations WHERE llm_response_id IN (${chunk.map(() => '?').join(',')})`)
+                .bind(...chunk)
+                .all<any>();
+            }, 3, 200, `loadCitationsChunk_${i}`);
             
             (citations.results || []).forEach((cite: any) => {
               if (!citationsMap.has(cite.llm_response_id)) {
@@ -365,18 +375,20 @@ export class WorkflowHandlers {
       const startMetrics = Date.now();
       let categoryMetrics;
       try {
-        categoryMetrics = await db.db
-          .prepare(`
-            SELECT p.category_id, 
-                   COUNT(*) as prompt_count,
-                   SUM(CASE WHEN pa.brand_mentions_exact + pa.brand_mentions_fuzzy > 0 THEN 1 ELSE 0 END) as mentions_count
-            FROM prompt_analyses pa
-            INNER JOIN prompts p ON pa.prompt_id = p.id
-            WHERE p.analysis_run_id = ?
-            GROUP BY p.category_id
-          `)
-          .bind(runId)
-          .all<any>();
+        categoryMetrics = await db.retryD1Operation(async () => {
+          return await db.db
+            .prepare(`
+              SELECT p.category_id, 
+                     COUNT(*) as prompt_count,
+                     SUM(CASE WHEN pa.brand_mentions_exact + pa.brand_mentions_fuzzy > 0 THEN 1 ELSE 0 END) as mentions_count
+              FROM prompt_analyses pa
+              INNER JOIN prompts p ON pa.prompt_id = p.id
+              WHERE p.analysis_run_id = ?
+              GROUP BY p.category_id
+            `)
+            .bind(runId)
+            .all<any>();
+        }, 3, 200, "calculateCategoryMetrics");
         console.log(`[D1 DEBUG] Category metrics calculated in ${Date.now() - startMetrics}ms`);
       } catch (error: any) {
         console.error(`[D1 ERROR] Failed to calculate category metrics:`, error.message);
@@ -387,18 +399,20 @@ export class WorkflowHandlers {
       const startComp = Date.now();
       let competitiveAnalysis;
       try {
-        competitiveAnalysis = await db.db
-          .prepare(`
-            SELECT cm.competitor_name, COUNT(*) as mention_count
-            FROM competitor_mentions cm
-            INNER JOIN prompt_analyses pa ON cm.prompt_analysis_id = pa.id
-            INNER JOIN prompts p ON pa.prompt_id = p.id
-            WHERE p.analysis_run_id = ?
-            GROUP BY cm.competitor_name
-            ORDER BY mention_count DESC
-          `)
-          .bind(runId)
-          .all<any>();
+        competitiveAnalysis = await db.retryD1Operation(async () => {
+          return await db.db
+            .prepare(`
+              SELECT cm.competitor_name, COUNT(*) as mention_count
+              FROM competitor_mentions cm
+              INNER JOIN prompt_analyses pa ON cm.prompt_analysis_id = pa.id
+              INNER JOIN prompts p ON pa.prompt_id = p.id
+              WHERE p.analysis_run_id = ?
+              GROUP BY cm.competitor_name
+              ORDER BY mention_count DESC
+            `)
+            .bind(runId)
+            .all<any>();
+        }, 3, 200, "calculateCompetitiveAnalysis");
         console.log(`[D1 DEBUG] Competitive analysis calculated in ${Date.now() - startComp}ms`);
       } catch (error: any) {
         console.error(`[D1 ERROR] Failed to calculate competitive analysis:`, error.message);
@@ -409,17 +423,19 @@ export class WorkflowHandlers {
       const startTS = Date.now();
       let timeSeries;
       try {
-        timeSeries = await db.db
-          .prepare(`
-            SELECT DATE(lr.timestamp) as date, COUNT(*) as count
-            FROM llm_responses lr
-            INNER JOIN prompts p ON lr.prompt_id = p.id
-            WHERE p.analysis_run_id = ?
-            GROUP BY DATE(lr.timestamp)
-            ORDER BY date
-          `)
-          .bind(runId)
-          .all<any>();
+        timeSeries = await db.retryD1Operation(async () => {
+          return await db.db
+            .prepare(`
+              SELECT DATE(lr.timestamp) as date, COUNT(*) as count
+              FROM llm_responses lr
+              INNER JOIN prompts p ON lr.prompt_id = p.id
+              WHERE p.analysis_run_id = ?
+              GROUP BY DATE(lr.timestamp)
+              ORDER BY date
+            `)
+            .bind(runId)
+            .all<any>();
+        }, 3, 200, "calculateTimeSeries");
         console.log(`[D1 DEBUG] Time series calculated in ${Date.now() - startTS}ms`);
       } catch (error: any) {
         console.error(`[D1 ERROR] Failed to calculate time series:`, error.message);
@@ -476,16 +492,18 @@ export class WorkflowHandlers {
             return domainLower.includes(ownCompanyDomain) || domainLower.includes(summaryBrandLower);
           };
 
-          const allCitationsResult = await db.db
-            .prepare(`
-              SELECT DISTINCT c.url, c.title, c.snippet
-              FROM citations c
-              INNER JOIN llm_responses lr ON c.llm_response_id = lr.id
-              INNER JOIN prompts p ON lr.prompt_id = p.id
-              WHERE p.analysis_run_id = ?
-            `)
-            .bind(runId)
-            .all<any>();
+          const allCitationsResult = await db.retryD1Operation(async () => {
+            return await db.db
+              .prepare(`
+                SELECT DISTINCT c.url, c.title, c.snippet
+                FROM citations c
+                INNER JOIN llm_responses lr ON c.llm_response_id = lr.id
+                INNER JOIN prompts p ON lr.prompt_id = p.id
+                WHERE p.analysis_run_id = ?
+              `)
+              .bind(runId)
+              .all<any>();
+          }, 3, 200, "getAllCitationsForSummary");
 
           const otherSources: Record<string, number> = {};
           (allCitationsResult.results || []).forEach((citation) => {
@@ -716,10 +734,12 @@ export class WorkflowHandlers {
       const db = new Database(env.geo_db as any);
 
       // Get run info to extract brand name
-      const runInfo = await db.db
-        .prepare("SELECT website_url FROM analysis_runs WHERE id = ?")
-        .bind(runId)
-        .first<{ website_url: string }>();
+      const runInfo = await db.retryD1Operation(async () => {
+        return await db.db
+          .prepare("SELECT website_url FROM analysis_runs WHERE id = ?")
+          .bind(runId)
+          .first<{ website_url: string }>();
+      }, 3, 200, "getRunInfoForSummary");
 
       if (!runInfo) {
         throw new Error("Analysis run not found");
@@ -735,20 +755,22 @@ export class WorkflowHandlers {
       const totalMentions = prompts.reduce((sum, prompt) => sum + (prompt.mentions || 0), 0);
 
       // Get all citations for this run
-      const allCitationsResult = await db.db
-        .prepare(`
-          SELECT 
-            c.url,
-            c.title,
-            c.snippet
-          FROM citations c
-          WHERE c.llm_response_id IN (
-            SELECT id FROM llm_responses 
-            WHERE prompt_id IN (SELECT id FROM prompts WHERE analysis_run_id = ?)
-          )
-        `)
-        .bind(runId)
-        .all<{ url: string; title: string | null; snippet: string | null }>();
+      const allCitationsResult = await db.retryD1Operation(async () => {
+        return await db.db
+          .prepare(`
+            SELECT 
+              c.url,
+              c.title,
+              c.snippet
+            FROM citations c
+            WHERE c.llm_response_id IN (
+              SELECT id FROM llm_responses 
+              WHERE prompt_id IN (SELECT id FROM prompts WHERE analysis_run_id = ?)
+            )
+          `)
+          .bind(runId)
+          .all<{ url: string; title: string | null; snippet: string | null }>();
+      }, 3, 200, "getCitationsForSummary");
 
       // Filter citations where brand is mentioned (same logic as AnalysisEngine.findBrandCitations)
       const brandCitations = (allCitationsResult.results || []).filter((citation) => {
