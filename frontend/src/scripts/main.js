@@ -197,7 +197,7 @@
           (stepDescription || '') + '</div></div>';
       }
       
-      // Update progress section
+      // Update modern progress section only
       const analysisProgress = document.getElementById('analysisProgress');
       const stepNumberEl = document.getElementById('stepNumber');
       const stepTitleEl = document.getElementById('currentStepTitle');
@@ -208,6 +208,14 @@
       if (analysisProgress) {
         analysisProgress.style.display = 'block';
       }
+      
+      // Hide legacy loading section when showing modern progress
+      const loading = document.getElementById('loading');
+      if (loading) {
+        loading.style.display = 'none';
+        loading.classList.remove('show');
+      }
+      
       if (stepNumberEl && stepNumber) {
         stepNumberEl.textContent = stepNumber;
       }
@@ -223,36 +231,25 @@
       if (progressFill && progress !== undefined) {
         progressFill.style.width = progress + '%';
       }
-      
-      // Also update legacy elements for compatibility
-      const progressFillLegacy = document.getElementById('progressFillLegacy');
-      const progressTextLegacy = document.getElementById('progressTextLegacy');
-      if (progressFillLegacy && progress !== undefined) {
-        progressFillLegacy.style.width = progress + '%';
-      }
-      if (progressTextLegacy && progress !== undefined) {
-        progressTextLegacy.textContent = Math.round(progress) + '%';
-      }
-      const currentStatus = document.getElementById('currentStatus');
-      const statusDetails = document.getElementById('statusDetails');
-      if (currentStatus && stepTitle) {
-        currentStatus.textContent = stepTitle;
-      }
-      if (statusDetails && stepDescription) {
-        statusDetails.textContent = stepDescription;
-      }
     };
     
     // Helper function to hide configuration and show progress
     window.startAnalysisUI = function() {
       const configCard = document.getElementById('configurationCard');
       const analysisProgress = document.getElementById('analysisProgress');
+      const loading = document.getElementById('loading');
       
       if (configCard) {
         configCard.classList.add('hidden');
         setTimeout(() => {
           configCard.style.display = 'none';
         }, 300);
+      }
+      
+      // Hide legacy loading section
+      if (loading) {
+        loading.style.display = 'none';
+        loading.classList.remove('show');
       }
       
       if (analysisProgress) {
@@ -301,17 +298,8 @@
         // Hide configuration and show progress
         window.startAnalysisUI();
         
-        // Show loading (legacy support)
-        const loading = document.getElementById('loading');
-        if (loading) {
-          loading.style.display = 'block';
-          loading.classList.add('show');
-        }
-        
-        const progressFill = document.getElementById('progressFill');
-        const progressText = document.getElementById('progressText');
-        if (progressFill) progressFill.style.width = '5%';
-        if (progressText) progressText.textContent = 'Starte Analyse...';
+        // Update progress to initial state
+        window.updateAnalysisUI(1, 'Analyse wird gestartet', 'Vorbereitung...', 5);
         
         // Call the API
         const response = await fetch('/api/workflow/step1', {
@@ -423,23 +411,33 @@
         const response = await fetch('/api/analysis/' + runId + '/status');
         const status = await response.json();
         
-        const progressFill = document.getElementById('progressFill');
-        const progressText = document.getElementById('progressText');
-        
         if (status.progress) {
           const progress = status.progress.progress || 0;
-          progressFill.style.width = progress + '%';
-          progressFill.textContent = progress + '%';
-          progressText.textContent = status.progress.message || status.progress.step || 'Processing...';
+          const stepTitle = status.progress.step || status.progress.message || 'Verarbeitung...';
+          const stepDescription = status.progress.message || '';
+          const stepNumber = Math.floor(progress / 20) + 1; // Estimate step number from progress
+          
+          // Use modern UI update function
+          if (window.updateAnalysisUI) {
+            window.updateAnalysisUI(stepNumber, stepTitle, stepDescription, progress);
+          }
         }
         
         if (status.status === 'completed') {
           clearInterval(pollInterval);
-          document.getElementById('loading').classList.remove('show');
+          const loading = document.getElementById('loading');
+          if (loading) {
+            loading.style.display = 'none';
+            loading.classList.remove('show');
+          }
           await loadResults(runId);
         } else if (status.status === 'failed') {
           clearInterval(pollInterval);
-          document.getElementById('loading').classList.remove('show');
+          const loading = document.getElementById('loading');
+          if (loading) {
+            loading.style.display = 'none';
+            loading.classList.remove('show');
+          }
           document.getElementById('result').classList.add('show');
           document.getElementById('resultContent').innerHTML = 
             '<div style="color: red;"><h4>❌ Analyse fehlgeschlagen</h4><p>' + 
@@ -593,13 +591,9 @@
         }
         
         // Reset progress and show initial status
-        progressFill.style.width = '0%';
-        progressText.textContent = 'Starte Analyse...';
-        
-        const statusEl = document.getElementById('currentStatus');
-        const statusDetailsEl = document.getElementById('statusDetails');
-        if (statusEl) statusEl.textContent = '🚀 Analyse wird gestartet...';
-        if (statusDetailsEl) statusDetailsEl.textContent = 'Vorbereitung der Analyse...';
+        if (window.updateAnalysisUI) {
+          window.updateAnalysisUI(1, 'Analyse wird gestartet', 'Vorbereitung der Analyse...', 0);
+        }
         
         console.log('Form submitted, calling executeStep1 with:', formData);
         await executeStep1(formData);
@@ -645,17 +639,17 @@
           throw new Error('UI elements not found');
         }
         
-        // Show loading immediately
-        loading.style.display = 'block';
-        loading.classList.add('show');
+        // Hide legacy loading, show modern progress
+        if (loading) {
+          loading.style.display = 'none';
+          loading.classList.remove('show');
+        }
         result.classList.remove('show');
-        progressFill.style.width = '5%';
-        progressText.textContent = 'Suche Sitemap.xml...';
         
-        const statusEl1 = document.getElementById('currentStatus');
-        const statusDetailsEl1 = document.getElementById('statusDetails');
-        if (statusEl1) statusEl1.textContent = '🔍 Schritt 1: Sitemap wird gesucht...';
-        if (statusDetailsEl1) statusDetailsEl1.textContent = 'Suche nach sitemap.xml auf ' + formData.websiteUrl;
+        // Update UI for step 1 start
+        if (window.updateAnalysisUI) {
+          window.updateAnalysisUI(1, 'Sitemap wird gesucht', 'Suche nach sitemap.xml auf ' + formData.websiteUrl, 5);
+        }
         
         console.log('Making API call to /api/workflow/step1');
         const response = await fetch('/api/workflow/step1', {
@@ -699,13 +693,11 @@
           if (window.updateAnalysisUI) {
             window.updateAnalysisUI(1, 'Sitemap gefunden', urlCount + ' URLs gefunden. Bereite nächsten Schritt vor...', 20);
           }
-          progressText.textContent = 'Sitemap gefunden: ' + urlCount + ' URLs';
         } else {
           const urlCount = data.urls ? data.urls.length : 0;
           if (window.updateAnalysisUI) {
             window.updateAnalysisUI(1, 'Sitemap nicht gefunden', urlCount + ' URLs von Startseite extrahiert. Bereite nächsten Schritt vor...', 20);
           }
-          progressText.textContent = 'Keine Sitemap gefunden: ' + urlCount + ' URLs von Startseite';
         }
         
         console.log('Step 1 completed. RunId:', currentRunId, 'URLs:', data.urls?.length || 0, 'FoundSitemap:', data.foundSitemap);
@@ -751,10 +743,10 @@
           window.updateAnalysisUI(2, 'Inhalte werden geholt', 'Lade Inhalte von ' + workflowData.urls.length + ' URLs', 25);
         }
         
-        const statusEl3 = document.getElementById('currentStatus');
-        const statusDetailsEl3 = document.getElementById('statusDetails');
-        if (statusEl3) statusEl3.textContent = '📄 Schritt 2: Inhalte werden geholt...';
-        if (statusDetailsEl3) statusDetailsEl3.textContent = 'Lade Inhalte von ' + workflowData.urls.length + ' URLs';
+        // Update UI for step 2 start
+        if (window.updateAnalysisUI) {
+          window.updateAnalysisUI(2, 'Inhalte werden geholt', 'Lade Inhalte von ' + workflowData.urls.length + ' URLs', 25);
+        }
         
         const progressText = document.getElementById('progressText');
         const resultContent = document.getElementById('resultContent');
@@ -770,16 +762,11 @@
         for (let i = 0; i < maxUrls; i++) {
           const url = workflowData.urls[i];
           const progress = 25 + Math.floor((i / maxUrls) * 15);
-          progressText.textContent = 'Hole Inhalte... (' + (i + 1) + '/' + maxUrls + ')';
           
-          // Update UI with live progress
+          // Update UI with live progress (removed redundant direct updates)
           if (window.updateAnalysisUI) {
             window.updateAnalysisUI(2, 'Inhalte werden geholt', 'Lade URL ' + (i + 1) + ' von ' + maxUrls, progress);
           }
-          
-          const statusDetailsEl3Loop = document.getElementById('statusDetails');
-          if (statusDetailsEl3Loop) statusDetailsEl3Loop.textContent = 'Lade URL ' + (i + 1) + ' von ' + maxUrls + ': ' + url.substring(0, 50) + '...';
-          document.getElementById('progressFill').style.width = progress + '%';
           
           try {
             const response = await fetch('/api/workflow/fetchUrl', {
@@ -808,18 +795,10 @@
         
         const separator = String.fromCharCode(10) + String.fromCharCode(10);
         workflowData.content = allContent.join(separator);
-        document.getElementById('progressFill').style.width = '40%';
-        progressText.textContent = 'Inhalte von ' + fetchedCount + ' Seiten geholt';
-        
         // Update UI for step 2 completion
         if (window.updateAnalysisUI) {
           window.updateAnalysisUI(2, 'Inhalte geholt', fetchedCount + ' Seiten erfolgreich geladen. Bereite nächsten Schritt vor...', 40);
         }
-        
-        const statusEl4 = document.getElementById('currentStatus');
-        const statusDetailsEl4 = document.getElementById('statusDetails');
-        if (statusEl4) statusEl4.textContent = '✅ Schritt 2 abgeschlossen: Inhalte geholt';
-        if (statusDetailsEl4) statusDetailsEl4.textContent = fetchedCount + ' Seiten erfolgreich geladen. Bereite Schritt 3 vor...';
         
         // Auto-proceed to step 3
         setTimeout(() => executeStep3(), 1000);
@@ -836,12 +815,10 @@
           window.updateAnalysisUI(3, 'Kategorien werden generiert', 'GPT analysiert Inhalte und generiert Kategorien', 45);
         }
         
-        const statusEl5 = document.getElementById('currentStatus');
-        const statusDetailsEl5 = document.getElementById('statusDetails');
-        if (statusEl5) statusEl5.textContent = '🤖 Schritt 3: Kategorien werden generiert...';
-        if (statusDetailsEl5) statusDetailsEl5.textContent = 'GPT analysiert Inhalte und generiert Kategorien/Keywords...';
-        
-        document.getElementById('progressText').textContent = 'Generiere Kategorien/Keywords mit GPT...';
+        // Update UI for step 3 start
+        if (window.updateAnalysisUI) {
+          window.updateAnalysisUI(3, 'Kategorien werden generiert', 'GPT analysiert Inhalte und generiert Kategorien/Keywords...', 50);
+        }
         const response = await fetch('/api/workflow/step3', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -862,18 +839,11 @@
         }
         
         workflowData.categories = data.categories;
-        document.getElementById('progressFill').style.width = '60%';
-        document.getElementById('progressText').textContent = 
-          data.categories.length + ' Kategorien generiert';
         
         // Update UI for step 3 completion
         if (window.updateAnalysisUI) {
           window.updateAnalysisUI(3, 'Kategorien generiert', data.categories.length + ' Kategorien gefunden. Wähle Kategorien aus...', 60);
         }
-        
-        // Update status (reuse existing variables)
-        if (statusEl5) statusEl5.textContent = '✅ Schritt 3 abgeschlossen: ' + data.categories.length + ' Kategorien generiert';
-        if (statusDetailsEl5) statusDetailsEl5.textContent = 'Bitte wähle die Kategorien aus, für die Fragen generiert werden sollen.';
         
         // Show categories for user selection
         try {
@@ -1094,20 +1064,9 @@
             
             const progressFill = document.getElementById('progressFill');
             const progressText = document.getElementById('progressText');
-            if (progressFill) {
-              progressFill.style.width = '60%';
-              progressFill.style.transition = 'width 0.3s ease';
-            }
-            if (progressText) progressText.textContent = 'Starte Fragen-Generierung...';
-            
-            const statusEl = document.getElementById('currentStatus');
-            const statusDetailsEl = document.getElementById('statusDetails');
-            if (statusEl) {
-              statusEl.textContent = '🤖 Schritt 4: Fragen werden generiert...';
-              statusEl.style.color = '#2563eb';
-            }
-            if (statusDetailsEl) {
-              statusDetailsEl.textContent = 'GPT generiert Fragen für ' + selected.length + ' ausgewählte Kategorien. Bitte warten...';
+            // Update UI for step 4 start
+            if (window.updateAnalysisUI) {
+              window.updateAnalysisUI(4, 'Fragen werden generiert', 'GPT generiert Fragen für ' + selected.length + ' ausgewählte Kategorien. Bitte warten...', 60);
             }
             
             // Show progress in result area too
@@ -1208,22 +1167,8 @@
         console.log('📊 Total questions to generate:', totalQuestions);
         
         // Update progress with detailed info
-        const progressText = document.getElementById('progressText');
-        const progressFill = document.getElementById('progressFill');
-        if (progressText) progressText.textContent = 'Generiere ' + totalQuestions + ' Fragen für ' + selectedCats.length + ' Kategorien...';
-        if (progressFill) {
-          progressFill.style.width = '65%';
-          progressFill.style.transition = 'width 0.3s ease';
-        }
-        
-        const statusEl = document.getElementById('currentStatus');
-        const statusDetailsEl = document.getElementById('statusDetails');
-        if (statusEl) {
-          statusEl.textContent = '🤖 Schritt 4: Fragen werden generiert...';
-          statusEl.style.color = '#2563eb';
-        }
-        if (statusDetailsEl) {
-          statusDetailsEl.textContent = 'GPT generiert ' + questionsPerCategory + ' Fragen pro Kategorie für ' + selectedCats.length + ' Kategorien. Dies kann einige Sekunden dauern...';
+        if (window.updateAnalysisUI) {
+          window.updateAnalysisUI(4, 'Fragen werden generiert', 'GPT generiert ' + questionsPerCategory + ' Fragen pro Kategorie für ' + selectedCats.length + ' Kategorien. Dies kann einige Sekunden dauern...', 65);
         }
         
         // Update result area with progress
@@ -1273,20 +1218,8 @@
         workflowData.prompts = data.prompts;
         
         // Update progress to 80%
-        if (progressFill) {
-          progressFill.style.width = '80%';
-          progressFill.style.transition = 'width 0.3s ease';
-        }
-        if (progressText) {
-          progressText.textContent = '✅ ' + data.prompts.length + ' Fragen erfolgreich generiert!';
-        }
-        
-        if (statusEl) {
-          statusEl.textContent = '✅ Schritt 4 abgeschlossen: ' + data.prompts.length + ' Fragen generiert';
-          statusEl.style.color = '#059669';
-        }
-        if (statusDetailsEl) {
-          statusDetailsEl.textContent = 'Alle Fragen wurden erfolgreich generiert. Bitte überprüfe und bearbeite die Fragen.';
+        if (window.updateAnalysisUI) {
+          window.updateAnalysisUI(4, 'Fragen generiert', data.prompts.length + ' Fragen erfolgreich generiert. Bitte überprüfe und bearbeite die Fragen.', 80);
         }
         
         // Show success message briefly before showing prompts
@@ -1401,15 +1334,10 @@
               loading.classList.add('show');
             }
             
-            const progressFill = document.getElementById('progressFill');
-            const progressText = document.getElementById('progressText');
-            if (progressFill) progressFill.style.width = '80%';
-            if (progressText) progressText.textContent = 'Starte GPT-5 Ausführung...';
-            
-            const statusEl = document.getElementById('currentStatus');
-            const statusDetailsEl = document.getElementById('statusDetails');
-            if (statusEl) statusEl.textContent = '🤖 Schritt 5: GPT-5 Ausführung...';
-            if (statusDetailsEl) statusDetailsEl.textContent = 'Führe ' + updatedPrompts.length + ' Fragen aus...';
+            // Update UI for step 5 start
+            if (window.updateAnalysisUI) {
+              window.updateAnalysisUI(5, 'GPT-5 Ausführung', 'Führe ' + updatedPrompts.length + ' Fragen aus...', 80);
+            }
             
             try {
               await executeStep5();
@@ -1455,8 +1383,9 @@
         const allQuestionsAndAnswers = [];
         
         // Update status
-        if (statusEl) statusEl.textContent = '🤖 Schritt 5: GPT-5 Ausführung läuft...';
-        if (statusDetailsEl) statusDetailsEl.textContent = 'Führe ' + promptsLength + ' Fragen mit Web Search aus...';
+        if (window.updateAnalysisUI) {
+          window.updateAnalysisUI(5, 'GPT-5 Ausführung läuft', 'Führe ' + promptsLength + ' Fragen mit Web Search aus...', 80);
+        }
         
         // Execute prompts one by one with live updates
         for (let i = 0; i < promptsLength; i++) {
@@ -1464,10 +1393,8 @@
           const progressPercent = 80 + ((i / promptsLength) * 20);
           
           // Update progress
-          if (progressText) progressText.textContent = 'Frage ' + (i + 1) + '/' + promptsLength + ' wird ausgeführt...';
-          if (progressFill) {
-            progressFill.style.width = progressPercent + '%';
-            progressFill.style.transition = 'width 0.3s ease';
+          if (window.updateAnalysisUI) {
+            window.updateAnalysisUI(5, 'GPT-5 Ausführung läuft', 'Frage ' + (i + 1) + '/' + promptsLength + ' wird ausgeführt...', progressPercent);
           }
           
           // Show "processing" indicator for current question
@@ -1664,16 +1591,9 @@
         }
         
         // Final update
-        if (progressFill) {
-          progressFill.style.width = '100%';
-          progressFill.style.transition = 'width 0.3s ease';
+        if (window.updateAnalysisUI) {
+          window.updateAnalysisUI(5, 'Analyse abgeschlossen', executedCount + ' von ' + promptsLength + ' Fragen erfolgreich ausgeführt. Ergebnisse sind unten sichtbar.', 100);
         }
-        if (progressText) progressText.textContent = '✅ Analyse abgeschlossen! ' + executedCount + ' von ' + promptsLength + ' Fragen erfolgreich ausgeführt';
-        if (statusEl) {
-          statusEl.textContent = '✅ Schritt 5 abgeschlossen';
-          statusEl.style.color = '#059669';
-        }
-        if (statusDetailsEl) statusDetailsEl.textContent = 'Alle Fragen wurden ausgeführt. Ergebnisse sind unten sichtbar.';
         
         // Save all responses
         try {
