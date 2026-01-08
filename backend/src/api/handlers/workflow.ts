@@ -447,58 +447,17 @@ export class WorkflowHandlers {
           const summaryBrandLower = summaryBrandName.toLowerCase();
           const brandInUrl = summaryBrandLower.replace(/\s+/g, '');
 
-          // Get all prompts with mentions and citations
-          const promptsWithCitationsResult = await db.db
-            .prepare(`
-              SELECT 
-                p.id,
-                p.question,
-                COALESCE(pa.brand_mentions_exact, 0) + COALESCE(pa.brand_mentions_fuzzy, 0) as mentions,
-                c.url as citation_url,
-                c.title as citation_title,
-                c.snippet as citation_snippet
-              FROM prompts p
-              LEFT JOIN prompt_analyses pa ON pa.prompt_id = p.id
-              LEFT JOIN llm_responses lr ON lr.prompt_id = p.id
-              LEFT JOIN citations c ON c.llm_response_id = lr.id
-              WHERE p.analysis_run_id = ?
-            `)
-            .bind(runId)
-            .all<any>();
+          // Get prompts with mentions and citations from getPromptsForAnalysis
+          // This ensures consistency with the data shown in the UI
+          const prompts = await db.getPromptsForAnalysis(runId);
+          const totalMentions = prompts.reduce((sum, prompt) => sum + (prompt.mentions || 0), 0);
+          const totalCitations = prompts.reduce((sum, prompt) => sum + (prompt.citations || 0), 0);
 
-          const promptMap = new Map<string, { question: string; mentions: number; citationUrls: Set<string> }>();
-          let totalMentions = 0;
-          let totalCitations = 0;
-
-          (promptsWithCitationsResult.results || []).forEach((row) => {
-            if (!promptMap.has(row.id)) {
-              promptMap.set(row.id, {
-                question: row.question,
-                mentions: row.mentions || 0,
-                citationUrls: new Set<string>(),
-              });
-              totalMentions += row.mentions || 0;
-            }
-
-            if (row.citation_url) {
-              totalCitations++;
-              const citationText = `${row.citation_title || ""} ${row.citation_snippet || ""}`.toLowerCase();
-              const urlLower = row.citation_url.toLowerCase();
-              const mentionedInText = citationText.includes(summaryBrandLower);
-              const mentionedInUrl = urlLower.includes(brandInUrl);
-              
-              if (mentionedInText || mentionedInUrl) {
-                const prompt = promptMap.get(row.id)!;
-                prompt.citationUrls.add(row.citation_url);
-              }
-            }
-          });
-
-          const bestPrompts = Array.from(promptMap.entries())
-            .map(([id, data]) => ({
-              question: data.question,
-              mentions: data.mentions,
-              citations: data.citationUrls.size,
+          const bestPrompts = prompts
+            .map((prompt) => ({
+              question: prompt.question,
+              mentions: prompt.mentions || 0,
+              citations: prompt.citations || 0,
             }))
             .sort((a, b) => (b.mentions + b.citations) - (a.mentions + a.citations))
             .slice(0, 10);
@@ -770,21 +729,10 @@ export class WorkflowHandlers {
       const brandLower = brandName.toLowerCase();
       const brandInUrl = brandLower.replace(/\s+/g, ""); // Remove spaces for URL matching
 
-      // Calculate total mentions (exact + fuzzy)
-      // IMPORTANT: Mentions are already excluded from citations by BrandMentionDetector
-      // (see countExactMentionsExcludingCitations which excludes mentions within citation ranges)
-      // So mentions here are only those that appear in the text but NOT in citations
-      const mentionsResult = await db.db
-        .prepare(`
-          SELECT 
-            SUM(brand_mentions_exact + brand_mentions_fuzzy) as totalMentions
-          FROM prompt_analyses
-          WHERE prompt_id IN (SELECT id FROM prompts WHERE analysis_run_id = ?)
-        `)
-        .bind(runId)
-        .first<{ totalMentions: number | null }>();
-
-      const totalMentions = mentionsResult?.totalMentions || 0;
+      // Calculate total mentions from prompts using extractTextStats
+      // This uses the same logic as getPromptsForAnalysis to ensure consistency
+      const prompts = await db.getPromptsForAnalysis(runId);
+      const totalMentions = prompts.reduce((sum, prompt) => sum + (prompt.mentions || 0), 0);
 
       // Get all citations for this run
       const allCitationsResult = await db.db
@@ -816,65 +764,13 @@ export class WorkflowHandlers {
 
       const totalCitations = brandCitations.length;
 
-      // Get best prompts (top prompts by mentions + brand citations)
-      // Get all prompts with their citations in one query
-      const promptsWithCitationsResult = await db.db
-        .prepare(`
-          SELECT 
-            p.id,
-            p.question,
-            COALESCE(pa.brand_mentions_exact, 0) + COALESCE(pa.brand_mentions_fuzzy, 0) as mentions,
-            c.url as citation_url,
-            c.title as citation_title,
-            c.snippet as citation_snippet
-          FROM prompts p
-          LEFT JOIN prompt_analyses pa ON pa.prompt_id = p.id
-          LEFT JOIN llm_responses lr ON lr.prompt_id = p.id
-          LEFT JOIN citations c ON c.llm_response_id = lr.id
-          WHERE p.analysis_run_id = ?
-        `)
-        .bind(runId)
-        .all<{
-          id: string;
-          question: string;
-          mentions: number;
-          citation_url: string | null;
-          citation_title: string | null;
-          citation_snippet: string | null;
-        }>();
-
-      // Group by prompt and count unique brand citations
-      const promptMap = new Map<string, { question: string; mentions: number; citationUrls: Set<string> }>();
-      
-      (promptsWithCitationsResult.results || []).forEach((row) => {
-        if (!promptMap.has(row.id)) {
-          promptMap.set(row.id, {
-            question: row.question,
-            mentions: row.mentions,
-            citationUrls: new Set<string>(),
-          });
-        }
-
-        // Track brand citations by URL to avoid double counting
-        if (row.citation_url) {
-          const citationText = `${row.citation_title || ""} ${row.citation_snippet || ""}`.toLowerCase();
-          const urlLower = row.citation_url.toLowerCase();
-          const mentionedInText = citationText.includes(brandLower);
-          const mentionedInUrl = urlLower.includes(brandInUrl);
-          
-          if (mentionedInText || mentionedInUrl) {
-            const prompt = promptMap.get(row.id)!;
-            prompt.citationUrls.add(row.citation_url);
-          }
-        }
-      });
-
-      // Convert to array with citation counts and sort
-      const bestPrompts = Array.from(promptMap.entries())
-        .map(([id, data]) => ({
-          question: data.question,
-          mentions: data.mentions,
-          citations: data.citationUrls.size,
+      // Get best prompts using mentions and citations from getPromptsForAnalysis
+      // This ensures consistency with the data shown in the UI
+      const bestPrompts = prompts
+        .map((prompt) => ({
+          question: prompt.question,
+          mentions: prompt.mentions || 0,
+          citations: prompt.citations || 0,
         }))
         .sort((a, b) => (b.mentions + b.citations) - (a.mentions + a.citations))
         .slice(0, 10);
