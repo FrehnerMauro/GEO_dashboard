@@ -101,6 +101,8 @@ export class Router {
         return await this.workflowHandlers.handleFetchUrl(request, this.env, corsHeaders);
       case "executePrompt":
         return await this.workflowHandlers.handleExecutePrompt(request, this.env, corsHeaders);
+      case "generateSummary":
+        return await this.workflowHandlers.handleGenerateSummary(request, this.env, corsHeaders);
       default:
         return handleNotFound(corsHeaders);
     }

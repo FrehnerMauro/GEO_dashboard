@@ -462,4 +462,130 @@ export class WorkflowHandlers {
       });
     }
   }
+
+  async handleGenerateSummary(
+    request: Request,
+    env: Env,
+    corsHeaders: CorsHeaders
+  ): Promise<Response> {
+    try {
+      const body = await request.json() as {
+        runId: string;
+        questionsAndAnswers?: any[];
+        userInput?: any;
+      };
+      const { runId } = body;
+
+      const db = new Database(env.geo_db as any);
+
+      // Calculate total mentions (exact + fuzzy)
+      const mentionsResult = await db.db
+        .prepare(`
+          SELECT 
+            SUM(brand_mentions_exact + brand_mentions_fuzzy) as totalMentions
+          FROM prompt_analyses
+          WHERE prompt_id IN (SELECT id FROM prompts WHERE analysis_run_id = ?)
+        `)
+        .bind(runId)
+        .first<{ totalMentions: number | null }>();
+
+      const totalMentions = mentionsResult?.totalMentions || 0;
+
+      // Calculate total citations
+      const citationsResult = await db.db
+        .prepare(`
+          SELECT COUNT(*) as totalCitations
+          FROM citations
+          WHERE llm_response_id IN (
+            SELECT id FROM llm_responses 
+            WHERE prompt_id IN (SELECT id FROM prompts WHERE analysis_run_id = ?)
+          )
+        `)
+        .bind(runId)
+        .first<{ totalCitations: number }>();
+
+      const totalCitations = citationsResult?.totalCitations || 0;
+
+      // Get best prompts (top prompts by mentions + citations)
+      const bestPromptsResult = await db.db
+        .prepare(`
+          SELECT 
+            p.id,
+            p.question,
+            COALESCE(pa.brand_mentions_exact, 0) + COALESCE(pa.brand_mentions_fuzzy, 0) as mentions,
+            COALESCE(pa.citation_count, 0) as citations
+          FROM prompts p
+          LEFT JOIN prompt_analyses pa ON pa.prompt_id = p.id
+          WHERE p.analysis_run_id = ?
+          ORDER BY (COALESCE(pa.brand_mentions_exact, 0) + COALESCE(pa.brand_mentions_fuzzy, 0) + COALESCE(pa.citation_count, 0)) DESC
+          LIMIT 10
+        `)
+        .bind(runId)
+        .all<{
+          id: string;
+          question: string;
+          mentions: number;
+          citations: number;
+        }>();
+
+      const bestPrompts = (bestPromptsResult.results || []).map((p) => ({
+        question: p.question,
+        mentions: p.mentions,
+        citations: p.citations,
+      }));
+
+      // Get other sources (citation URLs grouped by domain)
+      const sourcesResult = await db.db
+        .prepare(`
+          SELECT 
+            c.url,
+            COUNT(*) as count
+          FROM citations c
+          WHERE c.llm_response_id IN (
+            SELECT id FROM llm_responses 
+            WHERE prompt_id IN (SELECT id FROM prompts WHERE analysis_run_id = ?)
+          )
+          GROUP BY c.url
+          ORDER BY count DESC
+        `)
+        .bind(runId)
+        .all<{ url: string; count: number }>();
+
+      const otherSources: Record<string, number> = {};
+      (sourcesResult.results || []).forEach((s) => {
+        try {
+          const urlObj = new URL(s.url);
+          const domain = urlObj.hostname.replace('www.', '');
+          otherSources[domain] = (otherSources[domain] || 0) + s.count;
+        } catch {
+          // If URL parsing fails, use the URL as-is
+          otherSources[s.url] = (otherSources[s.url] || 0) + s.count;
+        }
+      });
+
+      return new Response(
+        JSON.stringify({
+          totalMentions,
+          totalCitations,
+          bestPrompts,
+          otherSources,
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    } catch (error) {
+      console.error("Error in handleGenerateSummary:", error);
+      return new Response(
+        JSON.stringify({
+          error: "Failed to generate summary",
+          message: error instanceof Error ? error.message : "Unknown error",
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+  }
 }

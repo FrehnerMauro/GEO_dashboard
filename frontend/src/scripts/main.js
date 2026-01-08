@@ -1668,7 +1668,9 @@
         });
         
         if (!response.ok) {
-          throw new Error('Fehler beim Generieren des Fazits');
+          const errorData = await response.json().catch(() => ({}));
+          const errorMessage = errorData.message || errorData.error || 'Fehler beim Generieren des Fazits';
+          throw new Error(errorMessage);
         }
         
         const summaryData = await response.json();

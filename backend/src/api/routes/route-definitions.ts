@@ -19,6 +19,7 @@ export const ROUTES: RouteDefinition[] = [
   { method: "POST", path: "/api/workflow/step5", handler: "workflow.step5" },
   { method: "POST", path: "/api/workflow/fetchUrl", handler: "workflow.fetchUrl" },
   { method: "POST", path: "/api/workflow/executePrompt", handler: "workflow.executePrompt" },
+  { method: "POST", path: "/api/workflow/generateSummary", handler: "workflow.generateSummary" },
   
   // Analysis routes (used by frontend)
   { method: "POST", path: "/api/analyze", handler: "analysis.analyze" },
