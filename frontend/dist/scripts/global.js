@@ -17,12 +17,12 @@
           sidebar.classList.remove('collapsed');
           if (body) body.classList.remove('sidebar-collapsed');
           if (toggleBtn) toggleBtn.textContent = '◀';
-          if (toggleBtn) toggleBtn.title = 'Menü ausblenden';
+          if (toggleBtn) toggleBtn.title = 'Hide menu';
         } else {
           sidebar.classList.add('collapsed');
           if (body) body.classList.add('sidebar-collapsed');
           if (toggleBtn) toggleBtn.textContent = '▶';
-          if (toggleBtn) toggleBtn.title = 'Menü einblenden';
+          if (toggleBtn) toggleBtn.title = 'Show menu';
         }
       };
       
@@ -81,7 +81,7 @@
       
       // Update header
       const headerTitle = document.getElementById('headerTitle');
-      if (headerTitle) headerTitle.textContent = 'AI Analyse';
+      if (headerTitle) headerTitle.textContent = 'AI Analysis';
       
       // Update navigation
       const navItems = document.querySelectorAll('.nav-item');

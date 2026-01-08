@@ -1,20 +1,41 @@
 @media (max-width: 1200px) {
-      .content-area {
-        padding: 32px;
-        max-width: 100%;
-      }
+  .content-area {
+    padding: 32px;
+    max-width: 100%;
+  }
+}
 
 @media (max-width: 968px) {
-      .content-area {
-        padding: 28px;
-      }
+  .content-area {
+    padding: 28px;
+  }
+}
 
 @media (max-width: 768px) {
-      :root {
-        --sidebar-width: 0px;
-      }
+  :root {
+    --sidebar-width: 0px;
+  }
+  
+  .sidebar {
+    transform: translateX(-100%);
+  }
+  
+  .main-content {
+    margin-left: 0;
+    width: 100%;
+  }
+}
 
 @media (max-width: 480px) {
-      .content-area {
-        padding: 16px;
-      }
+  .content-area {
+    padding: 16px;
+  }
+  
+  .card-body {
+    padding: 20px;
+  }
+  
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
