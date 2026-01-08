@@ -254,10 +254,37 @@ export class AnalysesPage {
                       </div>
                     </details>
                   ` : '<div style="color: #999; font-size: 12px; margin-top: 5px;">No answer yet</div>'}
-                  ${prompt.mentions !== undefined || prompt.citations !== undefined ? `
+                  ${prompt.mentions !== undefined || prompt.citations !== undefined || prompt.otherLinks !== undefined ? `
                     <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #666;">
-                      <span style="margin-right: 15px;">📌 Mentions: <strong>${prompt.mentions || 0}</strong></span>
-                      <span>🔗 Citations: <strong>${prompt.citations || 0}</strong></span>
+                      <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 10px;">
+                        <span>📌 Mentions: <strong>${prompt.mentions || 0}</strong></span>
+                        <span>🔗 Citations: <strong>${prompt.citations || 0}</strong></span>
+                        ${prompt.otherLinks !== undefined ? `<span>🔗 Other Links: <strong>${prompt.otherLinks || 0}</strong></span>` : ''}
+                      </div>
+                      ${prompt.citationUrls && prompt.citationUrls.length > 0 ? `
+                        <div style="margin-top: 8px; padding: 8px; background: #e8f5e9; border-radius: 4px;">
+                          <div style="font-weight: 500; margin-bottom: 4px; color: #2e7d32;">Citation URLs:</div>
+                          <div style="display: flex; flex-direction: column; gap: 4px;">
+                            ${prompt.citationUrls.map((url: string) => `
+                              <a href="${url}" target="_blank" rel="noopener noreferrer" style="color: #1976d2; text-decoration: none; word-break: break-all; font-size: 11px;">
+                                ${url}
+                              </a>
+                            `).join('')}
+                          </div>
+                        </div>
+                      ` : ''}
+                      ${prompt.otherLinkUrls && prompt.otherLinkUrls.length > 0 ? `
+                        <div style="margin-top: 8px; padding: 8px; background: #fff3e0; border-radius: 4px;">
+                          <div style="font-weight: 500; margin-bottom: 4px; color: #e65100;">Other Link URLs:</div>
+                          <div style="display: flex; flex-direction: column; gap: 4px;">
+                            ${prompt.otherLinkUrls.map((url: string) => `
+                              <a href="${url}" target="_blank" rel="noopener noreferrer" style="color: #1976d2; text-decoration: none; word-break: break-all; font-size: 11px;">
+                                ${url}
+                              </a>
+                            `).join('')}
+                          </div>
+                        </div>
+                      ` : ''}
                     </div>
                   ` : ''}
                 </div>

@@ -565,7 +565,32 @@ export class Database {
     categoryId: string;
     categoryName: string | null;
     createdAt: string;
+    citations?: number;
+    mentions?: number;
+    otherLinks?: number;
+    citationUrls?: string[];
+    otherLinkUrls?: string[];
   }>> {
+    const { extractConclusion, extractTextStats } = await import("../utils/text-extraction.js");
+    
+    // Hole die website_url, um den Brand-Namen zu extrahieren
+    const runInfo = await this.db
+      .prepare("SELECT website_url FROM analysis_runs WHERE id = ?")
+      .bind(runId)
+      .first<{ website_url: string }>();
+    
+    // Extrahiere Brand-Namen aus URL
+    let brandName = "the brand";
+    if (runInfo?.website_url) {
+      try {
+        const domain = new URL(runInfo.website_url).hostname;
+        const parts = domain.split(".");
+        brandName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+      } catch {
+        // Fallback: verwende "the brand"
+      }
+    }
+    
     const result = await this.db
       .prepare(
         `SELECT 
@@ -594,14 +619,28 @@ export class Database {
         created_at: string;
       }>();
 
-    return (result.results || []).map(r => ({
-      id: r.id,
-      question: r.question,
-      answer: r.answer,
-      categoryId: r.category_id,
-      categoryName: r.category_name,
-      createdAt: r.created_at,
-    }));
+    return (result.results || []).map(r => {
+      // Extrahiere das Fazit
+      const conclusion = extractConclusion(r.answer);
+      
+      // Berechne Statistiken aus dem ORIGINALEN Text (vor Fazit-Extraktion)
+      const stats = r.answer ? extractTextStats(r.answer, brandName) : null;
+      
+      return {
+        id: r.id,
+        question: r.question,
+        answer: conclusion, // Das extrahierte Fazit
+        categoryId: r.category_id,
+        categoryName: r.category_name,
+        createdAt: r.created_at,
+        // Statistiken aus dem originalen Text
+        citations: stats?.citations ?? 0,
+        mentions: stats?.mentions ?? 0,
+        otherLinks: stats?.otherLinks ?? 0,
+        citationUrls: stats?.citationUrls ?? [],
+        otherLinkUrls: stats?.otherLinkUrls ?? [],
+      };
+    });
   }
 
   async getAnalysisRun(runId: string): Promise<AnalysisResult | null> {
