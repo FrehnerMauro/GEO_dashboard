@@ -2,11 +2,14 @@
  * API Client - Centralized API communication layer
  */
 
-export class ApiClient {
-  private baseUrl: string = "";
+import { getApiBaseUrl } from "./config.js";
 
-  constructor(baseUrl: string = "") {
-    this.baseUrl = baseUrl;
+export class ApiClient {
+  private baseUrl: string;
+
+  constructor(baseUrl?: string) {
+    // Use provided baseUrl, or get from config
+    this.baseUrl = baseUrl ?? getApiBaseUrl();
   }
 
   private async request<T>(
@@ -54,5 +57,6 @@ export class ApiClient {
 }
 
 // Export singleton instance
+// Will automatically use the baseUrl from config
 export const apiClient = new ApiClient();
 

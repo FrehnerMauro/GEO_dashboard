@@ -15,6 +15,60 @@
   <link rel="stylesheet" href="/styles/ai-readiness.css">
   <link rel="stylesheet" href="/styles/responsive.css">
   
+  <!-- API Configuration -->
+  <meta name="api-base-url" content="https://geo-platform.maurofrehner.workers.dev">
+  <script>
+    // Global API configuration - available immediately
+    (function() {
+      // Get API base URL from meta tag or use default
+      const apiBaseUrlMeta = document.querySelector('meta[name="api-base-url"]');
+      const apiBaseUrl = apiBaseUrlMeta ? apiBaseUrlMeta.getAttribute('content') : 'https://geo-platform.maurofrehner.workers.dev';
+      
+      // Store in global config
+      window.__GEO_CONFIG__ = {
+        apiBaseUrl: apiBaseUrl
+      };
+      
+      // Helper function to get full API URL
+      window.getApiUrl = function(endpoint) {
+        const baseUrl = window.__GEO_CONFIG__?.apiBaseUrl || '';
+        const cleanEndpoint = endpoint.startsWith('/') ? endpoint : '/' + endpoint;
+        
+        if (baseUrl) {
+          const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+          return cleanBaseUrl + cleanEndpoint;
+        }
+        
+        return cleanEndpoint;
+      };
+      
+      // Helper function to make API fetch requests
+      window.apiFetch = function(endpoint, options) {
+        const url = window.getApiUrl(endpoint);
+        return fetch(url, {
+          ...options,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(options?.headers || {})
+          }
+        });
+      };
+      
+      // Override fetch to automatically use API URL for /api/* endpoints
+      // This ensures all existing fetch('/api/...') calls work automatically
+      const originalFetch = window.fetch;
+      window.fetch = function(input, init) {
+        // If input is a string starting with /api, use getApiUrl
+        if (typeof input === 'string' && input.startsWith('/api')) {
+          const url = window.getApiUrl(input);
+          return originalFetch.call(this, url, init);
+        }
+        // Otherwise, use original fetch
+        return originalFetch.call(this, input, init);
+      };
+    })();
+  </script>
+  
   <!-- Global JavaScript (must load before body) -->
   <script src="/scripts/global.js" defer></script>
 </head>

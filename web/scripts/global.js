@@ -172,11 +172,19 @@
           if (progressEl) progressEl.style.width = '10%';
           if (progressTextEl) progressTextEl.textContent = '10%';
           
-          const step1Response = await fetch('/api/ai-readiness/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ websiteUrl })
-          });
+          // Use apiFetch if available, otherwise use getApiUrl with fetch
+          const fetchFn = window.apiFetch || fetch;
+          const endpoint = '/api/ai-readiness/analyze';
+          const step1Response = await (window.apiFetch 
+            ? window.apiFetch(endpoint, {
+                method: 'POST',
+                body: JSON.stringify({ websiteUrl })
+              })
+            : fetch(window.getApiUrl ? window.getApiUrl(endpoint) : endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ websiteUrl })
+              }));
           
           if (!step1Response.ok) {
             throw new Error('Fehler beim Starten der Analyse');
@@ -220,7 +228,11 @@
             attempts++;
             
             try {
-              const statusResponse = await fetch('/api/ai-readiness/status/' + runId);
+              // Use apiFetch if available, otherwise use getApiUrl with fetch
+              const statusEndpoint = '/api/ai-readiness/status/' + runId;
+              const statusResponse = await (window.apiFetch 
+                ? window.apiFetch(statusEndpoint, { method: 'GET' })
+                : fetch(window.getApiUrl ? window.getApiUrl(statusEndpoint) : statusEndpoint));
               if (statusResponse.ok) {
                 const statusData = await statusResponse.json();
                 
