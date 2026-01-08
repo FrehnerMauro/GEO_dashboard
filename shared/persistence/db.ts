@@ -584,33 +584,54 @@ export class Database {
   }
 
   async getAllCompanies(): Promise<Company[]> {
+    // Get companies from analysis_runs grouped by website_url
+    // This shows all firms that have been analyzed
     const companies = await this.db
-      .prepare("SELECT * FROM companies WHERE is_active = 1 ORDER BY created_at DESC")
+      .prepare(
+        `SELECT 
+          website_url,
+          MAX(country) as country,
+          MAX(language) as language,
+          MAX(region) as region,
+          COUNT(*) as analysis_count,
+          MAX(created_at) as last_analysis_date
+         FROM analysis_runs
+         GROUP BY website_url
+         ORDER BY last_analysis_date DESC`
+      )
       .all<{
-        id: string;
-        name: string;
         website_url: string;
         country: string;
         language: string;
         region: string | null;
-        description: string | null;
-        is_active: number;
-        created_at: string;
-        updated_at: string;
+        analysis_count: number;
+        last_analysis_date: string;
       }>();
     
-    return (companies.results || []).map(c => ({
-      id: c.id,
-      name: c.name,
-      websiteUrl: c.website_url,
-      country: c.country,
-      language: c.language,
-      region: c.region || undefined,
-      description: c.description || undefined,
-      isActive: c.is_active === 1,
-      createdAt: c.created_at,
-      updatedAt: c.updated_at,
-    }));
+    return (companies.results || []).map((c) => {
+      // Extract domain name as company name
+      let companyName = c.website_url;
+      try {
+        const url = new URL(c.website_url.startsWith('http') ? c.website_url : `https://${c.website_url}`);
+        companyName = url.hostname.replace('www.', '');
+      } catch (e) {
+        // Keep original if URL parsing fails
+      }
+      
+      // Use URL-encoded website_url as ID for easy retrieval
+      return {
+        id: encodeURIComponent(c.website_url),
+        name: companyName,
+        websiteUrl: c.website_url,
+        country: c.country,
+        language: c.language,
+        region: c.region || undefined,
+        description: undefined,
+        isActive: true,
+        createdAt: c.last_analysis_date,
+        updatedAt: c.last_analysis_date,
+      };
+    });
   }
 
   async updateCompany(companyId: string, updates: Partial<Company>): Promise<void> {
@@ -720,20 +741,24 @@ export class Database {
   }
 
   async getCompanyAnalysisRuns(companyId: string, limit: number = 50): Promise<any[]> {
+    // companyId is URL-encoded website_url
+    const websiteUrl = decodeURIComponent(companyId);
+    
     const runs = await this.db
       .prepare(
-        `SELECT id, website_url, country, language, status, created_at, updated_at 
+        `SELECT id, website_url, country, language, region, status, created_at, updated_at 
          FROM analysis_runs 
-         WHERE company_id = ? 
+         WHERE website_url = ? 
          ORDER BY created_at DESC 
          LIMIT ?`
       )
-      .bind(companyId, limit)
+      .bind(websiteUrl, limit)
       .all<{
         id: string;
         website_url: string;
         country: string;
         language: string;
+        region: string | null;
         status: string;
         created_at: string;
         updated_at: string;
@@ -744,7 +769,8 @@ export class Database {
       websiteUrl: r.website_url,
       country: r.country,
       language: r.language,
-      status: r.status,
+      region: r.region || undefined,
+      status: r.status || 'pending',
       createdAt: r.created_at,
       updatedAt: r.updated_at,
     }));

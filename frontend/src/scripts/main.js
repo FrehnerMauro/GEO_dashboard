@@ -1868,11 +1868,14 @@
       const aiReadabilitySection = document.getElementById('aiReadabilitySection');
       const analysesSection = document.getElementById('analysesSection');
       const analysisDetailSection = document.getElementById('analysisDetailSection');
+      const configurationCard = document.querySelector('.content-area > .card');
+      
       if (dashboardSection) dashboardSection.style.display = 'none';
       if (aiAnalysisSection) aiAnalysisSection.style.display = 'none';
       if (aiReadabilitySection) aiReadabilitySection.style.display = 'none';
       if (analysesSection) analysesSection.style.display = 'none';
       if (analysisDetailSection) analysisDetailSection.style.display = 'none';
+      if (configurationCard) configurationCard.style.display = 'none';
     }
     
     function updateNavActive(event) {
@@ -2180,6 +2183,8 @@
       const aiAnalysisSection = document.getElementById('aiAnalysisSection');
       if (aiAnalysisSection) {
         aiAnalysisSection.style.display = 'block';
+        // Make sure it's visible
+        aiAnalysisSection.style.visibility = 'visible';
       }
       const headerTitle = document.getElementById('headerTitle');
       if (headerTitle) headerTitle.textContent = 'AI Analyse';
