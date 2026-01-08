@@ -2031,6 +2031,8 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
     corsHeaders: Record<string, string>
   ): Promise<Response> {
     try {
+      console.log(`[AI Readiness Status] Requested runId: ${runId}`);
+      
       const { Database } = await import("../persistence/index.js");
       const db = new Database(env.geo_db as any);
       
@@ -2039,13 +2041,15 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
         await db.db.exec(
           'CREATE TABLE IF NOT EXISTS ai_readiness_runs (id TEXT PRIMARY KEY, website_url TEXT NOT NULL, status TEXT NOT NULL, robots_txt TEXT, sitemap_urls TEXT, total_urls INTEGER, recommendations TEXT, message TEXT, error TEXT, logs TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)'
         );
+        console.log(`[AI Readiness Status] Table created/verified for runId: ${runId}`);
       } catch (e: any) {
         // Ignore error if table already exists
         if (!e?.message?.includes('already exists') && !e?.message?.includes('duplicate')) {
-          console.warn('Could not create ai_readiness_runs table (may already exist):', e);
+          console.warn(`[AI Readiness Status] Could not create ai_readiness_runs table (may already exist):`, e);
         }
       }
       
+      console.log(`[AI Readiness Status] Querying database for runId: ${runId}`);
       const result = await db.db
         .prepare("SELECT * FROM ai_readiness_runs WHERE id = ?")
         .bind(runId)
@@ -2057,9 +2061,21 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
           error: string | null;
         }>();
       
+      console.log(`[AI Readiness Status] Query result for runId ${runId}:`, result ? 'Found' : 'Not found');
+      
       if (!result) {
+        // Check if there are any runs in the database
+        const allRuns = await db.db
+          .prepare("SELECT id, created_at FROM ai_readiness_runs ORDER BY created_at DESC LIMIT 5")
+          .all();
+        console.log(`[AI Readiness Status] Available runs in database:`, allRuns?.results || []);
+        
         return new Response(
-          JSON.stringify({ error: "Run not found" }),
+          JSON.stringify({ 
+            error: "Run not found",
+            runId: runId,
+            message: `No run found with ID: ${runId}`
+          }),
           {
             status: 404,
             headers: { ...corsHeaders, "Content-Type": "application/json" },

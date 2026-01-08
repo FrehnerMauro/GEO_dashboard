@@ -36,9 +36,12 @@
         
         if (baseUrl) {
           const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-          return cleanBaseUrl + cleanEndpoint;
+          const fullUrl = cleanBaseUrl + cleanEndpoint;
+          console.log('[getApiUrl]', endpoint, '->', fullUrl);
+          return fullUrl;
         }
         
+        console.log('[getApiUrl]', endpoint, '->', cleanEndpoint, '(no baseUrl)');
         return cleanEndpoint;
       };
       
@@ -58,10 +61,55 @@
       // This ensures all existing fetch('/api/...') calls work automatically
       const originalFetch = window.fetch;
       window.fetch = function(input, init) {
-        // If input is a string starting with /api, use getApiUrl
-        if (typeof input === 'string' && input.startsWith('/api')) {
-          const url = window.getApiUrl(input);
-          return originalFetch.call(this, url, init);
+        // Handle different input types
+        if (typeof input === 'string') {
+          // If input is a string starting with /api, use getApiUrl
+          if (input.startsWith('/api')) {
+            const url = window.getApiUrl(input);
+            console.log('[API Fetch Override] Intercepted:', input, '->', url);
+            const promise = originalFetch.call(this, url, init);
+            // Log response for debugging
+            promise.then(response => {
+              if (!response.ok) {
+                console.error('[API Fetch Override] Request failed:', {
+                  url: url,
+                  status: response.status,
+                  statusText: response.statusText,
+                  originalInput: input
+                });
+              }
+            }).catch(error => {
+              console.error('[API Fetch Override] Request error:', {
+                url: url,
+                error: error,
+                originalInput: input
+              });
+            });
+            return promise;
+          }
+          // If input is already a full URL to the API, use it as-is
+          if (input.startsWith('https://geo-platform.maurofrehner.workers.dev')) {
+            return originalFetch.call(this, input, init);
+          }
+        } else if (input instanceof Request) {
+          // If input is a Request object, check its URL
+          const url = input.url;
+          if (url.startsWith('/api') || (typeof window !== 'undefined' && window.location && url.startsWith(window.location.origin + '/api'))) {
+            // Extract the path from the Request URL
+            const urlObj = new URL(url, window.location.origin);
+            const path = urlObj.pathname;
+            if (path.startsWith('/api')) {
+              const newUrl = window.getApiUrl(path);
+              console.log('[API Fetch Override] Intercepted Request:', path, '->', newUrl);
+              // Create a new Request with the updated URL
+              return originalFetch.call(this, newUrl, {
+                method: input.method,
+                headers: input.headers,
+                body: input.body,
+                ...init
+              });
+            }
+          }
         }
         // Otherwise, use original fetch
         return originalFetch.call(this, input, init);
