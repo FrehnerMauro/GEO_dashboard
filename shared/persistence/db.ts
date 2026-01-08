@@ -85,7 +85,8 @@ export class Database {
           errorMessage.includes("D1_ERROR") ||
           errorMessage.includes("timeout") ||
           errorMessage.includes("reset") ||
-          errorMessage.includes("Internal error while starting up");
+          errorMessage.includes("Internal error while starting up") ||
+          errorMessage.includes("storage operation exceeded timeout");
         
         if (!isRetryable || attempt === maxRetries - 1) {
           throw error;
@@ -99,6 +100,27 @@ export class Database {
     }
     
     throw lastError;
+  }
+
+  /**
+   * Execute batch operations in chunks to avoid D1 timeout limits
+   * D1 has a limit of ~100 statements per batch, so we chunk larger batches
+   */
+  private async batchInChunks(
+    statements: D1PreparedStatement[],
+    chunkSize: number = 50
+  ): Promise<void> {
+    if (statements.length === 0) {
+      return;
+    }
+
+    // Process in chunks to avoid timeout
+    for (let i = 0; i < statements.length; i += chunkSize) {
+      const chunk = statements.slice(i, i + chunkSize);
+      await this.retryD1Operation(async () => {
+        await this.db.batch(chunk);
+      });
+    }
   }
 
   async saveAnalysisRun(
@@ -199,7 +221,9 @@ export class Database {
         )
     );
 
-    await this.db.batch(statements);
+    await this.retryD1Operation(async () => {
+      await this.batchInChunks(statements);
+    });
   }
 
   async savePrompts(runId: string, prompts: Prompt[]): Promise<void> {
@@ -226,7 +250,9 @@ export class Database {
         )
     );
 
-    await this.db.batch(statements);
+    await this.retryD1Operation(async () => {
+      await this.batchInChunks(statements);
+    });
   }
 
   async saveLLMResponses(responses: LLMResponse[]): Promise<void> {
@@ -274,7 +300,9 @@ export class Database {
     }
 
     if (allStatements.length > 0) {
-      await this.db.batch(allStatements);
+      await this.retryD1Operation(async () => {
+        await this.batchInChunks(allStatements);
+      });
     }
   }
 
@@ -333,7 +361,9 @@ export class Database {
     }
 
     if (allStatements.length > 0) {
-      await this.db.batch(allStatements);
+      await this.retryD1Operation(async () => {
+        await this.batchInChunks(allStatements);
+      });
     }
   }
 
@@ -366,7 +396,9 @@ export class Database {
         );
     });
 
-    await this.db.batch(statements);
+    await this.retryD1Operation(async () => {
+      await this.batchInChunks(statements);
+    });
   }
 
   async saveCompetitiveAnalysis(
@@ -374,24 +406,26 @@ export class Database {
     analysis: CompetitiveAnalysis
   ): Promise<void> {
     const analysisId = `comp_analysis_${runId}_${Date.now()}`;
-    await this.db
-      .prepare(
-        `INSERT INTO competitive_analyses 
-         (id, analysis_run_id, brand_share, competitor_shares, white_space_topics, 
-          dominated_prompts, missing_brand_prompts, timestamp)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-      )
-      .bind(
-        analysisId,
-        runId,
-        analysis.brandShare,
-        JSON.stringify(analysis.competitorShares),
-        JSON.stringify(analysis.whiteSpaceTopics),
-        JSON.stringify(analysis.dominatedPrompts),
-        JSON.stringify(analysis.missingBrandPrompts),
-        analysis.timestamp
-      )
-      .run();
+    await this.retryD1Operation(async () => {
+      await this.db
+        .prepare(
+          `INSERT INTO competitive_analyses 
+           (id, analysis_run_id, brand_share, competitor_shares, white_space_topics, 
+            dominated_prompts, missing_brand_prompts, timestamp)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(
+          analysisId,
+          runId,
+          analysis.brandShare,
+          JSON.stringify(analysis.competitorShares),
+          JSON.stringify(analysis.whiteSpaceTopics),
+          JSON.stringify(analysis.dominatedPrompts),
+          JSON.stringify(analysis.missingBrandPrompts),
+          analysis.timestamp
+        )
+        .run();
+    });
   }
 
   async saveTimeSeriesData(
@@ -399,23 +433,25 @@ export class Database {
     data: TimeSeriesData
   ): Promise<void> {
     const dataId = `ts_${runId}_${Date.now()}`;
-    await this.db
-      .prepare(
-        `INSERT INTO time_series 
-         (id, analysis_run_id, timestamp, visibility_score, citation_count, 
-          brand_mention_count, competitor_mention_count)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
-      )
-      .bind(
-        dataId,
-        runId,
-        data.timestamp,
-        data.visibilityScore,
-        data.citationCount,
-        data.brandMentionCount,
-        data.competitorMentionCount
-      )
-      .run();
+    await this.retryD1Operation(async () => {
+      await this.db
+        .prepare(
+          `INSERT INTO time_series 
+           (id, analysis_run_id, timestamp, visibility_score, citation_count, 
+            brand_mention_count, competitor_mention_count)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(
+          dataId,
+          runId,
+          data.timestamp,
+          data.visibilityScore,
+          data.citationCount,
+          data.brandMentionCount,
+          data.competitorMentionCount
+        )
+        .run();
+    });
   }
 
   async saveSummary(
@@ -424,22 +460,24 @@ export class Database {
   ): Promise<void> {
     const summaryId = `summary_${runId}_${Date.now()}`;
     const now = new Date().toISOString();
-    await this.db
-      .prepare(
-        `INSERT INTO analysis_summaries 
-         (id, analysis_run_id, total_mentions, total_citations, best_prompts, other_sources, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
-      )
-      .bind(
-        summaryId,
-        runId,
-        summary.totalMentions,
-        summary.totalCitations,
-        JSON.stringify(summary.bestPrompts),
-        JSON.stringify(summary.otherSources),
-        now
-      )
-      .run();
+    await this.retryD1Operation(async () => {
+      await this.db
+        .prepare(
+          `INSERT INTO analysis_summaries 
+           (id, analysis_run_id, total_mentions, total_citations, best_prompts, other_sources, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(
+          summaryId,
+          runId,
+          summary.totalMentions,
+          summary.totalCitations,
+          JSON.stringify(summary.bestPrompts),
+          JSON.stringify(summary.otherSources),
+          now
+        )
+        .run();
+    });
   }
 
   async getSummary(runId: string): Promise<AnalysisSummary | null> {
@@ -516,211 +554,215 @@ export class Database {
   }
 
   async getAnalysisRun(runId: string): Promise<AnalysisResult | null> {
-    const run = await this.db
-      .prepare("SELECT * FROM analysis_runs WHERE id = ?")
-      .bind(runId)
-      .first<{
-        id: string;
-        website_url: string;
-        country: string;
-        region: string | null;
-        language: string;
-        created_at: string;
-        updated_at: string;
-      }>();
+    return this.retryD1Operation(async () => {
+      const run = await this.db
+        .prepare("SELECT * FROM analysis_runs WHERE id = ?")
+        .bind(runId)
+        .first<{
+          id: string;
+          website_url: string;
+          country: string;
+          region: string | null;
+          language: string;
+          created_at: string;
+          updated_at: string;
+        }>();
 
-    if (!run) return null;
+      if (!run) return null;
 
-    // Fetch categories
-    const categoriesResult = await this.db
-      .prepare("SELECT * FROM categories WHERE analysis_run_id = ?")
-      .bind(runId)
-      .all<{
-        id: string;
-        name: string;
-        description: string;
-        confidence: number;
-        source_pages: string;
-      }>();
-    
-    const categories: Category[] = (categoriesResult.results || []).map(c => ({
-      id: c.id,
-      name: c.name,
-      description: c.description,
-      confidence: c.confidence,
-      sourcePages: JSON.parse(c.source_pages || '[]'),
-    }));
-
-    // Fetch prompts
-    const promptsResult = await this.db
-      .prepare("SELECT * FROM prompts WHERE analysis_run_id = ?")
-      .bind(runId)
-      .all<{
-        id: string;
-        category_id: string;
-        question: string;
-        language: string;
-        country: string | null;
-        region: string | null;
-        intent: string;
-        created_at: string;
-      }>();
-    
-    const prompts: Prompt[] = (promptsResult.results || []).map(p => ({
-      id: p.id,
-      categoryId: p.category_id,
-      question: p.question,
-      language: p.language,
-      country: p.country || undefined,
-      region: p.region || undefined,
-      intent: p.intent,
-      createdAt: p.created_at,
-    }));
-
-    // Fetch prompt analyses
-    const analysesResult = await this.db
-      .prepare(`
-        SELECT pa.*, 
-               GROUP_CONCAT(cm.competitor_name || '|' || cm.mention_count, '|||') as competitors_data
-        FROM prompt_analyses pa
-        LEFT JOIN competitor_mentions cm ON cm.prompt_analysis_id = pa.id
-        WHERE pa.prompt_id IN (SELECT id FROM prompts WHERE analysis_run_id = ?)
-        GROUP BY pa.id
-      `)
-      .bind(runId)
-      .all<{
-        id: string;
-        prompt_id: string;
-        brand_mentions_exact: number;
-        brand_mentions_fuzzy: number;
-        brand_mentions_contexts: string;
-        citation_count: number;
-        citation_urls: string;
-        sentiment_tone: string;
-        sentiment_confidence: number;
-        sentiment_keywords: string;
-        timestamp: string;
-        competitors_data: string | null;
-      }>();
-    
-    const analyses: PromptAnalysis[] = (analysesResult.results || []).map(a => {
-      const competitors: any[] = a.competitors_data
-        ? a.competitors_data.split('|||').map(c => {
-            const [name, count] = c.split('|');
-            return { name, count: parseInt(count || '0', 10), contexts: [], citations: [] };
-          })
-        : [];
+      // Fetch categories
+      const categoriesResult = await this.db
+        .prepare("SELECT * FROM categories WHERE analysis_run_id = ?")
+        .bind(runId)
+        .all<{
+          id: string;
+          name: string;
+          description: string;
+          confidence: number;
+          source_pages: string;
+        }>();
       
+      const categories: Category[] = (categoriesResult.results || []).map(c => ({
+        id: c.id,
+        name: c.name,
+        description: c.description,
+        confidence: c.confidence,
+        sourcePages: JSON.parse(c.source_pages || '[]'),
+      }));
+
+      // Fetch prompts
+      const promptsResult = await this.db
+        .prepare("SELECT * FROM prompts WHERE analysis_run_id = ?")
+        .bind(runId)
+        .all<{
+          id: string;
+          category_id: string;
+          question: string;
+          language: string;
+          country: string | null;
+          region: string | null;
+          intent: string;
+          created_at: string;
+        }>();
+      
+      const prompts: Prompt[] = (promptsResult.results || []).map(p => ({
+        id: p.id,
+        categoryId: p.category_id,
+        question: p.question,
+        language: p.language,
+        country: p.country || undefined,
+        region: p.region || undefined,
+        intent: p.intent,
+        createdAt: p.created_at,
+      }));
+
+      // Fetch prompt analyses
+      // Optimized: Use JOIN instead of nested subquery to avoid timeout
+      const analysesResult = await this.db
+        .prepare(`
+          SELECT pa.*, 
+                 GROUP_CONCAT(cm.competitor_name || '|' || cm.mention_count, '|||') as competitors_data
+          FROM prompt_analyses pa
+          INNER JOIN prompts p ON pa.prompt_id = p.id
+          LEFT JOIN competitor_mentions cm ON cm.prompt_analysis_id = pa.id
+          WHERE p.analysis_run_id = ?
+          GROUP BY pa.id
+        `)
+        .bind(runId)
+        .all<{
+          id: string;
+          prompt_id: string;
+          brand_mentions_exact: number;
+          brand_mentions_fuzzy: number;
+          brand_mentions_contexts: string;
+          citation_count: number;
+          citation_urls: string;
+          sentiment_tone: string;
+          sentiment_confidence: number;
+          sentiment_keywords: string;
+          timestamp: string;
+          competitors_data: string | null;
+        }>();
+      
+      const analyses: PromptAnalysis[] = (analysesResult.results || []).map(a => {
+        const competitors: any[] = a.competitors_data
+          ? a.competitors_data.split('|||').map(c => {
+              const [name, count] = c.split('|');
+              return { name, count: parseInt(count || '0', 10), contexts: [], citations: [] };
+            })
+          : [];
+        
+        return {
+          promptId: a.prompt_id,
+          brandMentions: {
+            exact: a.brand_mentions_exact,
+            fuzzy: a.brand_mentions_fuzzy,
+            contexts: JSON.parse(a.brand_mentions_contexts || '[]'),
+          },
+          citationCount: a.citation_count,
+          citationUrls: JSON.parse(a.citation_urls || '[]'),
+          brandCitations: [],
+          competitors,
+          sentiment: {
+            tone: a.sentiment_tone,
+            confidence: a.sentiment_confidence,
+            keywords: JSON.parse(a.sentiment_keywords || '[]'),
+          },
+          timestamp: a.timestamp,
+          isMentioned: (a.brand_mentions_exact + a.brand_mentions_fuzzy) > 0,
+          mentionCount: a.brand_mentions_exact + a.brand_mentions_fuzzy,
+          isCited: a.citation_count > 0,
+          citationDetails: JSON.parse(a.citation_urls || '[]').map((url: string) => ({ url })),
+          competitorDetails: competitors.map(c => ({ name: c.name, count: c.count, locations: [] })),
+        };
+      });
+
+      // Fetch category metrics
+      const metricsResult = await this.db
+        .prepare("SELECT * FROM category_metrics WHERE analysis_run_id = ?")
+        .bind(runId)
+        .all<{
+          id: string;
+          category_id: string;
+          visibility_score: number;
+          citation_rate: number;
+          brand_mention_rate: number;
+          competitor_mention_rate: number;
+          timestamp: string;
+        }>();
+      
+      const categoryMetrics: CategoryMetrics[] = (metricsResult.results || []).map(m => ({
+        categoryId: m.category_id,
+        visibilityScore: m.visibility_score,
+        citationRate: m.citation_rate,
+        brandMentionRate: m.brand_mention_rate,
+        competitorMentionRate: m.competitor_mention_rate,
+        timestamp: m.timestamp,
+      }));
+
+      // Fetch competitive analysis
+      const competitiveResult = await this.db
+        .prepare("SELECT * FROM competitive_analyses WHERE analysis_run_id = ? ORDER BY timestamp DESC LIMIT 1")
+        .bind(runId)
+        .first<{
+          brand_share: number;
+          competitor_shares: string;
+          white_space_topics: string;
+          dominated_prompts: string;
+          missing_brand_prompts: string;
+          timestamp: string;
+        }>();
+      
+      const competitiveAnalysis: CompetitiveAnalysis = competitiveResult ? {
+        brandShare: competitiveResult.brand_share,
+        competitorShares: JSON.parse(competitiveResult.competitor_shares || '{}'),
+        whiteSpaceTopics: JSON.parse(competitiveResult.white_space_topics || '[]'),
+        dominatedPrompts: JSON.parse(competitiveResult.dominated_prompts || '[]'),
+        missingBrandPrompts: JSON.parse(competitiveResult.missing_brand_prompts || '[]'),
+        timestamp: competitiveResult.timestamp,
+      } : {
+        brandShare: 0,
+        competitorShares: {},
+        whiteSpaceTopics: [],
+        dominatedPrompts: [],
+        missingBrandPrompts: [],
+        timestamp: run.updated_at,
+      };
+
+      // Fetch time series
+      const timeSeriesResult = await this.db
+        .prepare("SELECT * FROM time_series WHERE analysis_run_id = ? ORDER BY timestamp ASC")
+        .bind(runId)
+        .all<{
+          timestamp: string;
+          visibility_score: number;
+          citation_count: number;
+          brand_mention_count: number;
+          competitor_mention_count: number;
+        }>();
+      
+      const timeSeries: TimeSeriesData[] = (timeSeriesResult.results || []).map(ts => ({
+        timestamp: ts.timestamp,
+        visibilityScore: ts.visibility_score,
+        citationCount: ts.citation_count,
+        brandMentionCount: ts.brand_mention_count,
+        competitorMentionCount: ts.competitor_mention_count,
+      }));
+
       return {
-        promptId: a.prompt_id,
-        brandMentions: {
-          exact: a.brand_mentions_exact,
-          fuzzy: a.brand_mentions_fuzzy,
-          contexts: JSON.parse(a.brand_mentions_contexts || '[]'),
-        },
-        citationCount: a.citation_count,
-        citationUrls: JSON.parse(a.citation_urls || '[]'),
-        brandCitations: [],
-        competitors,
-        sentiment: {
-          tone: a.sentiment_tone,
-          confidence: a.sentiment_confidence,
-          keywords: JSON.parse(a.sentiment_keywords || '[]'),
-        },
-        timestamp: a.timestamp,
-        isMentioned: (a.brand_mentions_exact + a.brand_mentions_fuzzy) > 0,
-        mentionCount: a.brand_mentions_exact + a.brand_mentions_fuzzy,
-        isCited: a.citation_count > 0,
-        citationDetails: JSON.parse(a.citation_urls || '[]').map((url: string) => ({ url })),
-        competitorDetails: competitors.map(c => ({ name: c.name, count: c.count, locations: [] })),
+        websiteUrl: run.website_url,
+        country: run.country,
+        language: run.language,
+        categories,
+        prompts,
+        analyses,
+        categoryMetrics,
+        competitiveAnalysis,
+        timeSeries,
+        createdAt: run.created_at,
+        updatedAt: run.updated_at,
       };
     });
-
-    // Fetch category metrics
-    const metricsResult = await this.db
-      .prepare("SELECT * FROM category_metrics WHERE analysis_run_id = ?")
-      .bind(runId)
-      .all<{
-        id: string;
-        category_id: string;
-        visibility_score: number;
-        citation_rate: number;
-        brand_mention_rate: number;
-        competitor_mention_rate: number;
-        timestamp: string;
-      }>();
-    
-    const categoryMetrics: CategoryMetrics[] = (metricsResult.results || []).map(m => ({
-      categoryId: m.category_id,
-      visibilityScore: m.visibility_score,
-      citationRate: m.citation_rate,
-      brandMentionRate: m.brand_mention_rate,
-      competitorMentionRate: m.competitor_mention_rate,
-      timestamp: m.timestamp,
-    }));
-
-    // Fetch competitive analysis
-    const competitiveResult = await this.db
-      .prepare("SELECT * FROM competitive_analyses WHERE analysis_run_id = ? ORDER BY timestamp DESC LIMIT 1")
-      .bind(runId)
-      .first<{
-        brand_share: number;
-        competitor_shares: string;
-        white_space_topics: string;
-        dominated_prompts: string;
-        missing_brand_prompts: string;
-        timestamp: string;
-      }>();
-    
-    const competitiveAnalysis: CompetitiveAnalysis = competitiveResult ? {
-      brandShare: competitiveResult.brand_share,
-      competitorShares: JSON.parse(competitiveResult.competitor_shares || '{}'),
-      whiteSpaceTopics: JSON.parse(competitiveResult.white_space_topics || '[]'),
-      dominatedPrompts: JSON.parse(competitiveResult.dominated_prompts || '[]'),
-      missingBrandPrompts: JSON.parse(competitiveResult.missing_brand_prompts || '[]'),
-      timestamp: competitiveResult.timestamp,
-    } : {
-      brandShare: 0,
-      competitorShares: {},
-      whiteSpaceTopics: [],
-      dominatedPrompts: [],
-      missingBrandPrompts: [],
-      timestamp: run.updated_at,
-    };
-
-    // Fetch time series
-    const timeSeriesResult = await this.db
-      .prepare("SELECT * FROM time_series WHERE analysis_run_id = ? ORDER BY timestamp ASC")
-      .bind(runId)
-      .all<{
-        timestamp: string;
-        visibility_score: number;
-        citation_count: number;
-        brand_mention_count: number;
-        competitor_mention_count: number;
-      }>();
-    
-    const timeSeries: TimeSeriesData[] = (timeSeriesResult.results || []).map(ts => ({
-      timestamp: ts.timestamp,
-      visibilityScore: ts.visibility_score,
-      citationCount: ts.citation_count,
-      brandMentionCount: ts.brand_mention_count,
-      competitorMentionCount: ts.competitor_mention_count,
-    }));
-
-    return {
-      websiteUrl: run.website_url,
-      country: run.country,
-      language: run.language,
-      categories,
-      prompts,
-      analyses,
-      categoryMetrics,
-      competitiveAnalysis,
-      timeSeries,
-      createdAt: run.created_at,
-      updatedAt: run.updated_at,
-    };
   }
 
   async getLatestAnalysisRun(
@@ -738,95 +780,126 @@ export class Database {
 
   async deleteAnalysis(runId: string): Promise<void> {
     // Delete in order: child records first, then parent
-    // Get all prompt IDs for this run
-    const prompts = await this.db
-      .prepare("SELECT id FROM prompts WHERE analysis_run_id = ?")
-      .bind(runId)
-      .all<{ id: string }>();
-
-    const promptIds = (prompts.results || []).map(p => p.id);
-
-    if (promptIds.length > 0) {
-      // Get all LLM response IDs for these prompts
-      const responses = await this.db
-        .prepare(`SELECT id FROM llm_responses WHERE prompt_id IN (${promptIds.map(() => '?').join(',')})`)
-        .bind(...promptIds)
+    // Use retry logic and optimize queries to avoid timeouts
+    await this.retryD1Operation(async () => {
+      // Get all prompt IDs for this run
+      const prompts = await this.db
+        .prepare("SELECT id FROM prompts WHERE analysis_run_id = ?")
+        .bind(runId)
         .all<{ id: string }>();
 
-      const responseIds = (responses.results || []).map(r => r.id);
+      const promptIds = (prompts.results || []).map(p => p.id);
 
-      if (responseIds.length > 0) {
-        // Delete citations
-        await this.db
-          .prepare(`DELETE FROM citations WHERE llm_response_id IN (${responseIds.map(() => '?').join(',')})`)
-          .bind(...responseIds)
-          .run();
+      if (promptIds.length > 0) {
+        // Delete in chunks if there are many prompts
+        const chunkSize = 50;
+        for (let i = 0; i < promptIds.length; i += chunkSize) {
+          const chunk = promptIds.slice(i, i + chunkSize);
+          
+          // Get all LLM response IDs for these prompts using JOIN (more efficient)
+          const responses = await this.db
+            .prepare(`
+              SELECT lr.id 
+              FROM llm_responses lr
+              INNER JOIN prompts p ON lr.prompt_id = p.id
+              WHERE p.analysis_run_id = ? AND lr.prompt_id IN (${chunk.map(() => '?').join(',')})
+            `)
+            .bind(runId, ...chunk)
+            .all<{ id: string }>();
 
-        // Delete LLM responses
-        await this.db
-          .prepare(`DELETE FROM llm_responses WHERE id IN (${responseIds.map(() => '?').join(',')})`)
-          .bind(...responseIds)
-          .run();
+          const responseIds = (responses.results || []).map(r => r.id);
+
+          if (responseIds.length > 0) {
+            // Delete citations in chunks
+            for (let j = 0; j < responseIds.length; j += chunkSize) {
+              const responseChunk = responseIds.slice(j, j + chunkSize);
+              await this.db
+                .prepare(`DELETE FROM citations WHERE llm_response_id IN (${responseChunk.map(() => '?').join(',')})`)
+                .bind(...responseChunk)
+                .run();
+            }
+
+            // Delete LLM responses in chunks
+            for (let j = 0; j < responseIds.length; j += chunkSize) {
+              const responseChunk = responseIds.slice(j, j + chunkSize);
+              await this.db
+                .prepare(`DELETE FROM llm_responses WHERE id IN (${responseChunk.map(() => '?').join(',')})`)
+                .bind(...responseChunk)
+                .run();
+            }
+          }
+
+          // Get all prompt analysis IDs using JOIN
+          const analyses = await this.db
+            .prepare(`
+              SELECT pa.id 
+              FROM prompt_analyses pa
+              INNER JOIN prompts p ON pa.prompt_id = p.id
+              WHERE p.analysis_run_id = ? AND pa.prompt_id IN (${chunk.map(() => '?').join(',')})
+            `)
+            .bind(runId, ...chunk)
+            .all<{ id: string }>();
+
+          const analysisIds = (analyses.results || []).map(a => a.id);
+
+          if (analysisIds.length > 0) {
+            // Delete competitor mentions in chunks
+            for (let j = 0; j < analysisIds.length; j += chunkSize) {
+              const analysisChunk = analysisIds.slice(j, j + chunkSize);
+              await this.db
+                .prepare(`DELETE FROM competitor_mentions WHERE prompt_analysis_id IN (${analysisChunk.map(() => '?').join(',')})`)
+                .bind(...analysisChunk)
+                .run();
+            }
+
+            // Delete prompt analyses in chunks
+            for (let j = 0; j < analysisIds.length; j += chunkSize) {
+              const analysisChunk = analysisIds.slice(j, j + chunkSize);
+              await this.db
+                .prepare(`DELETE FROM prompt_analyses WHERE id IN (${analysisChunk.map(() => '?').join(',')})`)
+                .bind(...analysisChunk)
+                .run();
+            }
+          }
+
+          // Delete prompts in chunks
+          await this.db
+            .prepare(`DELETE FROM prompts WHERE id IN (${chunk.map(() => '?').join(',')})`)
+            .bind(...chunk)
+            .run();
+        }
       }
 
-      // Get all prompt analysis IDs
-      const analyses = await this.db
-        .prepare(`SELECT id FROM prompt_analyses WHERE prompt_id IN (${promptIds.map(() => '?').join(',')})`)
-        .bind(...promptIds)
-        .all<{ id: string }>();
-
-      const analysisIds = (analyses.results || []).map(a => a.id);
-
-      if (analysisIds.length > 0) {
-        // Delete competitor mentions
-        await this.db
-          .prepare(`DELETE FROM competitor_mentions WHERE prompt_analysis_id IN (${analysisIds.map(() => '?').join(',')})`)
-          .bind(...analysisIds)
-          .run();
-
-        // Delete prompt analyses
-        await this.db
-          .prepare(`DELETE FROM prompt_analyses WHERE id IN (${analysisIds.map(() => '?').join(',')})`)
-          .bind(...analysisIds)
-          .run();
-      }
-
-      // Delete prompts
+      // Delete category metrics
       await this.db
-        .prepare(`DELETE FROM prompts WHERE id IN (${promptIds.map(() => '?').join(',')})`)
-        .bind(...promptIds)
+        .prepare("DELETE FROM category_metrics WHERE analysis_run_id = ?")
+        .bind(runId)
         .run();
-    }
 
-    // Delete category metrics
-    await this.db
-      .prepare("DELETE FROM category_metrics WHERE analysis_run_id = ?")
-      .bind(runId)
-      .run();
+      // Delete competitive analyses
+      await this.db
+        .prepare("DELETE FROM competitive_analyses WHERE analysis_run_id = ?")
+        .bind(runId)
+        .run();
 
-    // Delete competitive analyses
-    await this.db
-      .prepare("DELETE FROM competitive_analyses WHERE analysis_run_id = ?")
-      .bind(runId)
-      .run();
+      // Delete time series
+      await this.db
+        .prepare("DELETE FROM time_series WHERE analysis_run_id = ?")
+        .bind(runId)
+        .run();
 
-    // Delete time series
-    await this.db
-      .prepare("DELETE FROM time_series WHERE analysis_run_id = ?")
-      .bind(runId)
-      .run();
+      // Delete categories
+      await this.db
+        .prepare("DELETE FROM categories WHERE analysis_run_id = ?")
+        .bind(runId)
+        .run();
 
-    // Delete categories
-    await this.db
-      .prepare("DELETE FROM categories WHERE analysis_run_id = ?")
-      .bind(runId)
-      .run();
-
-    // Finally, delete the analysis run
-    await this.db
-      .prepare("DELETE FROM analysis_runs WHERE id = ?")
-      .bind(runId)
-      .run();
+      // Finally, delete the analysis run
+      await this.db
+        .prepare("DELETE FROM analysis_runs WHERE id = ?")
+        .bind(runId)
+        .run();
+    });
   }
 
   // Company Management
@@ -1206,66 +1279,139 @@ export class Database {
     analysisRunId: string;
     websiteUrl: string;
   }>> {
-    // Only return prompts that have been executed with web search (have citations)
-    // Use EXISTS to check if prompt has citations
-    // Also fetch the answer (output_text) from llm_responses
-    // Use a correlated subquery to get the most recent answer per prompt
-    const result = await this.db
-      .prepare(
-        `SELECT 
-          p.id,
-          p.question,
-          (SELECT lr.output_text 
-           FROM llm_responses lr 
-           WHERE lr.prompt_id = p.id 
-           ORDER BY lr.timestamp DESC 
-           LIMIT 1) as answer,
-          p.language,
-          p.country,
-          p.region,
-          p.intent,
-          p.created_at,
-          p.analysis_run_id,
-          ar.website_url
-         FROM prompts p
-         INNER JOIN categories c ON p.category_id = c.id
-         INNER JOIN analysis_runs ar ON p.analysis_run_id = ar.id
-         WHERE c.name = ?
-         AND EXISTS (
-           SELECT 1 
-           FROM llm_responses lr2
-           INNER JOIN citations cit ON cit.llm_response_id = lr2.id
-           WHERE lr2.prompt_id = p.id
-         )
-         GROUP BY p.id
-         ORDER BY p.created_at DESC`
-      )
-      .bind(categoryName)
-      .all<{
-        id: string;
-        question: string;
-        answer: string | null;
-        language: string;
-        country: string | null;
-        region: string | null;
-        intent: string;
-        created_at: string;
-        analysis_run_id: string;
-        website_url: string;
-      }>();
-    
-    return (result.results || []).map(r => ({
-      id: r.id,
-      question: r.question,
-      answer: r.answer || null,
-      language: r.language,
-      country: r.country || undefined,
-      region: r.region || undefined,
-      intent: r.intent,
-      createdAt: r.created_at,
-      analysisRunId: r.analysis_run_id,
-      websiteUrl: r.website_url,
-    }));
+    // Optimized query: Use JOINs instead of EXISTS and correlated subqueries
+    // This avoids D1 timeout issues with complex nested queries
+    return this.retryD1Operation(async () => {
+      try {
+        // First, get prompts with citations using JOIN (more efficient than EXISTS)
+        const result = await this.db
+          .prepare(
+            `SELECT DISTINCT
+              p.id,
+              p.question,
+              p.language,
+              p.country,
+              p.region,
+              p.intent,
+              p.created_at,
+              p.analysis_run_id,
+              ar.website_url
+             FROM prompts p
+             INNER JOIN categories c ON p.category_id = c.id
+             INNER JOIN analysis_runs ar ON p.analysis_run_id = ar.id
+             INNER JOIN llm_responses lr ON lr.prompt_id = p.id
+             INNER JOIN citations cit ON cit.llm_response_id = lr.id
+             WHERE c.name = ?
+             ORDER BY p.created_at DESC
+             LIMIT 500`
+          )
+          .bind(categoryName)
+          .all<{
+            id: string;
+            question: string;
+            language: string;
+            country: string | null;
+            region: string | null;
+            intent: string;
+            created_at: string;
+            analysis_run_id: string;
+            website_url: string;
+          }>();
+
+        // Then fetch answers separately for better performance
+        const prompts = result.results || [];
+        const promptIds = prompts.map(p => p.id);
+        
+        if (promptIds.length === 0) {
+          return [];
+        }
+
+        // Get latest answer for each prompt in a single query
+        const answersResult = await this.db
+          .prepare(
+            `SELECT 
+              prompt_id,
+              output_text,
+              ROW_NUMBER() OVER (PARTITION BY prompt_id ORDER BY timestamp DESC) as rn
+             FROM llm_responses
+             WHERE prompt_id IN (${promptIds.map(() => '?').join(',')})`
+          )
+          .bind(...promptIds)
+          .all<{
+            prompt_id: string;
+            output_text: string;
+            rn: number;
+          }>();
+
+        // Create a map of prompt_id -> latest answer
+        const answerMap = new Map<string, string>();
+        (answersResult.results || []).forEach(a => {
+          if (a.rn === 1) {
+            answerMap.set(a.prompt_id, a.output_text);
+          }
+        });
+
+        return prompts.map(r => ({
+          id: r.id,
+          question: r.question,
+          answer: answerMap.get(r.id) || null,
+          language: r.language,
+          country: r.country || undefined,
+          region: r.region || undefined,
+          intent: r.intent,
+          createdAt: r.created_at,
+          analysisRunId: r.analysis_run_id,
+          websiteUrl: r.website_url,
+        }));
+      } catch (error) {
+        console.error("Error in getGlobalPromptsByCategory, trying simpler query:", error);
+        // Fallback: simpler query without citations check
+        const fallbackResult = await this.db
+          .prepare(
+            `SELECT 
+              p.id,
+              p.question,
+              p.language,
+              p.country,
+              p.region,
+              p.intent,
+              p.created_at,
+              p.analysis_run_id,
+              ar.website_url
+             FROM prompts p
+             INNER JOIN categories c ON p.category_id = c.id
+             INNER JOIN analysis_runs ar ON p.analysis_run_id = ar.id
+             WHERE c.name = ?
+             ORDER BY p.created_at DESC
+             LIMIT 500`
+          )
+          .bind(categoryName)
+          .all<{
+            id: string;
+            question: string;
+            language: string;
+            country: string | null;
+            region: string | null;
+            intent: string;
+            created_at: string;
+            analysis_run_id: string;
+            website_url: string;
+          }>();
+
+        return (fallbackResult.results || []).map(r => ({
+          id: r.id,
+          question: r.question,
+          answer: null,
+          language: r.language,
+          country: r.country || undefined,
+          region: r.region || undefined,
+          intent: r.intent,
+          createdAt: r.created_at,
+          analysisRunId: r.analysis_run_id,
+          websiteUrl: r.website_url,
+        }));
+      }
+    });
   }
 
   async getCompanyTimeSeries(companyId: string, days: number = 30): Promise<TimeSeriesData[]> {

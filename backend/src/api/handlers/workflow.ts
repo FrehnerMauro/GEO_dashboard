@@ -266,13 +266,15 @@ export class WorkflowHandlers {
         .all<any>();
 
       // Load all responses for this run
+      // Optimized: Use JOIN instead of nested subquery to avoid timeout
       const savedResponses = await db.db
         .prepare(`
           SELECT lr.*, 
                  GROUP_CONCAT(c.url || '|' || COALESCE(c.title, '') || '|' || COALESCE(c.snippet, ''), '|||') as citations_data
           FROM llm_responses lr
+          INNER JOIN prompts p ON lr.prompt_id = p.id
           LEFT JOIN citations c ON c.llm_response_id = lr.id
-          WHERE lr.prompt_id IN (SELECT id FROM prompts WHERE analysis_run_id = ?)
+          WHERE p.analysis_run_id = ?
           GROUP BY lr.id
         `)
         .bind(runId)
@@ -303,27 +305,28 @@ export class WorkflowHandlers {
       await db.savePromptAnalyses(analyses);
 
       // Calculate metrics - using direct database queries since methods don't exist
+      // Optimized: Use JOINs instead of nested subqueries to avoid timeout
       const categoryMetrics = await db.db
         .prepare(`
-          SELECT category_id, 
+          SELECT pa.category_id, 
                  COUNT(*) as prompt_count,
-                 SUM(CASE WHEN brand_mentions > 0 THEN 1 ELSE 0 END) as mentions_count
-          FROM prompt_analyses
-          WHERE prompt_id IN (SELECT id FROM prompts WHERE analysis_run_id = ?)
-          GROUP BY category_id
+                 SUM(CASE WHEN pa.brand_mentions_exact + pa.brand_mentions_fuzzy > 0 THEN 1 ELSE 0 END) as mentions_count
+          FROM prompt_analyses pa
+          INNER JOIN prompts p ON pa.prompt_id = p.id
+          WHERE p.analysis_run_id = ?
+          GROUP BY pa.category_id
         `)
         .bind(runId)
         .all<any>();
 
       const competitiveAnalysis = await db.db
         .prepare(`
-          SELECT competitor_name, COUNT(*) as mention_count
-          FROM competitor_mentions
-          WHERE prompt_analysis_id IN (
-            SELECT id FROM prompt_analyses 
-            WHERE prompt_id IN (SELECT id FROM prompts WHERE analysis_run_id = ?)
-          )
-          GROUP BY competitor_name
+          SELECT cm.competitor_name, COUNT(*) as mention_count
+          FROM competitor_mentions cm
+          INNER JOIN prompt_analyses pa ON cm.prompt_analysis_id = pa.id
+          INNER JOIN prompts p ON pa.prompt_id = p.id
+          WHERE p.analysis_run_id = ?
+          GROUP BY cm.competitor_name
           ORDER BY mention_count DESC
         `)
         .bind(runId)
@@ -331,10 +334,11 @@ export class WorkflowHandlers {
 
       const timeSeries = await db.db
         .prepare(`
-          SELECT DATE(created_at) as date, COUNT(*) as count
-          FROM llm_responses
-          WHERE prompt_id IN (SELECT id FROM prompts WHERE analysis_run_id = ?)
-          GROUP BY DATE(created_at)
+          SELECT DATE(lr.timestamp) as date, COUNT(*) as count
+          FROM llm_responses lr
+          INNER JOIN prompts p ON lr.prompt_id = p.id
+          WHERE p.analysis_run_id = ?
+          GROUP BY DATE(lr.timestamp)
           ORDER BY date
         `)
         .bind(runId)

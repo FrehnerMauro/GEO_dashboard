@@ -318,13 +318,15 @@ export class AnalysisHandlers {
         .bind(runId)
         .all<any>();
 
+      // Optimized: Use JOIN instead of nested subquery to avoid timeout
       const responses = await db.db
         .prepare(`
           SELECT lr.*, 
                  GROUP_CONCAT(c.url || '|' || COALESCE(c.title, '') || '|' || COALESCE(c.snippet, ''), '|||') as citations_data
           FROM llm_responses lr
+          INNER JOIN prompts p ON lr.prompt_id = p.id
           LEFT JOIN citations c ON c.llm_response_id = lr.id
-          WHERE lr.prompt_id IN (SELECT id FROM prompts WHERE analysis_run_id = ?)
+          WHERE p.analysis_run_id = ?
           GROUP BY lr.id
         `)
         .bind(runId)
