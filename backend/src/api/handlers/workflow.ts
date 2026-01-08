@@ -478,6 +478,20 @@ export class WorkflowHandlers {
 
       const db = new Database(env.geo_db as any);
 
+      // Get run info to extract brand name
+      const runInfo = await db.db
+        .prepare("SELECT website_url FROM analysis_runs WHERE id = ?")
+        .bind(runId)
+        .first<{ website_url: string }>();
+
+      if (!runInfo) {
+        throw new Error("Analysis run not found");
+      }
+
+      const brandName = extractBrandName(runInfo.website_url);
+      const brandLower = brandName.toLowerCase();
+      const brandInUrl = brandLower.replace(/\s+/g, ""); // Remove spaces for URL matching
+
       // Calculate total mentions (exact + fuzzy)
       const mentionsResult = await db.db
         .prepare(`
@@ -491,75 +505,109 @@ export class WorkflowHandlers {
 
       const totalMentions = mentionsResult?.totalMentions || 0;
 
-      // Calculate total citations
-      const citationsResult = await db.db
+      // Get all citations for this run
+      const allCitationsResult = await db.db
         .prepare(`
-          SELECT COUNT(*) as totalCitations
-          FROM citations
-          WHERE llm_response_id IN (
+          SELECT 
+            c.url,
+            c.title,
+            c.snippet
+          FROM citations c
+          WHERE c.llm_response_id IN (
             SELECT id FROM llm_responses 
             WHERE prompt_id IN (SELECT id FROM prompts WHERE analysis_run_id = ?)
           )
         `)
         .bind(runId)
-        .first<{ totalCitations: number }>();
+        .all<{ url: string; title: string | null; snippet: string | null }>();
 
-      const totalCitations = citationsResult?.totalCitations || 0;
+      // Filter citations where brand is mentioned (same logic as AnalysisEngine.findBrandCitations)
+      const brandCitations = (allCitationsResult.results || []).filter((citation) => {
+        const citationText = `${citation.title || ""} ${citation.snippet || ""}`.toLowerCase();
+        const urlLower = citation.url.toLowerCase();
+        
+        // Check if brand is mentioned in citation title, snippet, or URL
+        const mentionedInText = citationText.includes(brandLower);
+        const mentionedInUrl = urlLower.includes(brandInUrl);
+        
+        return mentionedInText || mentionedInUrl;
+      });
 
-      // Get best prompts (top prompts by mentions + citations)
-      const bestPromptsResult = await db.db
+      const totalCitations = brandCitations.length;
+
+      // Get best prompts (top prompts by mentions + brand citations)
+      // Get all prompts with their citations in one query
+      const promptsWithCitationsResult = await db.db
         .prepare(`
           SELECT 
             p.id,
             p.question,
             COALESCE(pa.brand_mentions_exact, 0) + COALESCE(pa.brand_mentions_fuzzy, 0) as mentions,
-            COALESCE(pa.citation_count, 0) as citations
+            c.url as citation_url,
+            c.title as citation_title,
+            c.snippet as citation_snippet
           FROM prompts p
           LEFT JOIN prompt_analyses pa ON pa.prompt_id = p.id
+          LEFT JOIN llm_responses lr ON lr.prompt_id = p.id
+          LEFT JOIN citations c ON c.llm_response_id = lr.id
           WHERE p.analysis_run_id = ?
-          ORDER BY (COALESCE(pa.brand_mentions_exact, 0) + COALESCE(pa.brand_mentions_fuzzy, 0) + COALESCE(pa.citation_count, 0)) DESC
-          LIMIT 10
         `)
         .bind(runId)
         .all<{
           id: string;
           question: string;
           mentions: number;
-          citations: number;
+          citation_url: string | null;
+          citation_title: string | null;
+          citation_snippet: string | null;
         }>();
 
-      const bestPrompts = (bestPromptsResult.results || []).map((p) => ({
-        question: p.question,
-        mentions: p.mentions,
-        citations: p.citations,
-      }));
+      // Group by prompt and count unique brand citations
+      const promptMap = new Map<string, { question: string; mentions: number; citationUrls: Set<string> }>();
+      
+      (promptsWithCitationsResult.results || []).forEach((row) => {
+        if (!promptMap.has(row.id)) {
+          promptMap.set(row.id, {
+            question: row.question,
+            mentions: row.mentions,
+            citationUrls: new Set<string>(),
+          });
+        }
 
-      // Get other sources (citation URLs grouped by domain)
-      const sourcesResult = await db.db
-        .prepare(`
-          SELECT 
-            c.url,
-            COUNT(*) as count
-          FROM citations c
-          WHERE c.llm_response_id IN (
-            SELECT id FROM llm_responses 
-            WHERE prompt_id IN (SELECT id FROM prompts WHERE analysis_run_id = ?)
-          )
-          GROUP BY c.url
-          ORDER BY count DESC
-        `)
-        .bind(runId)
-        .all<{ url: string; count: number }>();
+        // Track brand citations by URL to avoid double counting
+        if (row.citation_url) {
+          const citationText = `${row.citation_title || ""} ${row.citation_snippet || ""}`.toLowerCase();
+          const urlLower = row.citation_url.toLowerCase();
+          const mentionedInText = citationText.includes(brandLower);
+          const mentionedInUrl = urlLower.includes(brandInUrl);
+          
+          if (mentionedInText || mentionedInUrl) {
+            const prompt = promptMap.get(row.id)!;
+            prompt.citationUrls.add(row.citation_url);
+          }
+        }
+      });
 
+      // Convert to array with citation counts and sort
+      const bestPrompts = Array.from(promptMap.entries())
+        .map(([id, data]) => ({
+          question: data.question,
+          mentions: data.mentions,
+          citations: data.citationUrls.size,
+        }))
+        .sort((a, b) => (b.mentions + b.citations) - (a.mentions + a.citations))
+        .slice(0, 10);
+
+      // Get other sources (only brand citation URLs grouped by domain)
       const otherSources: Record<string, number> = {};
-      (sourcesResult.results || []).forEach((s) => {
+      brandCitations.forEach((citation) => {
         try {
-          const urlObj = new URL(s.url);
+          const urlObj = new URL(citation.url);
           const domain = urlObj.hostname.replace('www.', '');
-          otherSources[domain] = (otherSources[domain] || 0) + s.count;
+          otherSources[domain] = (otherSources[domain] || 0) + 1;
         } catch {
           // If URL parsing fails, use the URL as-is
-          otherSources[s.url] = (otherSources[s.url] || 0) + s.count;
+          otherSources[citation.url] = (otherSources[citation.url] || 0) + 1;
         }
       });
 
