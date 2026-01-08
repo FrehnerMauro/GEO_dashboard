@@ -367,4 +367,3 @@ export class AnalysesPage {
 
 // Export instance for global access
 (window as any).analysesPage = new AnalysesPage();
-
