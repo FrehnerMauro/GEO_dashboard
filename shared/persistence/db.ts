@@ -66,7 +66,7 @@ export class Database {
    * Retry wrapper for D1 operations to handle transient errors
    * Retries on D1_ERROR, timeout, or reset errors
    */
-  private async retryD1Operation<T>(
+  async retryD1Operation<T>(
     operation: () => Promise<T>,
     maxRetries: number = 3,
     baseDelay: number = 100,
@@ -509,9 +509,21 @@ export class Database {
     runId: string,
     summary: AnalysisSummary
   ): Promise<void> {
-    const summaryId = `summary_${runId}_${Date.now()}`;
+    // Use a more unique ID with random component to avoid collisions
+    const randomSuffix = Math.random().toString(36).substring(2, 9);
+    const summaryId = `summary_${runId}_${Date.now()}_${randomSuffix}`;
     const now = new Date().toISOString();
+    
+    // First, delete any existing summaries for this runId to avoid duplicates
+    // Then insert the new one
     await this.retryD1Operation(async () => {
+      // Delete existing summaries for this runId
+      await this.db
+        .prepare("DELETE FROM analysis_summaries WHERE analysis_run_id = ?")
+        .bind(runId)
+        .run();
+      
+      // Insert the new summary
       await this.db
         .prepare(
           `INSERT INTO analysis_summaries 
@@ -528,7 +540,7 @@ export class Database {
           now
         )
         .run();
-    });
+    }, 3, 150, "saveSummary");
   }
 
   async getSummary(runId: string): Promise<AnalysisSummary | null> {

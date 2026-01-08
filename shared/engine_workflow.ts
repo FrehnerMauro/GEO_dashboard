@@ -405,17 +405,20 @@ Return only valid JSON object with categories array, no other text.`;
     // DO NOT save prompts here - they will only be saved after successful execution with responses
     // This ensures only questions that were actually asked and have answers are stored
 
-    await db.db
-      .prepare(
-        "UPDATE analysis_runs SET prompts_generated = ?, step = ?, updated_at = ? WHERE id = ?"
-      )
-      .bind(
-        filteredPrompts.length,
-        "prompts",
-        new Date().toISOString(),
-        runId
-      )
-      .run();
+    // Wrap database update in retry logic to handle timeouts
+    await db.retryD1Operation(async () => {
+      await db.db
+        .prepare(
+          "UPDATE analysis_runs SET prompts_generated = ?, step = ?, updated_at = ? WHERE id = ?"
+        )
+        .bind(
+          filteredPrompts.length,
+          "prompts",
+          new Date().toISOString(),
+          runId
+        )
+        .run();
+    }, 3, 150, "step4UpdateAnalysisRun");
 
     return filteredPrompts;
   }
