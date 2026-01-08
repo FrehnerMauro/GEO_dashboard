@@ -299,6 +299,7 @@ Return only valid JSON object with categories array, no other text.`;
   }
 
   // Step 4: Generate prompts (questionsPerCategory per category, no brand name) using GPT
+  // Intelligent batching: If total questions > threshold, generate per category, otherwise all at once
   async step4GeneratePrompts(
     runId: string,
     categories: Category[],
@@ -310,26 +311,56 @@ Return only valid JSON object with categories array, no other text.`;
   ): Promise<Prompt[]> {
     const db = new Database(env.geo_db as D1Database);
 
-    // Generate 5 brand-neutral questions per category using GPT
+    const totalQuestions = categories.length * questionsPerCategory;
+    const MAX_QUESTIONS_FOR_SINGLE_CALL = 30; // Threshold: if more than 30 questions, split by category
+    
     const allPrompts: Prompt[] = [];
 
-    for (const category of categories) {
+    if (totalQuestions > MAX_QUESTIONS_FOR_SINGLE_CALL) {
+      // Too many questions: Generate per category to avoid timeouts
+      console.log(`Generating ${totalQuestions} questions across ${categories.length} categories (per-category mode)`);
+      
+      for (const category of categories) {
+        try {
+          const categoryPrompts = await this.generateCategoryPromptsWithGPT(
+            category,
+            userInput,
+            content,
+            questionsPerCategory,
+            runId
+          );
+          allPrompts.push(...categoryPrompts);
+        } catch (error: any) {
+          console.error(`Error generating prompts for category ${category.name}:`, error);
+          // Fallback to template-based generation for this category
+          const fallbackPrompts = this.promptGenerator.generatePrompts(
+            [category],
+            userInput,
+            questionsPerCategory
+          );
+          allPrompts.push(...fallbackPrompts);
+        }
+      }
+    } else {
+      // Fewer questions: Generate all at once for efficiency
+      console.log(`Generating ${totalQuestions} questions for ${categories.length} categories (single-call mode)`);
+      
       try {
-        const categoryPrompts = await this.generateCategoryPromptsWithGPT(
-          category,
+        const allCategoryPrompts = await this.generateAllCategoryPromptsWithGPT(
+          categories,
           userInput,
           content,
-          questionsPerCategory, // Use user-specified count
+          questionsPerCategory,
           runId
         );
-        allPrompts.push(...categoryPrompts);
+        allPrompts.push(...allCategoryPrompts);
       } catch (error: any) {
-        console.error(`Error generating prompts for category ${category.name}:`, error);
-        // Fallback to template-based generation for this category
+        console.error(`Error generating prompts for all categories:`, error);
+        // Fallback to template-based generation
         const fallbackPrompts = this.promptGenerator.generatePrompts(
-          [category],
+          categories,
           userInput,
-          questionsPerCategory // Use the same count as requested
+          questionsPerCategory
         );
         allPrompts.push(...fallbackPrompts);
       }
@@ -368,6 +399,193 @@ Return only valid JSON object with categories array, no other text.`;
       .run();
 
     return allPrompts;
+  }
+
+  private async generateAllCategoryPromptsWithGPT(
+    categories: Category[],
+    userInput: UserInput,
+    content: string,
+    questionsPerCategory: number,
+    runId: string
+  ): Promise<Prompt[]> {
+    // Debug mode: Return dummy prompts without making API calls
+    if (this.config.debug?.enabled) {
+      console.log('🐛 DEBUG MODE: Returning dummy prompts (no API call)');
+      const allPrompts: Prompt[] = [];
+      for (const category of categories) {
+        const dummyPrompts = await this.getDummyPrompts(category, userInput, questionsPerCategory, runId);
+        allPrompts.push(...dummyPrompts);
+      }
+      return allPrompts;
+    }
+
+    const regionText = userInput.region || userInput.country;
+    const totalQuestions = categories.length * questionsPerCategory;
+    
+    // Build categories description
+    const categoriesList = categories.map(c => `- ${c.name}: ${c.description}`).join('\n');
+    
+    const prompt = `Du bist ein Experte für Kundenerfahrung. Generiere für jede der folgenden Kategorien genau ${questionsPerCategory} SEHR REALISTISCHE, DIREKTE Fragen in ${userInput.language}, die echte Kunden wirklich in einer Suchmaschine oder ChatGPT eingeben würden.
+
+KRITISCHE ANFORDERUNGEN:
+- Fragen müssen brand-neutral sein (KEINE Firmennamen, KEINE Markennamen)
+- Verwende SEHR DIREKTE, SUCHMASCHINEN-ÄHNLICHE Formulierungen
+- BEVORZUGE "Wer ist..." Fragen statt "Wie..." Fragen
+- Integriere IMMER LOKALE/REGIONALE Bezüge (z.B. "${regionText}", "in Graubünden", "in Zürich")
+- Fragen sollten kurz, prägnant und sehr spezifisch sein
+- Verwende Formulierungen wie "Wer ist...", "Wer bietet...", "Wer verkauft...", "Gibt es...", "Was kostet..."
+- Vermeide "Wie..." Fragen - verwende stattdessen direkte Suchanfragen
+- Fragen sollten zeigen, dass der Kunde aktiv nach einem Anbieter/Lösung sucht
+
+Beispiele für PERFEKTE kundenorientierte Fragen (${userInput.language}):
+${userInput.language === 'de' ? `
+- "Wer ist in ${regionText} für Kassensystem?"
+- "Wer bietet Kassensysteme in ${regionText}?"
+- "Gibt es Kassensysteme für Restaurants in ${regionText}?"
+- "Was kostet ein Kassensystem in ${regionText}?"
+` : userInput.language === 'en' ? `
+- "Who is in ${regionText} for POS system?"
+- "Who offers POS systems in ${regionText}?"
+- "Are there POS systems for restaurants in ${regionText}?"
+- "What does a POS system cost in ${regionText}?"
+` : `
+- "Qui est en ${regionText} pour système de caisse?"
+- "Qui offre des systèmes de caisse en ${regionText}?"
+- "Y a-t-il des systèmes de caisse pour restaurants en ${regionText}?"
+`}
+
+Kategorien (für jede Kategorie genau ${questionsPerCategory} Fragen generieren):
+${categoriesList}
+
+Kontext:
+- Land: ${userInput.country}
+- Region: ${userInput.region || userInput.country}
+- Sprache: ${userInput.language}
+- Relevanter Inhaltsauszug: ${content.substring(0, 2000)}
+
+WICHTIG: 
+- Die Fragen müssen so klingen, als ob ein echter Kunde sie direkt in eine Suchmaschine oder ChatGPT eingibt
+- BEVORZUGE "Wer ist..." statt "Wie..."
+- IMMER lokale/regionale Bezüge einbauen
+- Sei SEHR DIREKT und PRÄGNANT
+- Für jede Kategorie genau ${questionsPerCategory} Fragen generieren
+
+Gib nur ein JSON-Objekt zurück mit einem "categories" Array, wobei jedes Element eine Kategorie mit ihren Fragen enthält:
+{
+  "categories": [
+    {
+      "categoryName": "Kategorie 1 Name",
+      "questions": ["Frage 1", "Frage 2", "Frage ${questionsPerCategory}"]
+    },
+    {
+      "categoryName": "Kategorie 2 Name", 
+      "questions": ["Frage 1", "Frage 2", "Frage ${questionsPerCategory}"]
+    }
+  ]
+}
+Kein anderer Text, nur gültiges JSON.`;
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for multiple categories
+      
+      let response: Response;
+      try {
+        response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${this.config.openai.apiKey}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [{ role: "user", content: prompt }],
+            response_format: { type: "json_object" },
+            temperature: 0.8,
+            max_tokens: 2000, // More tokens for multiple categories
+          }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        if (fetchError.name === 'AbortError') {
+          throw new Error("OpenAI API request timed out after 60 seconds");
+        }
+        throw fetchError;
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+        throw new Error("Invalid response format from OpenAI API");
+      }
+
+      let gptResponse: any;
+      try {
+        const responseContent = data.choices[0].message.content || "{}";
+        gptResponse = JSON.parse(responseContent);
+      } catch (parseError) {
+        console.error("Failed to parse GPT response:", data.choices[0].message.content);
+        throw new Error("Failed to parse JSON response from GPT");
+      }
+
+      const categoriesData = gptResponse.categories || [];
+      const allPrompts: Prompt[] = [];
+      const now = new Date().toISOString();
+
+      for (const categoryData of categoriesData) {
+        const categoryName = categoryData.categoryName;
+        const questions = categoryData.questions || [];
+        
+        // Find matching category
+        const category = categories.find(c => c.name === categoryName);
+        if (!category) {
+          console.warn(`Category "${categoryName}" from GPT not found in original categories, skipping`);
+          continue;
+        }
+
+        for (let i = 0; i < questions.length && i < questionsPerCategory; i++) {
+          const question = questions[i];
+          if (question && question.trim()) {
+            allPrompts.push({
+              id: `prompt_${runId}_${category.id}_${i}_${Date.now()}`,
+              categoryId: category.id,
+              question: question.trim(),
+              language: userInput.language,
+              country: userInput.country,
+              region: userInput.region,
+              intent: "high",
+              createdAt: now,
+            });
+          }
+        }
+      }
+
+      // Ensure we have the right number of prompts
+      if (allPrompts.length < totalQuestions) {
+        console.warn(`Generated ${allPrompts.length} prompts, expected ${totalQuestions}. Filling with template-based prompts.`);
+        const existingCount = allPrompts.length;
+        const fallbackPrompts = this.promptGenerator.generatePrompts(
+          categories,
+          userInput,
+          questionsPerCategory
+        );
+        // Only add prompts we're missing
+        const needed = totalQuestions - existingCount;
+        allPrompts.push(...fallbackPrompts.slice(0, needed));
+      }
+
+      return allPrompts.slice(0, totalQuestions); // Ensure we don't exceed expected count
+    } catch (error: any) {
+      console.error("Error in generateAllCategoryPromptsWithGPT:", error);
+      throw error;
+    }
   }
 
   private async generateCategoryPromptsWithGPT(
