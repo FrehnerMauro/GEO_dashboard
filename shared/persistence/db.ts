@@ -15,6 +15,7 @@ import type {
   Company,
   CompanyPrompt,
   ScheduledRun,
+  AnalysisSummary,
 } from "../types.js";
 
 export interface D1Database {
@@ -376,6 +377,103 @@ export class Database {
         data.competitorMentionCount
       )
       .run();
+  }
+
+  async saveSummary(
+    runId: string,
+    summary: AnalysisSummary
+  ): Promise<void> {
+    const summaryId = `summary_${runId}_${Date.now()}`;
+    const now = new Date().toISOString();
+    await this.db
+      .prepare(
+        `INSERT INTO analysis_summaries 
+         (id, analysis_run_id, total_mentions, total_citations, best_prompts, other_sources, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        summaryId,
+        runId,
+        summary.totalMentions,
+        summary.totalCitations,
+        JSON.stringify(summary.bestPrompts),
+        JSON.stringify(summary.otherSources),
+        now
+      )
+      .run();
+  }
+
+  async getSummary(runId: string): Promise<AnalysisSummary | null> {
+    const result = await this.db
+      .prepare(
+        `SELECT * FROM analysis_summaries 
+         WHERE analysis_run_id = ? 
+         ORDER BY created_at DESC 
+         LIMIT 1`
+      )
+      .bind(runId)
+      .first<{
+        total_mentions: number;
+        total_citations: number;
+        best_prompts: string;
+        other_sources: string;
+        created_at: string;
+      }>();
+
+    if (!result) return null;
+
+    return {
+      totalMentions: result.total_mentions,
+      totalCitations: result.total_citations,
+      bestPrompts: JSON.parse(result.best_prompts || '[]'),
+      otherSources: JSON.parse(result.other_sources || '{}'),
+    };
+  }
+
+  async getPromptsForAnalysis(runId: string): Promise<Array<{
+    id: string;
+    question: string;
+    answer: string | null;
+    categoryId: string;
+    categoryName: string | null;
+    createdAt: string;
+  }>> {
+    const result = await this.db
+      .prepare(
+        `SELECT 
+          p.id,
+          p.question,
+          p.category_id,
+          c.name as category_name,
+          p.created_at,
+          (SELECT lr.output_text 
+           FROM llm_responses lr 
+           WHERE lr.prompt_id = p.id 
+           ORDER BY lr.timestamp DESC 
+           LIMIT 1) as answer
+         FROM prompts p
+         LEFT JOIN categories c ON p.category_id = c.id
+         WHERE p.analysis_run_id = ?
+         ORDER BY p.created_at ASC`
+      )
+      .bind(runId)
+      .all<{
+        id: string;
+        question: string;
+        answer: string | null;
+        category_id: string;
+        category_name: string | null;
+        created_at: string;
+      }>();
+
+    return (result.results || []).map(r => ({
+      id: r.id,
+      question: r.question,
+      answer: r.answer,
+      categoryId: r.category_id,
+      categoryName: r.category_name,
+      createdAt: r.created_at,
+    }));
   }
 
   async getAnalysisRun(runId: string): Promise<AnalysisResult | null> {

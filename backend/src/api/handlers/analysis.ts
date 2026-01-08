@@ -371,5 +371,40 @@ export class AnalysisHandlers {
       );
     }
   }
+
+  async handleGetAnalysisPromptsAndSummary(
+    runId: string,
+    env: Env,
+    corsHeaders: CorsHeaders
+  ): Promise<Response> {
+    try {
+      const { Database } = await import("../../../shared/persistence/index.js");
+      const db = new Database(env.geo_db as any);
+      
+      // Get prompts with answers
+      const prompts = await db.getPromptsForAnalysis(runId);
+      
+      // Get summary
+      const summary = await db.getSummary(runId);
+      
+      return new Response(JSON.stringify({
+        prompts,
+        summary,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } catch (error) {
+      console.error("Error getting analysis prompts and summary:", error);
+      return new Response(
+        JSON.stringify({
+          error: error instanceof Error ? error.message : "Unknown error",
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+  }
 }
 

@@ -27,6 +27,7 @@ export const ROUTES: RouteDefinition[] = [
   { method: "GET", path: /^\/api\/analysis\/([^\/]+)$/, handler: "analysis.get" },
   { method: "GET", path: /^\/api\/analysis\/([^\/]+)\/status$/, handler: "analysis.getStatus" },
   { method: "GET", path: /^\/api\/analysis\/([^\/]+)\/metrics$/, handler: "analysis.getMetrics" },
+  { method: "GET", path: /^\/api\/analysis\/([^\/]+)\/prompts-summary$/, handler: "analysis.getPromptsAndSummary" },
   { method: "DELETE", path: /^\/api\/analysis\/([^\/]+)$/, handler: "analysis.delete" },
   
   // Dashboard routes

@@ -611,13 +611,19 @@ export class WorkflowHandlers {
         }
       });
 
+      // Create summary object
+      const summary = {
+        totalMentions,
+        totalCitations,
+        bestPrompts,
+        otherSources,
+      };
+
+      // Save summary to database
+      await db.saveSummary(runId, summary);
+
       return new Response(
-        JSON.stringify({
-          totalMentions,
-          totalCitations,
-          bestPrompts,
-          otherSources,
-        }),
+        JSON.stringify(summary),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }

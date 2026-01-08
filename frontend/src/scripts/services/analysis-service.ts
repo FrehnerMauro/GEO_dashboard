@@ -58,6 +58,10 @@ export class AnalysisService {
   async getGlobalPromptsByCategory(categoryName: string): Promise<any[]> {
     return await apiClient.get<any[]>(`/api/global/categories/${encodeURIComponent(categoryName)}/prompts`);
   }
+
+  async getAnalysisPromptsAndSummary(runId: string): Promise<{ prompts: any[]; summary: any | null }> {
+    return await apiClient.get<{ prompts: any[]; summary: any | null }>(`/api/analysis/${runId}/prompts-summary`);
+  }
 }
 
 export const analysisService = new AnalysisService();

@@ -186,3 +186,14 @@ export interface ScheduledRun {
   updatedAt: string;
 }
 
+export interface AnalysisSummary {
+  totalMentions: number;
+  totalCitations: number;
+  bestPrompts: Array<{
+    question: string;
+    mentions: number;
+    citations: number;
+  }>;
+  otherSources: Record<string, number>;
+}
+

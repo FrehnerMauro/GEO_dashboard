@@ -129,6 +129,8 @@ export class Router {
         return await this.analysisHandlers.handleGetStatus(runId, this.env, corsHeaders);
       case "getMetrics":
         return await this.analysisHandlers.handleGetMetrics(runId, this.env, corsHeaders);
+      case "getPromptsAndSummary":
+        return await this.analysisHandlers.handleGetAnalysisPromptsAndSummary(runId, this.env, corsHeaders);
       case "delete":
         return await this.analysisHandlers.handleDeleteAnalysis(runId, this.env, corsHeaders);
       case "getAllCompanies":
