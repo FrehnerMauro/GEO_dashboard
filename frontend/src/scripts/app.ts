@@ -32,6 +32,18 @@ export class App {
       this.analysesPage.show();
     };
 
+    // AI Analysis function
+    (window as any).showAIAnalysis = (event?: Event) => {
+      if (event) event.preventDefault();
+      this.showAIAnalysisSection();
+    };
+
+    // AI Readability function
+    (window as any).showAIReadability = (event?: Event) => {
+      if (event) event.preventDefault();
+      this.showAIReadabilitySection();
+    };
+
     // Analysis start function
     (window as any).startAnalysisNow = async () => {
       // This will be handled by DashboardPage
@@ -41,6 +53,50 @@ export class App {
         form.dispatchEvent(event);
       }
     };
+  }
+
+  private showAIAnalysisSection(): void {
+    // Hide all sections
+    const dashboardSection = document.getElementById("dashboardSection");
+    const aiAnalysisSection = document.getElementById("aiAnalysisSection");
+    const aiReadabilitySection = document.getElementById("aiReadabilitySection");
+    const analysesSection = document.getElementById("analysesSection");
+    const analysisDetailSection = document.getElementById("analysisDetailSection");
+
+    if (dashboardSection) dashboardSection.style.display = "none";
+    if (aiAnalysisSection) aiAnalysisSection.style.display = "block";
+    if (aiReadabilitySection) aiReadabilitySection.style.display = "none";
+    if (analysesSection) analysesSection.style.display = "none";
+    if (analysisDetailSection) analysisDetailSection.style.display = "none";
+
+    // Update header
+    const headerTitle = document.getElementById("headerTitle");
+    if (headerTitle) headerTitle.textContent = "AI Analyse";
+
+    // Update navigation
+    navigation.setActiveNavItem(1);
+  }
+
+  private showAIReadabilitySection(): void {
+    // Hide all sections
+    const dashboardSection = document.getElementById("dashboardSection");
+    const aiAnalysisSection = document.getElementById("aiAnalysisSection");
+    const aiReadabilitySection = document.getElementById("aiReadabilitySection");
+    const analysesSection = document.getElementById("analysesSection");
+    const analysisDetailSection = document.getElementById("analysisDetailSection");
+
+    if (dashboardSection) dashboardSection.style.display = "none";
+    if (aiAnalysisSection) aiAnalysisSection.style.display = "none";
+    if (aiReadabilitySection) aiReadabilitySection.style.display = "block";
+    if (analysesSection) analysesSection.style.display = "none";
+    if (analysisDetailSection) analysisDetailSection.style.display = "none";
+
+    // Update header
+    const headerTitle = document.getElementById("headerTitle");
+    if (headerTitle) headerTitle.textContent = "AI Readability";
+
+    // Update navigation
+    navigation.setActiveNavItem(2);
   }
 
   init(): void {
