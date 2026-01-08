@@ -1,4 +1,55 @@
 
+    // API Configuration - automatically detect environment
+    (function() {
+      // Determine API base URL based on current host
+      const isLocalhost = window.location.hostname === 'localhost' || 
+                         window.location.hostname === '127.0.0.1' ||
+                         window.location.hostname.startsWith('192.168.') ||
+                         window.location.hostname.startsWith('10.') ||
+                         window.location.hostname.startsWith('172.');
+      
+      // If running locally, use direct Worker URL; otherwise use relative paths (Cloudflare Pages will proxy)
+      window.API_BASE_URL = isLocalhost 
+        ? 'https://geo-platform.maurofrehner.workers.dev'
+        : '';
+      
+      // Helper function to build full API URL
+      window.getApiUrl = function(path) {
+        // Remove leading slash if present to avoid double slashes
+        const cleanPath = path.startsWith('/') ? path : '/' + path;
+        return window.API_BASE_URL + cleanPath;
+      };
+      
+      // Wrapper for fetch that automatically adds API base URL for /api/* paths
+      // Only wrap if not already wrapped (in case global.js loaded first)
+      if (!window.fetch._apiWrapper) {
+        const originalFetch = window.fetch;
+        window.fetch = function(input, init) {
+          // If input is a string and starts with /api/, prepend API_BASE_URL
+          if (typeof input === 'string' && input.startsWith('/api/')) {
+            input = window.getApiUrl(input);
+          }
+          // If input is a Request object and its url starts with /api/, create new Request with updated URL
+          else if (input instanceof Request && input.url.startsWith('/api/')) {
+            const newUrl = window.getApiUrl(input.url);
+            input = new Request(newUrl, {
+              method: input.method,
+              headers: input.headers,
+              body: input.body,
+              mode: input.mode,
+              credentials: input.credentials,
+              cache: input.cache,
+              redirect: input.redirect,
+              referrer: input.referrer,
+              integrity: input.integrity
+            });
+          }
+          return originalFetch.call(this, input, init);
+        };
+        window.fetch._apiWrapper = true;
+      }
+    })();
+
     // GLOBAL FUNCTIONS - available immediately (before DOMContentLoaded)
     // These must be defined before any HTML tries to call them
     window.showDashboard = function(event) {
