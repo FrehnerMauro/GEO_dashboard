@@ -125,3 +125,32 @@ export function extractTextContent(html: string): string {
   
   return text;
 }
+
+/**
+ * Check if URL should be fetched (exclude PDFs, images, etc.)
+ */
+export function shouldFetchUrl(url: string): boolean {
+  const urlLower = url.toLowerCase();
+  const excludedExtensions = [
+    '.pdf', '.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.bmp', '.ico',
+    '.mp4', '.mp3', '.avi', '.mov', '.wmv', '.flv',
+    '.zip', '.rar', '.tar', '.gz',
+    '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+    '.css', '.js', '.json', '.xml', '.txt'
+  ];
+  
+  // Check if URL ends with excluded extension
+  for (const ext of excludedExtensions) {
+    if (urlLower.endsWith(ext)) {
+      return false;
+    }
+  }
+  
+  // Check if URL contains image paths
+  if (urlLower.includes('/images/') || urlLower.includes('/img/') || 
+      urlLower.includes('/assets/') && (urlLower.includes('.jpg') || urlLower.includes('.png') || urlLower.includes('.gif'))) {
+    return false;
+  }
+  
+  return true;
+}

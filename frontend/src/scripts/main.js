@@ -3017,7 +3017,7 @@
         const progressSection = document.getElementById('readabilityProgress');
         const progressStatus = document.getElementById('progressStatus');
         const progressBar = document.getElementById('progressBar');
-        const progressDetails = document.getElementById('progressDetails');
+        const stepsContainer = document.getElementById('stepsContainer');
         const contentSection = document.getElementById('readabilityContent');
         const protocolDisplay = document.getElementById('readabilityProtocolDisplay');
         const gptAnalysisSection = document.getElementById('gptAnalysisSection');
@@ -3049,35 +3049,93 @@
         if (gptAnalysisSection) gptAnalysisSection.style.display = 'none';
         if (progressStatus) progressStatus.textContent = 'Initialisiere Analyse...';
         if (progressBar) progressBar.style.width = '0%';
-        if (progressDetails) progressDetails.textContent = '';
+        if (stepsContainer) stepsContainer.innerHTML = '';
         
         // Update button state
         fetchContentBtn.disabled = true;
         fetchContentBtn.textContent = 'Analysiere...';
         
+        // Helper function to add/update a step
+        const addStep = (stepId, title, status = 'running', details = '') => {
+          if (!stepsContainer) return;
+          
+          let stepEl = document.getElementById(`step-${stepId}`);
+          if (!stepEl) {
+            stepEl = document.createElement('div');
+            stepEl.id = `step-${stepId}`;
+            stepEl.style.cssText = 'padding: 16px; background: var(--bg-secondary); border-radius: 8px; border-left: 4px solid #2196F3; transition: all 0.3s; margin-bottom: 8px;';
+            stepsContainer.appendChild(stepEl);
+          }
+          
+          const statusIcon = status === 'completed' ? '✓' : status === 'error' ? '✗' : '⟳';
+          const statusColor = status === 'completed' ? '#4CAF50' : status === 'error' ? '#F44336' : '#2196F3';
+          
+          stepEl.style.borderLeftColor = statusColor;
+          stepEl.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: ${details ? '8px' : '0'};">
+              <span style="font-size: 20px; color: ${statusColor};">${statusIcon}</span>
+              <div style="flex: 1;">
+                <div style="font-weight: 500; color: var(--text-primary);">${title}</div>
+                ${details ? `<div style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">${details}</div>` : ''}
+              </div>
+            </div>
+          `;
+          
+          // Auto-remove completed steps after delay
+          if (status === 'completed') {
+            setTimeout(() => {
+              if (stepEl && stepEl.parentNode) {
+                stepEl.style.opacity = '0';
+                stepEl.style.transform = 'translateX(-20px)';
+                setTimeout(() => {
+                  if (stepEl && stepEl.parentNode) {
+                    stepEl.parentNode.removeChild(stepEl);
+                  }
+                }, 300);
+              }
+            }, 2000);
+          }
+        };
+        
         try {
-          // Show initial progress
-          if (progressStatus) progressStatus.textContent = 'Sitemap wird gesucht...';
-          if (progressBar) progressBar.style.width = '10%';
-          if (progressDetails) progressDetails.textContent = 'Suche nach Sitemap...\n';
+          // Step 1: Fetch robots.txt
+          addStep('robots', 'robots.txt wird gesucht...', 'running');
+          if (progressBar) progressBar.style.width = '5%';
           
           // Use backend API for AI Readiness analysis
           const apiUrl = window.getApiUrl ? window.getApiUrl('/api/workflow/aiReadiness') : '/api/workflow/aiReadiness';
+          
+          // Simulate step-by-step progress while waiting for response
+          const progressSteps = [
+            { id: 'robots', title: 'robots.txt wird gesucht...', progress: 5 },
+            { id: 'sitemap', title: 'Sitemap wird gesucht...', progress: 15 },
+            { id: 'links', title: 'Links werden extrahiert...', progress: 25 },
+            { id: 'pages', title: 'Seiten werden analysiert...', progress: 50 },
+            { id: 'gpt', title: 'GPT Analyse wird durchgeführt...', progress: 80 },
+          ];
+          
+          let currentStepIndex = 0;
+          const stepInterval = setInterval(() => {
+            if (currentStepIndex < progressSteps.length) {
+              const step = progressSteps[currentStepIndex];
+              addStep(step.id, step.title, 'running');
+              if (progressBar) progressBar.style.width = step.progress + '%';
+              currentStepIndex++;
+            }
+          }, 800);
+          
           const response = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url })
           });
           
+          clearInterval(stepInterval);
+          
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || errorData.message || `HTTP ${response.status}: ${response.statusText}`);
           }
-          
-          // Update progress
-          if (progressStatus) progressStatus.textContent = 'Analysiere Website...';
-          if (progressBar) progressBar.style.width = '30%';
-          if (progressDetails) progressDetails.textContent += 'Sitemap gefunden, analysiere Seiten...\n';
           
           const data = await response.json();
           
@@ -3085,11 +3143,38 @@
             throw new Error(data.error || 'Analyse fehlgeschlagen');
           }
           
+          // Update all steps with actual results
+          if (data.protocol.robotsTxt) {
+            if (data.protocol.robotsTxt.found) {
+              addStep('robots', 'robots.txt gefunden', 'completed', `${data.protocol.robotsTxt.content ? data.protocol.robotsTxt.content.length + ' Zeichen' : ''}`);
+            } else {
+              addStep('robots', 'Keine robots.txt gefunden', 'completed');
+            }
+          }
+          
+          if (data.protocol.sitemap) {
+            if (data.protocol.sitemap.found) {
+              addStep('sitemap', 'Sitemap gefunden', 'completed', `${data.protocol.sitemap.urls.length} URLs gefunden`);
+            } else {
+              addStep('sitemap', 'Keine Sitemap gefunden', 'completed', 'Links von Landing Page extrahiert');
+            }
+          }
+          
+          addStep('links', 'Links extrahiert', 'completed', `${data.protocol.pages.length} Seiten zum Analysieren`);
+          
+          const successful = data.protocol.pages.filter(p => p.success).length;
+          const failed = data.protocol.pages.filter(p => !p.success).length;
+          addStep('pages', 'Seiten analysiert', 'completed', `${successful} erfolgreich, ${failed} fehlgeschlagen`);
+          
+          if (data.protocol.analysis) {
+            addStep('gpt', 'GPT Analyse abgeschlossen', 'completed', `Score: ${data.protocol.analysis.score || 'N/A'}/100`);
+          } else {
+            addStep('gpt', 'GPT Analyse übersprungen', 'completed', 'Kein API Key konfiguriert');
+          }
+          
           // Update progress to completion
           if (progressStatus) progressStatus.textContent = 'Analyse abgeschlossen!';
           if (progressBar) progressBar.style.width = '100%';
-          if (progressDetails) progressDetails.textContent += `\n✓ ${data.protocol.pages.length} Seiten analysiert\n`;
-          if (progressDetails) progressDetails.textContent += `✓ Durchschnittliche Ladezeit: ${Math.round(data.protocol.pages.reduce((sum, p) => sum + p.fetchTime, 0) / data.protocol.pages.length)}ms\n`;
           
           // Display protocol
           if (protocolDisplay && data.protocolText) {
@@ -3171,11 +3256,27 @@
           
         } catch (error) {
           console.error('Error in AI Readiness analysis:', error);
-          alert('Fehler bei der Analyse: ' + (error.message || 'Unbekannter Fehler'));
+          
+          // Show error in last step
+          if (stepsContainer) {
+            const errorStep = document.createElement('div');
+            errorStep.style.cssText = 'padding: 16px; background: #ffebee; border-radius: 8px; border-left: 4px solid #F44336; margin-bottom: 8px;';
+            errorStep.innerHTML = `
+              <div style="display: flex; align-items: center; gap: 12px;">
+                <span style="font-size: 20px; color: #F44336;">✗</span>
+                <div style="flex: 1;">
+                  <div style="font-weight: 500; color: #F44336;">Fehler aufgetreten</div>
+                  <div style="font-size: 13px; color: #d32f2f; margin-top: 4px;">${error.message || 'Unbekannter Fehler'}</div>
+                </div>
+              </div>
+            `;
+            stepsContainer.appendChild(errorStep);
+          }
           
           if (progressStatus) progressStatus.textContent = 'Fehler aufgetreten';
           if (progressBar) progressBar.style.width = '0%';
-          if (progressDetails) progressDetails.textContent += `\n✗ Fehler: ${error.message}\n`;
+          
+          alert('Fehler bei der Analyse: ' + (error.message || 'Unbekannter Fehler'));
         } finally {
           fetchContentBtn.disabled = false;
           fetchContentBtn.textContent = 'AI Readiness Analyse starten';

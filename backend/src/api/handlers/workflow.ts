@@ -10,7 +10,7 @@ import { getConfig } from "../../../shared/config.js";
 import { Database } from "../../../shared/persistence/index.js";
 import { AnalysisEngine } from "../../../shared/analysis/index.js";
 import { extractBrandName } from "../utils.js";
-import { fetchSitemap, parseSitemap, extractLinksFromHtml, extractTextContent } from "../utils/sitemap.js";
+import { fetchSitemap, parseSitemap, extractLinksFromHtml, extractTextContent, shouldFetchUrl } from "../utils/sitemap.js";
 
 export class WorkflowHandlers {
   constructor(private workflowEngine: WorkflowEngine) {}
@@ -746,6 +746,10 @@ export class WorkflowHandlers {
       const protocol: {
         timestamp: string;
         baseUrl: string;
+        robotsTxt: {
+          found: boolean;
+          content?: string;
+        };
         sitemap: {
           found: boolean;
           content?: string;
@@ -766,6 +770,9 @@ export class WorkflowHandlers {
       } = {
         timestamp: new Date().toISOString(),
         baseUrl: normalizedUrl,
+        robotsTxt: {
+          found: false,
+        },
         sitemap: {
           found: false,
           urls: [],
@@ -773,7 +780,27 @@ export class WorkflowHandlers {
         pages: [],
       };
 
-      // Step 1: Try to fetch sitemap
+      // Step 1: Try to fetch robots.txt
+      try {
+        const robotsUrl = new URL('/robots.txt', normalizedUrl).toString();
+        const robotsResponse = await fetch(robotsUrl, {
+          headers: { "User-Agent": "GEO-Platform/1.0" },
+          signal: AbortSignal.timeout(10000),
+        });
+        if (robotsResponse.ok) {
+          const robotsContent = await robotsResponse.text();
+          protocol.robotsTxt = {
+            found: true,
+            content: robotsContent,
+          };
+        } else {
+          protocol.robotsTxt = { found: false };
+        }
+      } catch (error) {
+        protocol.robotsTxt = { found: false };
+      }
+
+      // Step 2: Try to fetch sitemap
       const sitemapResult = await fetchSitemap(normalizedUrl);
       protocol.sitemap = {
         found: sitemapResult.found,
@@ -829,10 +856,13 @@ export class WorkflowHandlers {
         urlsToFetch.unshift(normalizedUrl);
       }
 
+      // Filter out PDFs, images, and other non-HTML files
+      urlsToFetch = urlsToFetch.filter(url => shouldFetchUrl(url));
+
       // Limit total pages to fetch
       urlsToFetch = urlsToFetch.slice(0, 50);
 
-      // Step 2: Fetch all pages with timing
+      // Step 3: Fetch all pages with timing
       for (const url of urlsToFetch) {
         const startTime = Date.now();
         try {
@@ -842,6 +872,19 @@ export class WorkflowHandlers {
           });
 
           const fetchTime = Date.now() - startTime;
+
+          // Check content type - only process HTML
+          const contentType = response.headers.get('content-type') || '';
+          if (!contentType.includes('text/html') && !contentType.includes('application/xhtml')) {
+            protocol.pages.push({
+              url,
+              fetchTime,
+              content: "",
+              success: false,
+              error: `Nicht-HTML Content-Type: ${contentType}`,
+            });
+            continue;
+          }
 
           if (response.ok) {
             const html = await response.text();
@@ -874,24 +917,24 @@ export class WorkflowHandlers {
         }
       }
 
-      // Step 3: Generate initial protocol text (without GPT analysis)
+      // Step 4: Generate initial protocol text (without GPT analysis)
       let protocolText = this.formatProtocol(protocol);
 
-      // Step 4: Send to GPT API for analysis
+      // Step 5: Send to GPT API for analysis
       const config = getConfig(env);
       if (config.openai.apiKey) {
         try {
           const llmExecutor = new LLMExecutor(config);
-          const analysisPromptText = `Analysiere das folgende Protokoll einer Website-Analyse für AI Readiness und gib ein strukturiertes Fazit mit Empfehlungen:
+          const analysisPromptText = `Analysiere das folgende Protokoll einer Website-Analyse. Fokus: Wie gut kann eine KI den Inhalt lesen und verstehen? Was fehlt noch?
 
 ${protocolText}
 
 Bitte gib eine strukturierte Analyse zurück mit:
-1. Zusammenfassung (Summary)
-2. Bewertung der AI Readiness (Score 0-100)
-3. Konkrete Empfehlungen (als Liste)
-4. Identifizierte Probleme
-5. Stärken der Website
+1. Zusammenfassung (Summary) - Wie gut kann eine KI den Inhalt lesen?
+2. Bewertung der AI Readiness (Score 0-100) - Wie gut ist die Website für KI-Lesbarkeit optimiert?
+3. Konkrete Empfehlungen (als Liste) - Was fehlt noch für bessere KI-Lesbarkeit?
+4. Identifizierte Probleme - Was verhindert, dass KI den Inhalt gut lesen kann?
+5. Stärken der Website - Was ist bereits gut für KI-Lesbarkeit?
 
 Format: JSON mit den Feldern: summary, score, recommendations (Array), issues (Array), strengths (Array)`;
 
@@ -959,13 +1002,25 @@ Format: JSON mit den Feldern: summary, score, recommendations (Array), issues (A
 
   private formatProtocol(protocol: any): string {
     let text = `═══════════════════════════════════════════════════════════
-AI READINESS ANALYSE PROTOKOLL
+PROTOKOLL
 ═══════════════════════════════════════════════════════════
 
 Zeitpunkt: ${protocol.timestamp}
 Website: ${protocol.baseUrl}
 
 ───────────────────────────────────────────────────────────
+ROBOTS.TXT ANALYSE
+───────────────────────────────────────────────────────────
+`;
+
+    if (protocol.robotsTxt.found) {
+      text += `✓ robots.txt gefunden\n`;
+      text += `\nInhalt:\n${protocol.robotsTxt.content}\n`;
+    } else {
+      text += `✗ Keine robots.txt gefunden\n`;
+    }
+
+    text += `\n───────────────────────────────────────────────────────────
 SITEMAP ANALYSE
 ───────────────────────────────────────────────────────────
 `;
@@ -1001,41 +1056,8 @@ Durchschnittliche Ladezeit: ${Math.round(
       if (page.error) {
         text += `   Fehler: ${page.error}\n`;
       }
-      text += `   Inhalt (erste 500 Zeichen):\n   ${page.content.substring(0, 500).replace(/\n/g, ' ')}...\n`;
+      text += `   Inhalt (erste 3000 Zeichen):\n   ${page.content.substring(0, 3000).replace(/\n/g, ' ')}${page.content.length > 3000 ? '...' : ''}\n`;
     });
-
-    if (protocol.analysis) {
-      text += `\n───────────────────────────────────────────────────────────
-GPT ANALYSE
-───────────────────────────────────────────────────────────
-`;
-      if (protocol.analysis.summary) {
-        text += `Zusammenfassung:\n${protocol.analysis.summary}\n\n`;
-      }
-      if (protocol.analysis.score !== undefined) {
-        text += `AI Readiness Score: ${protocol.analysis.score}/100\n\n`;
-      }
-      if (protocol.analysis.recommendations && protocol.analysis.recommendations.length > 0) {
-        text += `Empfehlungen:\n`;
-        protocol.analysis.recommendations.forEach((rec: string) => {
-          text += `  • ${rec}\n`;
-        });
-        text += `\n`;
-      }
-      if (protocol.analysis.issues && protocol.analysis.issues.length > 0) {
-        text += `Probleme:\n`;
-        protocol.analysis.issues.forEach((issue: string) => {
-          text += `  ⚠ ${issue}\n`;
-        });
-        text += `\n`;
-      }
-      if (protocol.analysis.strengths && protocol.analysis.strengths.length > 0) {
-        text += `Stärken:\n`;
-        protocol.analysis.strengths.forEach((strength: string) => {
-          text += `  ✓ ${strength}\n`;
-        });
-      }
-    }
 
     text += `\n═══════════════════════════════════════════════════════════\n`;
 
