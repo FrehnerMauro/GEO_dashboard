@@ -89,7 +89,7 @@
     .ai-readiness-input-wrapper input:focus {
       outline: none;
       border-color: var(--primary);
-      box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1), var(--shadow-md);
+      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1), var(--shadow-md);
       transform: translateY(-1px);
     }
     .ai-readiness-btn {
@@ -206,7 +206,7 @@
       transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
       overflow: hidden;
-      box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
     }
     .ai-readiness-progress-bar::after {
       content: '';
@@ -274,8 +274,8 @@
     }
     .ai-readiness-step-item.active {
       border-color: var(--primary);
-      background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(251, 191, 36, 0.08) 100%);
-      box-shadow: var(--shadow-md), 0 0 0 1px rgba(16, 185, 129, 0.2);
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(251, 191, 36, 0.08) 100%);
+      box-shadow: var(--shadow-md), 0 0 0 1px rgba(59, 130, 246, 0.2);
     }
     .ai-readiness-step-item.completed {
       border-color: var(--success);
@@ -354,11 +354,11 @@
       color: #64748b;
     }
     .ai-readiness-step-status.active {
-      background: rgba(16, 185, 129, 0.1);
-      color: #10b981;
+      background: rgba(59, 130, 246, 0.1);
+      color: #3b82f6;
     }
     .ai-readiness-step-status.completed {
-      background: rgba(5, 150, 105, 0.1);
+      background: rgba(37, 99, 235, 0.1);
       color: var(--success);
     }
     .ai-readiness-step-status.error {
