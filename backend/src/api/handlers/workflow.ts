@@ -5,6 +5,11 @@
 import type { UserInput } from "../../../shared/types.js";
 import type { Env, CorsHeaders } from "../types.js";
 import { WorkflowEngine } from "../../../shared/engine_workflow.js";
+import { LLMExecutor } from "../../../shared/llm_execution/index.js";
+import { getConfig } from "../../../shared/config.js";
+import { Database } from "../../../shared/persistence/index.js";
+import { AnalysisEngine } from "../../../shared/analysis/index.js";
+import { extractBrandName } from "../utils.js";
 
 export class WorkflowHandlers {
   constructor(private workflowEngine: WorkflowEngine) {}
@@ -202,10 +207,6 @@ export class WorkflowHandlers {
       );
 
       // Step 2: Perform full analysis after all prompts are executed
-      const { Database } = await import("../../../shared/persistence/index.js");
-      const { AnalysisEngine } = await import("../../../shared/analysis/index.js");
-      const { getConfig } = await import("../../../shared/config.js");
-      const { extractBrandName } = await import("../../utils.js");
       const config = getConfig(env);
       const db = new Database(env.geo_db as any);
 
@@ -388,8 +389,6 @@ export class WorkflowHandlers {
     const { runId, prompt, userInput } = body;
 
     try {
-      const { LLMExecutor } = await import("../../../shared/llm_execution/index.js");
-      const { getConfig } = await import("../../../shared/config.js");
       const config = getConfig(env);
       const executor = new LLMExecutor(config);
 
@@ -398,11 +397,9 @@ export class WorkflowHandlers {
 
       // Extract brand name from website URL
       const websiteUrl = userInput?.websiteUrl || '';
-      const { extractBrandName } = await import("../../utils.js");
       const brandName = extractBrandName(websiteUrl);
 
       // Save prompt, response, and analysis immediately (with timestamps)
-      const { Database } = await import("../../../shared/persistence/index.js");
       const db = new Database(env.geo_db as any);
       
       // Ensure prompt has an ID and required fields
@@ -435,7 +432,6 @@ export class WorkflowHandlers {
       await db.saveLLMResponses([response]);
 
       // Perform analysis: Brand mentions, Citations, Competitors, Sentiment
-      const { AnalysisEngine } = await import("../../../shared/analysis/index.js");
       const analysisEngine = new AnalysisEngine(brandName, 0.7);
       const analyses = analysisEngine.analyzeResponses([prompt], [response]);
       
