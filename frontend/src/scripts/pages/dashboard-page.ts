@@ -8,11 +8,22 @@ import { navigation } from "../components/navigation.js";
 
 type ViewMode = "local" | "global";
 
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
 export class DashboardPage {
   private dashboardSection: HTMLElement | null;
   private viewMode: ViewMode = "local";
   private selectedCompanyId: string | null = null;
   private selectedCategory: string | null = null;
+  private selectedAnalysisId: string | null = null;
+  private isLoading: boolean = false;
+  
+  // Cache for API responses (5 minutes TTL)
+  private cache: Map<string, CacheEntry<any>> = new Map();
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   constructor() {
     this.dashboardSection = getElement("dashboardSection");
@@ -20,78 +31,171 @@ export class DashboardPage {
   }
 
   private initialize(): void {
-    this.render();
+    // Don't render immediately - wait for show() to be called
+  }
+
+  private getCached<T>(key: string): T | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+    
+    const age = Date.now() - entry.timestamp;
+    if (age > this.CACHE_TTL) {
+      this.cache.delete(key);
+      return null;
+    }
+    
+    return entry.data;
+  }
+
+  private setCache<T>(key: string, data: T): void {
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now()
+    });
+  }
+
+  private clearCache(): void {
+    this.cache.clear();
   }
 
   private async render(): Promise<void> {
-    if (!this.dashboardSection) return;
+    if (!this.dashboardSection || this.isLoading) return;
+    
+    this.isLoading = true;
 
-    this.dashboardSection.innerHTML = `
-      <div class="dashboard-container">
-        <div class="dashboard-header">
-          <div class="view-toggle">
-            <button class="toggle-btn ${this.viewMode === "local" ? "active" : ""}" data-mode="local">
-              Local
-            </button>
-            <button class="toggle-btn ${this.viewMode === "global" ? "active" : ""}" data-mode="global">
-              Global
-            </button>
+    try {
+      // Show loading state
+      this.dashboardSection.innerHTML = `
+        <div class="dashboard-container">
+          <div class="dashboard-header">
+            <div class="view-toggle">
+              <button class="toggle-btn ${this.viewMode === "local" ? "active" : ""}" data-mode="local">
+                Local
+              </button>
+              <button class="toggle-btn ${this.viewMode === "global" ? "active" : ""}" data-mode="global">
+                Global
+              </button>
+            </div>
+          </div>
+          <div class="dashboard-content">
+            <div class="loading-state" style="display: flex; align-items: center; justify-content: center; padding: 60px; min-height: 400px;">
+              <div style="text-align: center;">
+                <div class="spinner" style="width: 48px; height: 48px; border: 4px solid var(--border-light); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px;"></div>
+                <p style="color: var(--text-secondary); font-size: 15px; font-weight: 500;">Loading...</p>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="dashboard-content">
-          ${this.viewMode === "local" ? await this.renderLocalView() : await this.renderGlobalView()}
-        </div>
-      </div>
-    `;
+      `;
 
-    // Attach event listeners
+      // Render content
+      const content = this.viewMode === "local" 
+        ? await this.renderLocalView() 
+        : await this.renderGlobalView();
+
+      this.dashboardSection.innerHTML = `
+        <div class="dashboard-container">
+          <div class="dashboard-header">
+            <div class="view-toggle">
+              <button class="toggle-btn ${this.viewMode === "local" ? "active" : ""}" data-mode="local">
+                Local
+              </button>
+              <button class="toggle-btn ${this.viewMode === "global" ? "active" : ""}" data-mode="global">
+                Global
+              </button>
+            </div>
+          </div>
+          <div class="dashboard-content">
+            ${content}
+          </div>
+        </div>
+      `;
+
+      // Attach event listeners after DOM is ready
+      this.attachEventListeners();
+    } catch (error) {
+      console.error("Error rendering dashboard:", error);
+      if (this.dashboardSection) {
+        this.dashboardSection.innerHTML = `
+          <div class="dashboard-container">
+            <div class="error-state" style="padding: 60px; text-align: center;">
+              <p style="color: var(--error); font-size: 16px; margin-bottom: 16px;">Error loading dashboard</p>
+              <button class="btn btn-primary" onclick="window.dashboardPage?.render()">Retry</button>
+            </div>
+          </div>
+        `;
+      }
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  private attachEventListeners(): void {
+    if (!this.dashboardSection) return;
+
+    // Toggle buttons
     const toggleButtons = this.dashboardSection.querySelectorAll(".toggle-btn");
     toggleButtons.forEach(btn => {
       btn.addEventListener("click", (e) => {
+        e.stopPropagation();
         const mode = (e.target as HTMLElement).dataset.mode as ViewMode;
-        if (mode) {
+        if (mode && mode !== this.viewMode) {
           this.viewMode = mode;
           this.selectedCompanyId = null;
           this.selectedCategory = null;
+          this.selectedAnalysisId = null;
           this.render();
         }
       });
     });
 
-    // Attach company selection listeners
+    // Back buttons
+    const backButtons = this.dashboardSection.querySelectorAll(".back-btn");
+    backButtons.forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.goBack();
+      });
+    });
+
+    // Company cards (local view)
     if (this.viewMode === "local") {
       const companyCards = this.dashboardSection.querySelectorAll(".company-card");
       companyCards.forEach(card => {
         card.addEventListener("click", async (e) => {
+          e.stopPropagation();
           const companyId = (e.currentTarget as HTMLElement).dataset.companyId;
-          if (companyId) {
+          if (companyId && companyId !== this.selectedCompanyId) {
             this.selectedCompanyId = companyId;
-            (this as any).selectedAnalysisId = null;
+            this.selectedAnalysisId = null;
             await this.render();
           }
         });
       });
       
-      // Attach analysis selection listeners
+      // Analysis cards
       const analysisCards = this.dashboardSection.querySelectorAll(".analysis-card");
       analysisCards.forEach(card => {
         card.addEventListener("click", async (e) => {
+          e.stopPropagation();
           const runId = (e.currentTarget as HTMLElement).dataset.runId;
-          if (runId) {
-            (this as any).selectedAnalysisId = runId;
+          if (runId && runId !== this.selectedAnalysisId) {
+            this.selectedAnalysisId = runId;
             await this.render();
           }
         });
       });
     }
 
-    // Attach category selection listeners
+    // Category cards (global view)
     if (this.viewMode === "global") {
       const categoryCards = this.dashboardSection.querySelectorAll(".category-card");
       categoryCards.forEach(card => {
         card.addEventListener("click", async (e) => {
+          e.stopPropagation();
           const categoryName = (e.currentTarget as HTMLElement).dataset.categoryName;
-          if (categoryName) {
+          if (categoryName && categoryName !== this.selectedCategory) {
             this.selectedCategory = categoryName;
             await this.render();
           }
@@ -102,15 +206,25 @@ export class DashboardPage {
 
   private async renderLocalView(): Promise<string> {
     try {
-      const companies = await analysisService.getAllCompanies();
+      // Use cache for companies
+      let companies = this.getCached<any[]>("companies");
+      if (!companies) {
+        companies = await analysisService.getAllCompanies();
+        this.setCache("companies", companies);
+      }
       
-      // Check if we have a selected analysis ID (new property)
-      const selectedAnalysisId = (this as any).selectedAnalysisId;
-      
-      if (selectedAnalysisId) {
+      if (this.selectedAnalysisId) {
         // Show analysis questions and summary
         try {
-          const promptsSummaryData = await analysisService.getAnalysisPromptsAndSummary(selectedAnalysisId);
+          // Use cache for analysis data
+          const cacheKey = `analysis-${this.selectedAnalysisId}`;
+          let promptsSummaryData = this.getCached<{ prompts: any[]; summary: any }>(cacheKey);
+          
+          if (!promptsSummaryData) {
+            promptsSummaryData = await analysisService.getAnalysisPromptsAndSummary(this.selectedAnalysisId);
+            this.setCache(cacheKey, promptsSummaryData);
+          }
+          
           const prompts = promptsSummaryData.prompts || [];
           const summary = promptsSummaryData.summary;
           
@@ -238,8 +352,8 @@ export class DashboardPage {
           
           return `
             <div class="local-view">
-              <button class="back-btn" onclick="window.dashboardPage?.goBack()">← Back</button>
-              <h3 style="margin-bottom: 24px;">Analysis Details</h3>
+              <button class="back-btn">← Back</button>
+              <h3 style="margin-bottom: 24px; font-size: 24px; font-weight: 700; color: var(--text); font-family: 'Space Grotesk', sans-serif;">Analysis Details</h3>
               ${promptsHtml}
               ${summaryHtml}
             </div>
@@ -247,28 +361,35 @@ export class DashboardPage {
         } catch (error) {
           console.error("Error loading analysis:", error);
           return `
-            <div class="error-state">
-              <p>Error loading analysis: ${error instanceof Error ? error.message : "Unknown error"}</p>
-              <button class="back-btn" onclick="(window.dashboardPage as any).selectedAnalysisId = null; window.dashboardPage?.render();">← Back</button>
+            <div class="error-state" style="padding: 40px; text-align: center;">
+              <p style="color: var(--error); margin-bottom: 16px; font-size: 16px;">Error loading analysis: ${error instanceof Error ? error.message : "Unknown error"}</p>
+              <button class="back-btn">← Back</button>
             </div>
           `;
         }
       } else if (this.selectedCompanyId) {
         // Show analyses for selected company
-        const analyses = await analysisService.getCompanyAnalyses(this.selectedCompanyId);
+        const cacheKey = `company-analyses-${this.selectedCompanyId}`;
+        let analyses = this.getCached<any[]>(cacheKey);
+        
+        if (!analyses) {
+          analyses = await analysisService.getCompanyAnalyses(this.selectedCompanyId);
+          this.setCache(cacheKey, analyses);
+        }
+        
         const company = companies.find(c => c.id === this.selectedCompanyId);
         
         return `
           <div class="local-view">
-            <button class="back-btn" onclick="window.dashboardPage?.goBack()">← Back</button>
-            <h3>Analyses: ${company?.name || company?.websiteUrl || "Unknown"}</h3>
+            <button class="back-btn">← Back</button>
+            <h3 style="margin-bottom: 24px; font-size: 24px; font-weight: 700; color: var(--text); font-family: 'Space Grotesk', sans-serif;">Analyses: ${company?.name || company?.websiteUrl || "Unknown"}</h3>
             <div class="analyses-grid">
               ${analyses.length === 0 
-                ? '<div class="empty-state">No analyses found</div>'
+                ? '<div class="empty-state" style="grid-column: 1 / -1; text-align: center; padding: 60px; color: var(--text-secondary);">No analyses found</div>'
                 : analyses.map(analysis => `
-                  <div class="analysis-card" data-run-id="${analysis.id}">
+                  <div class="analysis-card" data-run-id="${analysis.id}" style="cursor: pointer;">
                     <div class="analysis-header">
-                      <h4>${new URL(analysis.websiteUrl).hostname}</h4>
+                      <h4 style="font-size: 18px; font-weight: 700; color: var(--text); margin: 0;">${new URL(analysis.websiteUrl).hostname}</h4>
                       <span class="status-badge ${analysis.status}">${analysis.status}</span>
                     </div>
                     <div class="analysis-details">
@@ -295,19 +416,19 @@ export class DashboardPage {
         // Show company list
         return `
           <div class="local-view">
-            <h3>Available Companies</h3>
+            <h3 style="margin-bottom: 24px; font-size: 28px; font-weight: 700; color: var(--text); font-family: 'Space Grotesk', sans-serif;">Available Companies</h3>
             <div class="companies-grid">
               ${companies.length === 0 
-                ? '<div class="empty-state">No companies found</div>'
+                ? '<div class="empty-state" style="grid-column: 1 / -1; text-align: center; padding: 60px; color: var(--text-secondary);">No companies found</div>'
                 : companies.map(company => `
-                  <div class="company-card" data-company-id="${company.id}">
+                  <div class="company-card" data-company-id="${company.id}" style="cursor: pointer;">
                     <div class="company-header">
-                      <h4>${company.name}</h4>
+                      <h4 style="font-size: 18px; font-weight: 700; color: var(--text); margin: 0; font-family: \'Space Grotesk\', sans-serif;">${company.name}</h4>
                     </div>
                     <div class="company-details">
                       <div class="detail-item">
                         <span class="label">Website:</span>
-                        <span>${company.websiteUrl}</span>
+                        <span style="word-break: break-all;">${company.websiteUrl}</span>
                       </div>
                       <div class="detail-item">
                         <span class="label">Country:</span>
@@ -339,15 +460,18 @@ export class DashboardPage {
     try {
       if (this.selectedCategory) {
         // Show prompts for selected category
-        const prompts = await analysisService.getGlobalPromptsByCategory(this.selectedCategory);
+        const cacheKey = `category-prompts-${this.selectedCategory}`;
+        let prompts = this.getCached<any[]>(cacheKey);
         
-        // Debug: Log prompts to see if answers are included
-        console.log('Prompts with answers:', prompts.map(p => ({ question: p.question.substring(0, 50), hasAnswer: !!p.answer, answerLength: p.answer?.length || 0 })));
+        if (!prompts) {
+          prompts = await analysisService.getGlobalPromptsByCategory(this.selectedCategory);
+          this.setCache(cacheKey, prompts);
+        }
         
         return `
           <div class="global-view">
-            <button class="back-btn" onclick="window.dashboardPage?.goBack()">← Back</button>
-            <h3>Category: ${this.selectedCategory}</h3>
+            <button class="back-btn">← Back</button>
+            <h3 style="margin-bottom: 24px; font-size: 24px; font-weight: 700; color: var(--text); font-family: 'Space Grotesk', sans-serif;">Category: ${this.selectedCategory}</h3>
             <div class="prompts-list">
               ${prompts.length === 0 
                 ? '<div class="empty-state">No questions found in this category</div>'
@@ -398,11 +522,15 @@ export class DashboardPage {
         `;
       } else {
         // Show category list
-        const categories = await analysisService.getGlobalCategories();
+        let categories = this.getCached<any[]>("global-categories");
+        if (!categories) {
+          categories = await analysisService.getGlobalCategories();
+          this.setCache("global-categories", categories);
+        }
         
         return `
           <div class="global-view">
-            <h3>All Categories</h3>
+            <h3 style="margin-bottom: 24px; font-size: 28px; font-weight: 700; color: var(--text); font-family: 'Space Grotesk', sans-serif;">All Categories</h3>
             <div class="categories-grid">
               ${categories.length === 0 
                 ? '<div class="empty-state">No categories found</div>'
@@ -434,8 +562,8 @@ export class DashboardPage {
 
   goBack(): void {
     if (this.viewMode === "local") {
-      if ((this as any).selectedAnalysisId) {
-        (this as any).selectedAnalysisId = null;
+      if (this.selectedAnalysisId) {
+        this.selectedAnalysisId = null;
       } else {
         this.selectedCompanyId = null;
       }
@@ -493,4 +621,6 @@ export class DashboardPage {
     this.render();
   }
 }
+
+// Note: dashboardPage instance is created in app.ts and exposed globally
 

@@ -22,10 +22,11 @@ export class AnalysesPage {
     if (!this.analysesList) return;
 
     try {
-      // Show loading state
+      // Show loading state with spinner
       this.analysesList.innerHTML = `
-        <div style="text-align: center; padding: 40px; color: var(--text-secondary); grid-column: 1 / -1;">
-          Loading analyses...
+        <div style="text-align: center; padding: 60px; color: var(--text-secondary); grid-column: 1 / -1; display: flex; flex-direction: column; align-items: center; gap: 16px;">
+          <div class="spinner" style="width: 48px; height: 48px; border: 4px solid var(--border-light); border-top-color: var(--primary); border-radius: 50%;"></div>
+          <p style="font-size: 15px; font-weight: 500;">Loading analyses...</p>
         </div>
       `;
 
@@ -33,8 +34,10 @@ export class AnalysesPage {
 
       if (analyses.length === 0) {
         this.analysesList.innerHTML = `
-          <div style="text-align: center; padding: 40px; color: var(--text-secondary); grid-column: 1 / -1;">
-            No analyses yet. Start a new analysis!
+          <div class="empty-state" style="grid-column: 1 / -1; text-align: center; padding: 60px; color: var(--text-secondary);">
+            <div style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;">📭</div>
+            <p style="font-size: 16px; font-weight: 500; margin-bottom: 8px;">No analyses yet</p>
+            <p style="font-size: 14px; color: var(--text-light);">Start a new analysis to get started!</p>
           </div>
         `;
         return;
@@ -50,8 +53,11 @@ export class AnalysesPage {
     } catch (error) {
       console.error("Error loading analyses:", error);
       this.analysesList.innerHTML = `
-        <div style="text-align: center; padding: 40px; color: var(--error); grid-column: 1 / -1;">
-          Error loading analyses: ${error instanceof Error ? error.message : "Unknown error"}
+        <div class="error-state" style="grid-column: 1 / -1; text-align: center; padding: 60px;">
+          <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+          <p style="color: var(--error); font-size: 16px; font-weight: 600; margin-bottom: 8px;">Error loading analyses</p>
+          <p style="color: var(--text-secondary); font-size: 14px; margin-bottom: 16px;">${error instanceof Error ? error.message : "Unknown error"}</p>
+          <button class="btn btn-primary" onclick="window.analysesPage?.loadAnalyses()">Retry</button>
         </div>
       `;
     }
@@ -79,23 +85,35 @@ export class AnalysesPage {
       : "Unknown";
 
     return `
-      <div class="analysis-card" data-run-id="${analysis.id}">
-        <div class="analysis-card-header">
-          <h4>${analysis.website_url || "Unknown URL"}</h4>
-          <span class="analysis-status" style="color: ${statusColor}">
+      <div class="analysis-card" data-run-id="${analysis.id}" style="background: var(--bg-glass); backdrop-filter: blur(20px); border: 1px solid var(--border-light); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-md); transition: var(--transition); cursor: pointer; position: relative; overflow: hidden;">
+        <div style="position: absolute; top: 0; right: 0; width: 100px; height: 100px; background: radial-gradient(circle, ${statusColor}15 0%, transparent 70%); pointer-events: none;"></div>
+        <div class="analysis-card-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; position: relative; z-index: 1;">
+          <h4 style="font-size: 18px; font-weight: 700; color: var(--text); margin: 0; font-family: 'Space Grotesk', sans-serif; flex: 1; word-break: break-word;">${analysis.website_url || "Unknown URL"}</h4>
+          <span class="analysis-status status-badge ${status}" style="margin-left: 12px; flex-shrink: 0;">
             ${this.getStatusText(status)}
           </span>
         </div>
-        <div class="analysis-card-body">
-          <p><strong>Country:</strong> ${analysis.country || "N/A"}</p>
-          <p><strong>Language:</strong> ${analysis.language || "N/A"}</p>
-          <p><strong>Created:</strong> ${date}</p>
+        <div class="analysis-card-body" style="position: relative; z-index: 1;">
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Country:</span>
+              <span style="font-size: 14px; color: var(--text); font-weight: 500;">${analysis.country || "N/A"}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Language:</span>
+              <span style="font-size: 14px; color: var(--text); font-weight: 500;">${analysis.language || "N/A"}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 13px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.5px;">Created:</span>
+              <span style="font-size: 14px; color: var(--text); font-weight: 500;">${date}</span>
+            </div>
+          </div>
         </div>
-        <div class="analysis-card-actions">
-          <button class="btn btn-primary" data-action="view" data-run-id="${analysis.id}">
+        <div class="analysis-card-actions" style="display: flex; gap: 12px; margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-light); position: relative; z-index: 1;">
+          <button class="btn btn-primary" data-action="view" data-run-id="${analysis.id}" style="flex: 1; padding: 12px 20px; font-size: 14px; font-weight: 600;">
             View Details
           </button>
-          <button class="btn" data-action="delete" data-run-id="${analysis.id}" style="background: var(--error); color: white;">
+          <button class="btn" data-action="delete" data-run-id="${analysis.id}" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; flex: 1; padding: 12px 20px; font-size: 14px; font-weight: 600; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);">
             Delete
           </button>
         </div>
@@ -114,20 +132,25 @@ export class AnalysesPage {
   }
 
   private attachEventListeners(): void {
-    // View button
+    // View button - use currentTarget to handle nested elements
     this.analysesList?.querySelectorAll('[data-action="view"]').forEach((btn) => {
       btn.addEventListener("click", (e) => {
-        const runId = (e.target as HTMLElement).getAttribute("data-run-id");
+        e.stopPropagation();
+        const button = e.currentTarget as HTMLElement;
+        const runId = button.getAttribute("data-run-id");
         if (runId) {
           this.viewAnalysis(runId);
         }
       });
     });
 
-    // Delete button
+    // Delete button - use currentTarget to handle nested elements
     this.analysesList?.querySelectorAll('[data-action="delete"]').forEach((btn) => {
       btn.addEventListener("click", async (e) => {
-        const runId = (e.target as HTMLElement).getAttribute("data-run-id");
+        e.stopPropagation();
+        e.preventDefault();
+        const button = e.currentTarget as HTMLElement;
+        const runId = button.getAttribute("data-run-id");
         if (runId && confirm("Are you sure you want to delete this analysis?")) {
           await this.deleteAnalysis(runId);
         }
@@ -162,7 +185,7 @@ export class AnalysesPage {
 
     let html = `
       <div style="padding: 20px;">
-        <button class="btn" onclick="window.analysesPage?.goBackToList()" style="margin-bottom: 20px; background: var(--gray-100); color: var(--gray-700);">
+        <button class="btn back-btn" id="backToListBtn" style="margin-bottom: 20px; background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border);">
           ← Back to List
         </button>
         
@@ -303,6 +326,16 @@ export class AnalysesPage {
 
     html += `</div>`;
     analysisDetailSection.innerHTML = html;
+    
+    // Attach back button listener
+    const backBtn = document.getElementById("backToListBtn");
+    if (backBtn) {
+      backBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        this.goBackToList();
+      });
+    }
   }
 
   goBackToList(): void {

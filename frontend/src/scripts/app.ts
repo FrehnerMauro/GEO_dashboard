@@ -22,6 +22,9 @@ export class App {
     this.analysisWorkflow = new AnalysisWorkflow();
     this.readabilityWorkflow = new ReadabilityWorkflow();
 
+    // Make dashboardPage globally available
+    (window as any).dashboardPage = this.dashboardPage;
+
     // Setup global navigation functions
     this.setupGlobalFunctions();
   }
