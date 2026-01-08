@@ -8,7 +8,7 @@
       const analysisSection = document.querySelector('.content-area > .card');
       if (analysesSection) analysesSection.style.display = 'none';
       if (analysisDetailSection) analysisDetailSection.style.display = 'none';
-      if (analysisSection) analysisSection.style.display = 'block';
+      if (analysisSection) analysisSection.style.display = 'none';
       // Update navigation
       const navItems = document.querySelectorAll('.nav-item');
       navItems.forEach(item => item.classList.remove('active'));
@@ -19,9 +19,12 @@
         const dashboardNav = document.querySelector('.nav-item');
         if (dashboardNav) dashboardNav.classList.add('active');
       }
-      // Try to call full implementation if available
+      // Try to call full implementation if available (after DOMContentLoaded)
       if (window.showDashboardFull) {
         window.showDashboardFull(event);
+      } else if (window.dashboardPage) {
+        // If DashboardPage is already initialized, use it
+        window.dashboardPage.show();
       }
     };
     
@@ -1886,11 +1889,290 @@
       const dashboardSection = document.getElementById('dashboardSection');
       if (dashboardSection) {
         dashboardSection.style.display = 'block';
+        // Initialize dashboard if not already initialized
+        if (!window.dashboardPage) {
+          window.dashboardPage = new DashboardPage();
+        }
+        window.dashboardPage.show();
       }
       const headerTitle = document.getElementById('headerTitle');
       if (headerTitle) headerTitle.textContent = 'Dashboard';
       updateNavActive(event);
     }
+    
+    // Dashboard Page Class (for legacy support)
+    class DashboardPage {
+      constructor() {
+        this.dashboardSection = document.getElementById('dashboardSection');
+        this.viewMode = 'local';
+        this.selectedCompanyId = null;
+        this.selectedCategory = null;
+      }
+      
+      async render() {
+        if (!this.dashboardSection) return;
+        
+        try {
+          const content = this.viewMode === 'local' 
+            ? await this.renderLocalView() 
+            : await this.renderGlobalView();
+            
+          this.dashboardSection.innerHTML = `
+            <div class="dashboard-container">
+              <div class="dashboard-header">
+                <h2>Dashboard</h2>
+                <div class="view-toggle">
+                  <button class="toggle-btn ${this.viewMode === 'local' ? 'active' : ''}" data-mode="local">
+                    Lokal
+                  </button>
+                  <button class="toggle-btn ${this.viewMode === 'global' ? 'active' : ''}" data-mode="global">
+                    Global
+                  </button>
+                </div>
+              </div>
+              <div class="dashboard-content">
+                ${content}
+              </div>
+            </div>
+          `;
+          
+          this.attachEventListeners();
+        } catch (error) {
+          console.error('Error rendering dashboard:', error);
+          if (this.dashboardSection) {
+            this.dashboardSection.innerHTML = `
+              <div class="error-state">
+                <p>Fehler beim Laden: ${error.message}</p>
+              </div>
+            `;
+          }
+        }
+      }
+      
+      attachEventListeners() {
+        // Toggle buttons
+        const toggleButtons = this.dashboardSection.querySelectorAll('.toggle-btn');
+        toggleButtons.forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const mode = e.target.dataset.mode;
+            if (mode) {
+              this.viewMode = mode;
+              this.selectedCompanyId = null;
+              this.selectedCategory = null;
+              this.render();
+            }
+          });
+        });
+        
+        // Company cards (local view)
+        if (this.viewMode === 'local' && !this.selectedCompanyId) {
+          const companyCards = this.dashboardSection.querySelectorAll('.company-card');
+          companyCards.forEach(card => {
+            card.addEventListener('click', () => {
+              this.selectedCompanyId = card.dataset.companyId;
+              this.render();
+            });
+          });
+        }
+        
+        // Category cards (global view)
+        if (this.viewMode === 'global' && !this.selectedCategory) {
+          const categoryCards = this.dashboardSection.querySelectorAll('.category-card');
+          categoryCards.forEach(card => {
+            card.addEventListener('click', () => {
+              this.selectedCategory = card.dataset.categoryName;
+              this.render();
+            });
+          });
+        }
+        
+        // Back button
+        const backBtn = this.dashboardSection.querySelector('.back-btn');
+        if (backBtn) {
+          backBtn.addEventListener('click', () => {
+            if (this.viewMode === 'local') {
+              this.selectedCompanyId = null;
+            } else {
+              this.selectedCategory = null;
+            }
+            this.render();
+          });
+        }
+      }
+      
+      async renderLocalView() {
+        if (this.selectedCompanyId) {
+          // Show analyses for selected company
+          const response = await fetch(window.getApiUrl('/api/companies/' + this.selectedCompanyId + '/analyses'));
+          const analyses = await response.json();
+          const companiesResponse = await fetch(window.getApiUrl('/api/companies'));
+          const companies = await companiesResponse.json();
+          const company = companies.find(c => c.id === this.selectedCompanyId);
+          
+          return `
+            <div class="local-view">
+              <button class="back-btn">← Zurück</button>
+              <h3>Analysen: ${company?.name || company?.websiteUrl || 'Unbekannt'}</h3>
+              <div class="analyses-grid">
+                ${analyses.length === 0 
+                  ? '<div class="empty-state">Keine Analysen gefunden</div>'
+                  : analyses.map(analysis => `
+                    <div class="analysis-card" data-run-id="${analysis.id}">
+                      <div class="analysis-header">
+                        <h4>${new URL(analysis.websiteUrl).hostname}</h4>
+                        <span class="status-badge ${analysis.status}">${analysis.status}</span>
+                      </div>
+                      <div class="analysis-details">
+                        <div class="detail-item">
+                          <span class="label">Land:</span>
+                          <span>${analysis.country}</span>
+                        </div>
+                        <div class="detail-item">
+                          <span class="label">Sprache:</span>
+                          <span>${analysis.language}</span>
+                        </div>
+                        <div class="detail-item">
+                          <span class="label">Erstellt:</span>
+                          <span>${new Date(analysis.createdAt).toLocaleDateString('de-DE')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  `).join('')
+                }
+              </div>
+            </div>
+          `;
+        } else {
+          // Show company list
+          const response = await fetch(window.getApiUrl('/api/companies'));
+          const companies = await response.json();
+          
+          return `
+            <div class="local-view">
+              <h3>Verfügbare Firmen</h3>
+              <div class="companies-grid">
+                ${companies.length === 0 
+                  ? '<div class="empty-state">Keine Firmen gefunden</div>'
+                  : companies.map(company => `
+                    <div class="company-card" data-company-id="${company.id}">
+                      <div class="company-header">
+                        <h4>${company.name}</h4>
+                      </div>
+                      <div class="company-details">
+                        <div class="detail-item">
+                          <span class="label">Website:</span>
+                          <span>${company.websiteUrl}</span>
+                        </div>
+                        <div class="detail-item">
+                          <span class="label">Land:</span>
+                          <span>${company.country}</span>
+                        </div>
+                        <div class="detail-item">
+                          <span class="label">Sprache:</span>
+                          <span>${company.language}</span>
+                        </div>
+                      </div>
+                    </div>
+                  `).join('')
+                }
+              </div>
+            </div>
+          `;
+        }
+      }
+      
+      async renderGlobalView() {
+        if (this.selectedCategory) {
+          // Show prompts for selected category
+          const response = await fetch(window.getApiUrl('/api/global/categories/' + encodeURIComponent(this.selectedCategory) + '/prompts'));
+          const prompts = await response.json();
+          
+          return `
+            <div class="global-view">
+              <button class="back-btn">← Zurück</button>
+              <h3>Kategorie: ${this.selectedCategory}</h3>
+              <div class="prompts-list">
+                ${prompts.length === 0 
+                  ? '<div class="empty-state">Keine Fragen in dieser Kategorie gefunden</div>'
+                  : prompts.map(prompt => `
+                    <div class="prompt-card">
+                      <div class="prompt-question">
+                        <h4>${prompt.question}</h4>
+                      </div>
+                      <div class="prompt-details">
+                        <div class="detail-item">
+                          <span class="label">Website:</span>
+                          <span>${new URL(prompt.websiteUrl).hostname}</span>
+                        </div>
+                        <div class="detail-item">
+                          <span class="label">Sprache:</span>
+                          <span>${prompt.language}</span>
+                        </div>
+                        ${prompt.country ? `
+                          <div class="detail-item">
+                            <span class="label">Land:</span>
+                            <span>${prompt.country}</span>
+                          </div>
+                        ` : ''}
+                        <div class="detail-item">
+                          <span class="label">Erstellt:</span>
+                          <span>${new Date(prompt.createdAt).toLocaleDateString('de-DE')}</span>
+                        </div>
+                      </div>
+                    </div>
+                  `).join('')
+                }
+              </div>
+            </div>
+          `;
+        } else {
+          // Show category list
+          const response = await fetch(window.getApiUrl('/api/global/categories'));
+          const categories = await response.json();
+          
+          return `
+            <div class="global-view">
+              <h3>Alle Kategorien</h3>
+              <div class="categories-grid">
+                ${categories.length === 0 
+                  ? '<div class="empty-state">Keine Kategorien gefunden</div>'
+                  : categories.map(category => `
+                    <div class="category-card" data-category-name="${category.name}">
+                      <div class="category-header">
+                        <h4>${category.name}</h4>
+                        <span class="count-badge">${category.count}</span>
+                      </div>
+                      <div class="category-description">
+                        <p>${category.description || 'Keine Beschreibung'}</p>
+                      </div>
+                    </div>
+                  `).join('')
+                }
+              </div>
+            </div>
+          `;
+        }
+      }
+      
+      show() {
+        const configurationCard = document.querySelector('.content-area > .card');
+        const analysesSection = document.getElementById('analysesSection');
+        const analysisDetailSection = document.getElementById('analysisDetailSection');
+        
+        if (configurationCard) configurationCard.style.display = 'none';
+        if (analysesSection) analysesSection.style.display = 'none';
+        if (analysisDetailSection) analysisDetailSection.style.display = 'none';
+        
+        if (this.dashboardSection) {
+          this.dashboardSection.style.display = 'block';
+        }
+        
+        this.render();
+      }
+    }
+    
+    // Make DashboardPage available globally
+    window.DashboardPage = DashboardPage;
     
     // AI Analysis functionality
     function showAIAnalysis(event) {
@@ -2361,5 +2643,15 @@
     window.viewAnalysisDetails = viewAnalysisDetails;
     window.deleteAnalysis = deleteAnalysis;
     window.pauseAnalysis = pauseAnalysis;
+    
+    // Initialize dashboard on page load
+    const dashboardSection = document.getElementById('dashboardSection');
+    if (dashboardSection && dashboardSection.style.display !== 'none') {
+      // Only initialize if dashboard is visible (default view)
+      if (!window.dashboardPage) {
+        window.dashboardPage = new DashboardPage();
+      }
+      window.dashboardPage.show();
+    }
     }); // End of DOMContentLoaded
   
