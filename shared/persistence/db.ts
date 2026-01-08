@@ -62,6 +62,45 @@ export class Database {
     } as D1Database;
   }
 
+  /**
+   * Retry wrapper for D1 operations to handle transient errors
+   * Retries on D1_ERROR, timeout, or reset errors
+   */
+  private async retryD1Operation<T>(
+    operation: () => Promise<T>,
+    maxRetries: number = 3,
+    baseDelay: number = 100
+  ): Promise<T> {
+    let lastError: any;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await operation();
+      } catch (error: any) {
+        lastError = error;
+        const errorMessage = error?.message || String(error);
+        
+        // Check if this is a retryable D1 error
+        const isRetryable = 
+          errorMessage.includes("D1_ERROR") ||
+          errorMessage.includes("timeout") ||
+          errorMessage.includes("reset") ||
+          errorMessage.includes("Internal error while starting up");
+        
+        if (!isRetryable || attempt === maxRetries - 1) {
+          throw error;
+        }
+        
+        // Exponential backoff: 100ms, 200ms, 400ms
+        const delay = baseDelay * Math.pow(2, attempt);
+        console.warn(`D1 operation failed (attempt ${attempt + 1}/${maxRetries}), retrying in ${delay}ms:`, errorMessage);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    throw lastError;
+  }
+
   async saveAnalysisRun(
     runId: string,
     userInput: UserInput,
@@ -1090,37 +1129,39 @@ export class Database {
     // Only show categories that have prompts with web search (citations)
     // Optimized query using JOINs instead of EXISTS for better performance
     // This avoids D1 timeout issues with complex EXISTS subqueries
-    try {
-      const result = await this.db
-        .prepare(
-          `SELECT 
-            c.name,
-            MAX(c.description) as description,
-            COUNT(DISTINCT p.id) as count
-           FROM categories c
-           INNER JOIN prompts p ON p.category_id = c.id
-           INNER JOIN llm_responses lr ON lr.prompt_id = p.id
-           INNER JOIN citations cit ON cit.llm_response_id = lr.id
-           GROUP BY c.name
-           HAVING count > 0
-           ORDER BY count DESC, c.name ASC
-           LIMIT 100`
-        )
-        .all<{
-          name: string;
-          description: string;
-          count: number;
-        }>();
-      
-      return (result.results || []).map(r => ({
-        name: r.name,
-        description: r.description || "",
-        count: r.count,
-      }));
-    } catch (error) {
-      console.error("Error in getAllGlobalCategories, trying fallback query:", error);
-      // Fallback: simpler query without citations check if the main query times out
+    // Uses retry logic to handle transient D1 startup errors
+    
+    return this.retryD1Operation(async () => {
       try {
+        const result = await this.db
+          .prepare(
+            `SELECT 
+              c.name,
+              MAX(c.description) as description,
+              COUNT(DISTINCT p.id) as count
+             FROM categories c
+             INNER JOIN prompts p ON p.category_id = c.id
+             INNER JOIN llm_responses lr ON lr.prompt_id = p.id
+             INNER JOIN citations cit ON cit.llm_response_id = lr.id
+             GROUP BY c.name
+             HAVING count > 0
+             ORDER BY count DESC, c.name ASC
+             LIMIT 100`
+          )
+          .all<{
+            name: string;
+            description: string;
+            count: number;
+          }>();
+        
+        return (result.results || []).map(r => ({
+          name: r.name,
+          description: r.description || "",
+          count: r.count,
+        }));
+      } catch (error) {
+        console.error("Error in getAllGlobalCategories, trying fallback query:", error);
+        // Fallback: simpler query without citations check if the main query times out
         const fallbackResult = await this.db
           .prepare(
             `SELECT 
@@ -1145,12 +1186,12 @@ export class Database {
           description: r.description || "",
           count: r.count,
         }));
-      } catch (fallbackError) {
-        console.error("Fallback query also failed:", fallbackError);
-        // Return empty array if both queries fail
-        return [];
       }
-    }
+    }).catch((error) => {
+      console.error("All retry attempts failed for getAllGlobalCategories:", error);
+      // Return empty array if all attempts fail
+      return [];
+    });
   }
 
   async getGlobalPromptsByCategory(categoryName: string): Promise<Array<{
