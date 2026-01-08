@@ -433,6 +433,131 @@ export class WorkflowHandlers {
         message: "Analysis completed",
       });
 
+      // Automatically generate summary after analysis is complete
+      console.log(`[D1 DEBUG] Generating summary for runId: ${runId}`);
+      try {
+        // Call the summary generation logic inline
+        const summaryRunInfo = await db.db
+          .prepare("SELECT website_url FROM analysis_runs WHERE id = ?")
+          .bind(runId)
+          .first<{ website_url: string }>();
+
+        if (summaryRunInfo) {
+          const summaryBrandName = extractBrandName(summaryRunInfo.website_url);
+          const summaryBrandLower = summaryBrandName.toLowerCase();
+          const brandInUrl = summaryBrandLower.replace(/\s+/g, '');
+
+          // Get all prompts with mentions and citations
+          const promptsWithCitationsResult = await db.db
+            .prepare(`
+              SELECT 
+                p.id,
+                p.question,
+                COALESCE(pa.brand_mentions_exact, 0) + COALESCE(pa.brand_mentions_fuzzy, 0) as mentions,
+                c.url as citation_url,
+                c.title as citation_title,
+                c.snippet as citation_snippet
+              FROM prompts p
+              LEFT JOIN prompt_analyses pa ON pa.prompt_id = p.id
+              LEFT JOIN llm_responses lr ON lr.prompt_id = p.id
+              LEFT JOIN citations c ON c.llm_response_id = lr.id
+              WHERE p.analysis_run_id = ?
+            `)
+            .bind(runId)
+            .all<any>();
+
+          const promptMap = new Map<string, { question: string; mentions: number; citationUrls: Set<string> }>();
+          let totalMentions = 0;
+          let totalCitations = 0;
+
+          (promptsWithCitationsResult.results || []).forEach((row) => {
+            if (!promptMap.has(row.id)) {
+              promptMap.set(row.id, {
+                question: row.question,
+                mentions: row.mentions || 0,
+                citationUrls: new Set<string>(),
+              });
+              totalMentions += row.mentions || 0;
+            }
+
+            if (row.citation_url) {
+              totalCitations++;
+              const citationText = `${row.citation_title || ""} ${row.citation_snippet || ""}`.toLowerCase();
+              const urlLower = row.citation_url.toLowerCase();
+              const mentionedInText = citationText.includes(summaryBrandLower);
+              const mentionedInUrl = urlLower.includes(brandInUrl);
+              
+              if (mentionedInText || mentionedInUrl) {
+                const prompt = promptMap.get(row.id)!;
+                prompt.citationUrls.add(row.citation_url);
+              }
+            }
+          });
+
+          const bestPrompts = Array.from(promptMap.entries())
+            .map(([id, data]) => ({
+              question: data.question,
+              mentions: data.mentions,
+              citations: data.citationUrls.size,
+            }))
+            .sort((a, b) => (b.mentions + b.citations) - (a.mentions + a.citations))
+            .slice(0, 10);
+
+          // Get other sources
+          let ownCompanyDomain = '';
+          try {
+            const websiteUrlObj = new URL(summaryRunInfo.website_url);
+            ownCompanyDomain = websiteUrlObj.hostname.replace('www.', '').toLowerCase();
+          } catch {
+            ownCompanyDomain = brandInUrl;
+          }
+
+          const isOwnCompany = (domain: string) => {
+            return domain.includes(ownCompanyDomain) || domain.includes(summaryBrandLower);
+          };
+
+          const allCitationsResult = await db.db
+            .prepare(`
+              SELECT DISTINCT c.url, c.title, c.snippet
+              FROM citations c
+              INNER JOIN llm_responses lr ON c.llm_response_id = lr.id
+              INNER JOIN prompts p ON lr.prompt_id = p.id
+              WHERE p.analysis_run_id = ?
+            `)
+            .bind(runId)
+            .all<any>();
+
+          const otherSources: Record<string, number> = {};
+          (allCitationsResult.results || []).forEach((citation) => {
+            try {
+              const urlObj = new URL(citation.url);
+              const domain = urlObj.hostname.replace('www.', '').toLowerCase();
+              if (!isOwnCompany(domain)) {
+                otherSources[domain] = (otherSources[domain] || 0) + 1;
+              }
+            } catch {
+              const urlLower = citation.url.toLowerCase();
+              if (!isOwnCompany(urlLower)) {
+                otherSources[citation.url] = (otherSources[citation.url] || 0) + 1;
+              }
+            }
+          });
+
+          const summary = {
+            totalMentions,
+            totalCitations,
+            bestPrompts,
+            otherSources,
+          };
+
+          await db.saveSummary(runId, summary);
+          console.log(`[D1 DEBUG] Summary generated and saved for runId: ${runId}`);
+        }
+      } catch (error) {
+        console.error(`[D1 ERROR] Failed to generate summary automatically:`, error);
+        // Don't fail the whole request if summary generation fails
+      }
+
       return new Response(JSON.stringify({
         success: true,
         runId,

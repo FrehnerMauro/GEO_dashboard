@@ -71,6 +71,14 @@ export class WorkflowService {
   async executePrompt(runId: string, prompt: any, userInput: any): Promise<any> {
     return await apiClient.post("/api/workflow/executePrompt", { runId, prompt, userInput });
   }
+
+  async getPromptsAndSummary(runId: string): Promise<any> {
+    return await apiClient.get(`/api/analysis/${runId}/prompts-summary`);
+  }
+
+  async generateSummary(runId: string): Promise<any> {
+    return await apiClient.post("/api/workflow/generateSummary", { runId });
+  }
 }
 
 export const workflowService = new WorkflowService();

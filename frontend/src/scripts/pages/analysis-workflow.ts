@@ -419,22 +419,15 @@ export class AnalysisWorkflow {
 
       this.updateAnalysisUI(5, "Analysis Complete", "All prompts executed successfully!", 100);
 
-      // Show completion message
-      setTimeout(() => {
-        const resultContent = document.getElementById("resultContent");
-        if (resultContent) {
-          resultContent.innerHTML = `
-            <div style="color: green; padding: 20px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4caf50;">
-              <h3>✅ Analysis Completed!</h3>
-              <p>Run ID: ${this.workflowData?.runId}</p>
-              <p>The analysis has been completed successfully. You can view the results in the Dashboard.</p>
-            </div>
-          `;
-        }
-        const result = document.getElementById("result");
-        if (result) {
-          result.style.display = "block";
-          result.classList.add("show");
+      // Load prompts and summary to display
+      setTimeout(async () => {
+        try {
+          const promptsAndSummary = await workflowService.getPromptsAndSummary(this.workflowData!.runId);
+          this.displayResults(promptsAndSummary);
+        } catch (error) {
+          console.error("Error loading prompts and summary:", error);
+          // Fallback to simple message
+          this.displaySimpleCompletion();
         }
       }, 1000);
     } catch (error) {
@@ -532,5 +525,243 @@ export class AnalysisWorkflow {
       startBtn.disabled = false;
       startBtn.textContent = "Start Analysis";
     }
+  }
+
+  /**
+   * Display results with prompts and summary
+   */
+  private displayResults(data: { prompts: any[]; summary: any }): void {
+    const resultContent = document.getElementById("resultContent");
+    const result = document.getElementById("result");
+    
+    if (!resultContent || !result) return;
+
+    const { prompts = [], summary } = data;
+    
+    let html = `
+      <div style="color: green; padding: 20px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4caf50; margin-bottom: 20px;">
+        <h3>✅ Analysis Completed!</h3>
+        <p><strong>Run ID:</strong> ${this.workflowData?.runId}</p>
+        <p>The analysis has been completed successfully.</p>
+      </div>
+    `;
+
+    // Display Summary
+    if (summary) {
+      html += `
+        <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <h3 style="margin-top: 0; color: #333;">📊 Zusammenfassung (Summary)</h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+            <div style="padding: 15px; background: #f5f5f5; border-radius: 6px;">
+              <div style="font-size: 24px; font-weight: bold; color: #2196F3;">${summary.totalMentions || 0}</div>
+              <div style="color: #666; font-size: 14px;">Brand Mentions</div>
+            </div>
+            <div style="padding: 15px; background: #f5f5f5; border-radius: 6px;">
+              <div style="font-size: 24px; font-weight: bold; color: #4CAF50;">${summary.totalCitations || 0}</div>
+              <div style="color: #666; font-size: 14px;">Total Citations</div>
+            </div>
+          </div>
+          
+          ${summary.bestPrompts && summary.bestPrompts.length > 0 ? `
+            <h4 style="color: #333; margin-top: 20px;">Top Prompts</h4>
+            <ul style="list-style: none; padding: 0;">
+              ${summary.bestPrompts.slice(0, 5).map((p: any) => `
+                <li style="padding: 10px; margin: 5px 0; background: #f9f9f9; border-left: 3px solid #4CAF50; border-radius: 4px;">
+                  <strong>${p.question}</strong>
+                  <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                    Mentions: ${p.mentions || 0} | Citations: ${p.citations || 0}
+                  </div>
+                </li>
+              `).join('')}
+            </ul>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    // Display Prompts with selection
+    if (prompts && prompts.length > 0) {
+      html += `
+        <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <h3 style="margin-top: 0; color: #333;">❓ Generierte Fragen (Generated Prompts)</h3>
+          <p style="color: #666; margin-bottom: 15px;">Sie können Fragen auswählen, die Sie erneut ausführen möchten.</p>
+          <div style="max-height: 500px; overflow-y: auto;">
+            <div id="promptsList" style="display: flex; flex-direction: column; gap: 10px;">
+              ${prompts.map((prompt: any, index: number) => `
+                <div style="padding: 15px; border: 2px solid #e0e0e0; border-radius: 8px; background: #fafafa; transition: all 0.2s;" 
+                     data-prompt-id="${prompt.id}"
+                     class="prompt-item">
+                  <div style="display: flex; align-items: start; gap: 10px;">
+                    <input type="checkbox" 
+                           id="prompt-${prompt.id}" 
+                           style="margin-top: 4px; cursor: pointer;"
+                           class="prompt-checkbox">
+                    <div style="flex: 1;">
+                      <div style="font-weight: 500; color: #333; margin-bottom: 5px;">
+                        ${prompt.question || 'No question'}
+                      </div>
+                      ${prompt.categoryName ? `
+                        <div style="font-size: 12px; color: #666; margin-bottom: 5px;">
+                          Kategorie: <span style="background: #e3f2fd; padding: 2px 6px; border-radius: 3px;">${prompt.categoryName}</span>
+                        </div>
+                      ` : ''}
+                      ${prompt.answer ? `
+                        <details style="margin-top: 10px;">
+                          <summary style="cursor: pointer; color: #2196F3; font-size: 14px;">Antwort anzeigen</summary>
+                          <div style="margin-top: 10px; padding: 10px; background: white; border-radius: 4px; border-left: 3px solid #2196F3; font-size: 14px; color: #555;">
+                            ${prompt.answer.substring(0, 500)}${prompt.answer.length > 500 ? '...' : ''}
+                          </div>
+                        </details>
+                      ` : '<div style="color: #999; font-size: 12px; margin-top: 5px;">Noch keine Antwort</div>'}
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #e0e0e0;">
+            <button id="executeSelectedPrompts" 
+                    style="padding: 12px 24px; background: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;"
+                    onclick="window.analysisWorkflow?.executeSelectedPrompts()">
+              Ausgewählte Fragen erneut ausführen
+            </button>
+            <button id="selectAllPrompts" 
+                    style="padding: 12px 24px; background: #f5f5f5; color: #333; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; margin-left: 10px;"
+                    onclick="window.analysisWorkflow?.selectAllPrompts()">
+              Alle auswählen
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    resultContent.innerHTML = html;
+    result.style.display = "block";
+    result.classList.add("show");
+
+    // Add click handlers for prompt items
+    const promptItems = resultContent.querySelectorAll('.prompt-item');
+    promptItems.forEach((item) => {
+      item.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement).tagName !== 'INPUT' && (e.target as HTMLElement).tagName !== 'SUMMARY') {
+          const checkbox = item.querySelector('.prompt-checkbox') as HTMLInputElement;
+          if (checkbox) {
+            checkbox.checked = !checkbox.checked;
+            this.updatePromptItemStyle(item as HTMLElement, checkbox.checked);
+          }
+        }
+      });
+    });
+
+    // Add change handlers for checkboxes
+    const checkboxes = resultContent.querySelectorAll('.prompt-checkbox');
+    checkboxes.forEach((checkbox) => {
+      checkbox.addEventListener('change', (e) => {
+        const item = (e.target as HTMLElement).closest('.prompt-item') as HTMLElement;
+        if (item) {
+          this.updatePromptItemStyle(item, (e.target as HTMLInputElement).checked);
+        }
+      });
+    });
+  }
+
+  /**
+   * Update prompt item style based on selection
+   */
+  private updatePromptItemStyle(item: HTMLElement, selected: boolean): void {
+    if (selected) {
+      item.style.borderColor = '#2196F3';
+      item.style.background = '#E3F2FD';
+    } else {
+      item.style.borderColor = '#e0e0e0';
+      item.style.background = '#fafafa';
+    }
+  }
+
+  /**
+   * Select all prompts
+   */
+  selectAllPrompts(): void {
+    const resultContent = document.getElementById("resultContent");
+    if (!resultContent) return;
+
+    const checkboxes = resultContent.querySelectorAll('.prompt-checkbox') as NodeListOf<HTMLInputElement>;
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    
+    checkboxes.forEach((checkbox) => {
+      checkbox.checked = !allChecked;
+      const item = checkbox.closest('.prompt-item') as HTMLElement;
+      if (item) {
+        this.updatePromptItemStyle(item, checkbox.checked);
+      }
+    });
+  }
+
+  /**
+   * Execute selected prompts
+   */
+  async executeSelectedPrompts(): Promise<void> {
+    const resultContent = document.getElementById("resultContent");
+    if (!resultContent || !this.workflowData?.runId) return;
+
+    const checkboxes = resultContent.querySelectorAll('.prompt-checkbox:checked') as NodeListOf<HTMLInputElement>;
+    const selectedPromptIds = Array.from(checkboxes).map(cb => {
+      const item = cb.closest('.prompt-item') as HTMLElement;
+      return item?.dataset.promptId;
+    }).filter(id => id) as string[];
+
+    if (selectedPromptIds.length === 0) {
+      alert('Bitte wählen Sie mindestens eine Frage aus.');
+      return;
+    }
+
+    // Get full prompt data
+    const promptsAndSummary = await workflowService.getPromptsAndSummary(this.workflowData.runId);
+    const selectedPrompts = promptsAndSummary.prompts.filter((p: any) => selectedPromptIds.includes(p.id));
+
+    try {
+      const executeBtn = document.getElementById("executeSelectedPrompts") as HTMLButtonElement;
+      if (executeBtn) {
+        executeBtn.disabled = true;
+        executeBtn.textContent = 'Wird ausgeführt...';
+      }
+
+      await workflowService.step5ExecutePrompts(this.workflowData.runId, selectedPrompts);
+
+      alert(`✅ ${selectedPrompts.length} Fragen wurden erfolgreich erneut ausgeführt!`);
+      
+      // Reload results
+      const updatedData = await workflowService.getPromptsAndSummary(this.workflowData.runId);
+      this.displayResults(updatedData);
+    } catch (error) {
+      console.error("Error executing selected prompts:", error);
+      alert('Fehler beim Ausführen der Fragen: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    } finally {
+      const executeBtn = document.getElementById("executeSelectedPrompts") as HTMLButtonElement;
+      if (executeBtn) {
+        executeBtn.disabled = false;
+        executeBtn.textContent = 'Ausgewählte Fragen erneut ausführen';
+      }
+    }
+  }
+
+  /**
+   * Display simple completion message (fallback)
+   */
+  private displaySimpleCompletion(): void {
+    const resultContent = document.getElementById("resultContent");
+    const result = document.getElementById("result");
+    
+    if (!resultContent || !result) return;
+
+    resultContent.innerHTML = `
+      <div style="color: green; padding: 20px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4caf50;">
+        <h3>✅ Analysis Completed!</h3>
+        <p>Run ID: ${this.workflowData?.runId}</p>
+        <p>The analysis has been completed successfully. You can view the results in the Dashboard.</p>
+      </div>
+    `;
+    result.style.display = "block";
+    result.classList.add("show");
   }
 }

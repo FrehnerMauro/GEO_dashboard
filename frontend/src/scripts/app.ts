@@ -27,6 +27,9 @@ export class App {
   }
 
   private setupGlobalFunctions(): void {
+    // Make analysisWorkflow globally available for onclick handlers
+    (window as any).analysisWorkflow = this.analysisWorkflow;
+
     // These functions are called from HTML onclick handlers
     (window as any).showDashboard = (event?: Event) => {
       if (event) event.preventDefault();
