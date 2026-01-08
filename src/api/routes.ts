@@ -15,54 +15,52 @@ import type {
 import { GEOEngine } from "../engine.js";
 import { WorkflowEngine } from "../engine_workflow.js";
 import { Database } from "../persistence/db.js";
-
-export interface Env {
-  geo_db: D1Database;
-  OPENAI_API_KEY: string;
-  [key: string]: any;
-}
+import { getCorsHeaders, type Env } from "./types.js";
+import { WorkflowHandlers } from "./handlers/workflow.js";
+import { AnalysisHandlers } from "./handlers/analysis.js";
+import { LANDING_PAGE_HTML } from "./templates/landing-page.js";
 
 export class APIRoutes {
   private workflowEngine: WorkflowEngine;
+  private workflowHandlers?: WorkflowHandlers;
+  private analysisHandlers?: AnalysisHandlers;
 
   constructor(private engine: GEOEngine) {
     // WorkflowEngine will be initialized per request with env
   }
 
-  async handleRequest(request: Request, env: Env): Promise<Response> {
+  async handleRequest(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const path = url.pathname;
 
     // CORS headers
-    const corsHeaders = {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-    };
+    const corsHeaders = getCorsHeaders();
 
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
     }
 
     try {
-      // Initialize workflow engine
+      // Initialize workflow engine and handlers
       if (!this.workflowEngine) {
         this.workflowEngine = new WorkflowEngine(env);
+        this.workflowHandlers = new WorkflowHandlers(this.workflowEngine);
+        this.analysisHandlers = new AnalysisHandlers(this.engine);
       }
 
       // POST /api/workflow/step1 - Find sitemap
       if (path === "/api/workflow/step1" && request.method === "POST") {
-        return await this.handleStep1(request, env, corsHeaders);
+        return await this.workflowHandlers!.handleStep1(request, env, corsHeaders);
       }
 
       // POST /api/workflow/step2 - Fetch content
       if (path === "/api/workflow/step2" && request.method === "POST") {
-        return await this.handleStep2(request, env, corsHeaders);
+        return await this.workflowHandlers!.handleStep2(request, env, corsHeaders);
       }
 
       // POST /api/workflow/step3 - Generate categories
       if (path === "/api/workflow/step3" && request.method === "POST") {
-        return await this.handleStep3(request, env, corsHeaders);
+        return await this.workflowHandlers!.handleStep3(request, env, corsHeaders);
       }
 
       // PUT /api/workflow/:runId/categories - Save selected categories
@@ -73,13 +71,13 @@ export class APIRoutes {
       ) {
         const runId = path.split("/")[3];
         if (runId) {
-          return await this.handleSaveCategories(runId, request, env, corsHeaders);
+          return await this.workflowHandlers!.handleSaveCategories(runId, request, env, corsHeaders);
         }
       }
 
       // POST /api/workflow/step4 - Generate prompts
       if (path === "/api/workflow/step4" && request.method === "POST") {
-        return await this.handleStep4(request, env, corsHeaders);
+        return await this.workflowHandlers!.handleStep4(request, env, corsHeaders);
       }
 
       // PUT /api/workflow/:runId/prompts - Save edited prompts
@@ -90,7 +88,7 @@ export class APIRoutes {
       ) {
         const runId = path.split("/")[3];
         if (runId) {
-          return await this.handleSavePrompts(runId, request, env, corsHeaders);
+          return await this.workflowHandlers!.handleSavePrompts(runId, request, env, corsHeaders);
         }
       }
 
@@ -121,7 +119,7 @@ export class APIRoutes {
 
       // POST /api/workflow/step5 - Execute prompts
       if (path === "/api/workflow/step5" && request.method === "POST") {
-        return await this.handleStep5(request, env, corsHeaders);
+        return await this.workflowHandlers!.handleStep5(request, env, corsHeaders);
       }
 
       // POST /api/scheduler/execute - Execute scheduled run with saved prompts
@@ -131,19 +129,19 @@ export class APIRoutes {
 
       // POST /api/analyze - Start new analysis (legacy)
       if (path === "/api/analyze" && request.method === "POST") {
-        return await this.handleAnalyze(request, env, corsHeaders);
+        return await this.analysisHandlers!.handleAnalyze(request, env, corsHeaders);
       }
 
       // GET /api/analyses - Get all analysis runs
       if (path === "/api/analyses" && request.method === "GET") {
-        return await this.handleGetAllAnalyses(request, env, corsHeaders);
+        return await this.analysisHandlers!.handleGetAllAnalyses(request, env, corsHeaders);
       }
 
       // DELETE /api/analysis/:runId - Delete analysis
       if (path.startsWith("/api/analysis/") && request.method === "DELETE") {
         const runId = path.split("/").pop();
         if (runId && runId !== "analyses") {
-          return await this.handleDeleteAnalysis(runId, env, corsHeaders);
+          return await this.analysisHandlers!.handleDeleteAnalysis(runId, env, corsHeaders);
         }
       }
 
@@ -164,10 +162,10 @@ export class APIRoutes {
             const pathParts = path.split("/");
             const actualRunId = pathParts[pathParts.length - 2]; // runId is before "insights"
             if (actualRunId && actualRunId !== "analyses") {
-            return await this.handleGetAnalysisInsights(actualRunId, env, corsHeaders);
+            return await this.analysisHandlers!.handleGetAnalysisInsights(actualRunId, env, corsHeaders);
             }
           }
-          return await this.handleGetAnalysis(runId, env, corsHeaders);
+          return await this.analysisHandlers!.handleGetAnalysis(runId, env, corsHeaders);
         }
       }
 
@@ -180,7 +178,7 @@ export class APIRoutes {
       ) {
         const runId = path.split("/")[3];
         if (runId) {
-          return await this.handleGetStatus(runId, env, corsHeaders);
+          return await this.analysisHandlers!.handleGetStatus(runId, env, corsHeaders);
         }
       }
 
@@ -192,7 +190,7 @@ export class APIRoutes {
       ) {
         const runId = path.split("/")[3];
         if (runId) {
-          return await this.handleGetMetrics(runId, env, corsHeaders);
+          return await this.analysisHandlers!.handleGetMetrics(runId, env, corsHeaders);
         }
       }
 
@@ -208,20 +206,7 @@ export class APIRoutes {
 
       // POST /api/ai-readiness/analyze - Start AI Readiness analysis
       if (path === "/api/ai-readiness/analyze" && request.method === "POST") {
-        return await this.handleAIReadinessAnalyze(request, env, corsHeaders);
-      }
-
-      // GET /api/ai-readiness/status/:runId - Get AI Readiness status
-      if (path.startsWith("/api/ai-readiness/status/") && request.method === "GET") {
-        const runId = path.split("/").pop();
-        if (runId) {
-          return await this.handleAIReadinessStatus(runId, env, corsHeaders);
-        }
-      }
-
-      // POST /api/ai-readiness/analyze - Start AI Readiness analysis
-      if (path === "/api/ai-readiness/analyze" && request.method === "POST") {
-        return await this.handleAIReadinessAnalyze(request, env, corsHeaders);
+        return await this.handleAIReadinessAnalyze(request, env, corsHeaders, ctx);
       }
 
       // GET /api/ai-readiness/status/:runId - Get AI Readiness status
@@ -396,3309 +381,7 @@ export class APIRoutes {
 
       // GET / - Root endpoint with HTML landing page
       if (path === "/" && request.method === "GET") {
-        const html = `<!DOCTYPE html>
-<html lang="de">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GEO Platform</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌐</text></svg>">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    :root {
-      --primary: #2563eb;
-      --primary-hover: #1d4ed8;
-      --accent: #0ea5e9;
-      --text: #0f172a;
-      --text-light: #64748b;
-      --border: #e2e8f0;
-      --bg: #ffffff;
-      --bg-secondary: #f8fafc;
-      --bg-hover: #f1f5f9;
-      --success: #059669;
-      --warning: #d97706;
-      --error: #dc2626;
-      --sidebar-width: 240px;
-    }
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: var(--bg-secondary);
-      color: var(--text);
-      line-height: 1.5;
-      -webkit-font-smoothing: antialiased;
-    }
-    .app-container {
-      display: flex;
-      min-height: 100vh;
-    }
-    .sidebar {
-      width: var(--sidebar-width);
-      background: var(--bg);
-      border-right: 1px solid var(--border);
-      position: fixed;
-      height: 100vh;
-      left: 0;
-      top: 0;
-      z-index: 1000;
-      overflow-y: auto;
-    }
-    .sidebar-header {
-      padding: 24px 20px;
-      border-bottom: 1px solid var(--border);
-    }
-    .sidebar-header h1 {
-      font-family: 'Space Grotesk', sans-serif;
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--text);
-      letter-spacing: -0.5px;
-      margin-bottom: 4px;
-    }
-    .sidebar-header p {
-      font-size: 11px;
-      color: var(--text-light);
-      text-transform: uppercase;
-      letter-spacing: 1.2px;
-      font-weight: 500;
-    }
-    .sidebar-nav {
-      padding: 12px 0;
-    }
-    .nav-item {
-      padding: 10px 20px;
-      color: var(--text-light);
-      cursor: pointer;
-      transition: all 0.15s;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 14px;
-      font-weight: 500;
-    }
-    .nav-item:hover {
-      background: var(--bg-hover);
-      color: var(--text);
-    }
-    .nav-item.active {
-      background: var(--bg-hover);
-      color: var(--primary);
-      border-left: 3px solid var(--primary);
-      padding-left: 17px;
-    }
-    .nav-item-icon {
-      width: 18px;
-      font-size: 16px;
-    }
-    .main-content {
-      margin-left: var(--sidebar-width);
-      flex: 1;
-      min-height: 100vh;
-    }
-    .top-header {
-      background: var(--bg);
-      border-bottom: 1px solid var(--border);
-      padding: 18px 32px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-    .top-header h2 {
-      font-size: 20px;
-      font-weight: 600;
-      color: var(--text);
-      letter-spacing: -0.3px;
-    }
-    .content-area {
-      padding: 32px;
-      max-width: 1200px;
-    }
-    .card {
-      background: var(--bg);
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      overflow: hidden;
-    }
-    .card-header {
-      padding: 18px 24px;
-      border-bottom: 1px solid var(--border);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .card-header h3 {
-      font-size: 16px;
-      font-weight: 600;
-      color: var(--text);
-      letter-spacing: -0.2px;
-    }
-    .card-body {
-      padding: 24px;
-    }
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 20px;
-      margin-bottom: 24px;
-    }
-    .form-group {
-      display: flex;
-      flex-direction: column;
-    }
-    .form-group label {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 6px;
-      letter-spacing: 0.3px;
-    }
-    .form-group input,
-    .form-group select {
-      padding: 10px 14px;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      font-size: 14px;
-      transition: all 0.15s;
-      background: var(--bg);
-      color: var(--text);
-      font-family: inherit;
-    }
-    .form-group input:focus,
-    .form-group select:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
-    }
-    .btn {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      text-decoration: none;
-      font-family: inherit;
-    }
-    .btn-primary {
-      background: var(--primary);
-      color: white;
-    }
-    .btn-primary:hover:not(:disabled) {
-      background: var(--primary-hover);
-    }
-    .btn-primary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    .btn-block {
-      width: 100%;
-      justify-content: center;
-    }
-    /* Progress */
-    .progress-container {
-      background: var(--gray-100);
-      border-radius: 12px;
-      padding: 24px;
-      margin: 24px 0;
-    }
-    .progress-bar {
-      width: 100%;
-      height: 8px;
-      background: var(--gray-200);
-      border-radius: 4px;
-      overflow: hidden;
-      margin: 16px 0;
-    }
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #2563eb 0%, #0ea5e9 100%);
-      transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-      border-radius: 4px;
-      position: relative;
-      overflow: hidden;
-    }
-    .progress-fill::after {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-      animation: shimmer 2s infinite;
-    }
-    @keyframes shimmer {
-      0% { left: -100%; }
-      100% { left: 100%; }
-    }
-    .progress-text {
-      text-align: center;
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--gray-700);
-      margin-top: 12px;
-    }
-    /* Status Messages */
-    .status-card {
-      background: white;
-      border-radius: 12px;
-      padding: 20px;
-      border: 1px solid var(--gray-200);
-      margin: 20px 0;
-    }
-    .status-title {
-      font-weight: 600;
-      color: var(--gray-900);
-      margin-bottom: 8px;
-      font-size: 15px;
-    }
-    .status-details {
-      color: var(--gray-600);
-      font-size: 14px;
-    }
-    /* Results */
-    .results-container {
-      margin-top: 32px;
-    }
-    .data-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 16px;
-    }
-    .data-table th {
-      text-align: left;
-      padding: 12px 16px;
-      background: var(--gray-50);
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--gray-700);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      border-bottom: 2px solid var(--gray-200);
-    }
-    .data-table td {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--gray-200);
-      font-size: 14px;
-      color: var(--gray-700);
-    }
-    .data-table tr:hover {
-      background: var(--gray-50);
-    }
-    /* Badges */
-    .badge {
-      display: inline-block;
-      padding: 4px 12px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-    .badge-success { background: rgba(16, 185, 129, 0.1); color: var(--success); }
-    .badge-warning { background: rgba(245, 158, 11, 0.1); color: var(--warning); }
-    .badge-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger); }
-    .badge-primary { background: rgba(99, 102, 241, 0.1); color: var(--primary); }
-    /* Loading */
-    .loading {
-      display: none;
-    }
-    .loading.show {
-      display: block;
-    }
-    /* Responsive */
-    @media (max-width: 768px) {
-      .sidebar {
-        transform: translateX(-100%);
-        transition: transform 0.3s;
-      }
-      .main-content {
-        margin-left: 0;
-      }
-      .form-grid {
-        grid-template-columns: 1fr;
-      }
-      .metrics-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-  </style>
-  <script>
-    // GLOBAL FUNCTIONS - available immediately (before DOMContentLoaded)
-    // These must be defined before any HTML tries to call them
-    (function() {
-      window.showDashboard = function(event) {
-        if (event) event.preventDefault();
-        const analysesSection = document.getElementById('analysesSection');
-        const analysisDetailSection = document.getElementById('analysisDetailSection');
-        const aiReadinessSection = document.getElementById('aiReadinessSection');
-        const analysisSection = document.querySelector('.content-area > .card');
-        if (analysesSection) analysesSection.style.display = 'none';
-        if (analysisDetailSection) analysisDetailSection.style.display = 'none';
-        if (aiReadinessSection) aiReadinessSection.style.display = 'none';
-        if (analysisSection) analysisSection.style.display = 'block';
-        // Update navigation
-        const navItems = document.querySelectorAll('.nav-item');
-        navItems.forEach(item => item.classList.remove('active'));
-        if (event && event.target) {
-          event.target.closest('.nav-item')?.classList.add('active');
-        } else {
-          const dashboardNav = document.querySelector('.nav-item');
-          if (dashboardNav) dashboardNav.classList.add('active');
-        }
-        if (window.showDashboardFull) {
-          window.showDashboardFull(event);
-        }
-      };
-      
-      window.showAnalyses = function(event) {
-        if (event) event.preventDefault();
-        const analysesSection = document.getElementById('analysesSection');
-        const analysisDetailSection = document.getElementById('analysisDetailSection');
-        const aiReadinessSection = document.getElementById('aiReadinessSection');
-        const analysisSection = document.querySelector('.content-area > .card');
-        if (analysesSection) analysesSection.style.display = 'block';
-        if (analysisDetailSection) analysisDetailSection.style.display = 'none';
-        if (aiReadinessSection) aiReadinessSection.style.display = 'none';
-        if (analysisSection) analysisSection.style.display = 'none';
-        // Update navigation
-        const navItems = document.querySelectorAll('.nav-item');
-        navItems.forEach(item => item.classList.remove('active'));
-        if (event && event.target) {
-          event.target.closest('.nav-item')?.classList.add('active');
-        }
-        if (window.loadAnalyses) {
-          window.loadAnalyses();
-        } else if (window.showAnalysesFull) {
-          window.showAnalysesFull(event);
-        }
-      };
-      
-      window.showAIReadiness = function(event) {
-        if (event) event.preventDefault();
-        const analysesSection = document.getElementById('analysesSection');
-        const analysisDetailSection = document.getElementById('analysisDetailSection');
-        const aiReadinessSection = document.getElementById('aiReadinessSection');
-        const analysisSection = document.querySelector('.content-area > .card');
-        if (analysesSection) analysesSection.style.display = 'none';
-        if (analysisDetailSection) analysisDetailSection.style.display = 'none';
-        if (aiReadinessSection) aiReadinessSection.style.display = 'block';
-        if (analysisSection) analysisSection.style.display = 'none';
-        // Update navigation
-        const navItems = document.querySelectorAll('.nav-item');
-        navItems.forEach(item => item.classList.remove('active'));
-        if (event && event.target) {
-          event.target.closest('.nav-item')?.classList.add('active');
-        }
-        if (window.showAIReadinessFull) {
-          window.showAIReadinessFull(event);
-        }
-      };
-      
-      window.startAIReadiness = async function() {
-        // Direct implementation - no need to wait for DOMContentLoaded
-        const urlInput = document.getElementById('aiReadinessUrl');
-        const url = urlInput?.value?.trim();
-        
-        if (!url) {
-          alert('Bitte geben Sie eine URL ein.');
-          return;
-        }
-        
-        // Auto-add https:// if missing
-        let websiteUrl = url;
-        const urlPattern = new RegExp('^https?:\\/\\/', 'i');
-        if (!urlPattern.test(websiteUrl)) {
-          websiteUrl = 'https://' + websiteUrl;
-        }
-        
-        // Validate URL
-        try {
-          new URL(websiteUrl);
-        } catch (e) {
-          alert('Ungültige URL. Bitte geben Sie eine gültige URL ein.');
-          return;
-        }
-        
-        // Update input field with normalized URL
-        if (urlInput) {
-          urlInput.value = websiteUrl;
-        }
-        
-        const loadingEl = document.getElementById('aiReadinessLoading');
-        const resultsEl = document.getElementById('aiReadinessResults');
-        const statusEl = document.getElementById('aiReadinessStatus');
-        const statusDetailsEl = document.getElementById('aiReadinessStatusDetails');
-        const progressEl = document.getElementById('aiReadinessProgress');
-        const progressTextEl = document.getElementById('aiReadinessProgressText');
-        const resultsContentEl = document.getElementById('aiReadinessResultsContent');
-        const startBtn = document.getElementById('startAIReadinessBtn');
-        
-        if (loadingEl) {
-          loadingEl.style.display = 'block';
-          loadingEl.classList.add('show');
-        }
-        if (resultsEl) resultsEl.style.display = 'none';
-        if (statusEl) statusEl.textContent = 'Vorbereitung...';
-        if (statusDetailsEl) statusDetailsEl.textContent = 'Starte AI Readiness Check...';
-        if (progressEl) progressEl.style.width = '0%';
-        if (progressTextEl) progressTextEl.textContent = '0%';
-        if (startBtn) {
-          startBtn.disabled = true;
-          startBtn.textContent = 'Läuft...';
-        }
-        
-        try {
-          // Step 1: Start analysis
-          if (statusEl) statusEl.textContent = 'Schritt 1: Starte Analyse...';
-          if (statusDetailsEl) statusDetailsEl.textContent = 'Hole robots.txt und Sitemap...';
-          if (progressEl) progressEl.style.width = '10%';
-          if (progressTextEl) progressTextEl.textContent = '10%';
-          
-          const step1Response = await fetch('/api/ai-readiness/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ websiteUrl })
-          });
-          
-          if (!step1Response.ok) {
-            throw new Error('Fehler beim Starten der Analyse');
-          }
-          
-          const step1Data = await step1Response.json();
-          const runId = step1Data.runId;
-          
-          // Step 2: Poll for status updates with live progress
-          let attempts = 0;
-          const maxAttempts = 120; // 10 minutes max (2 second intervals)
-          let lastMessage = '';
-          let pollingStopped = false;
-          
-          // Centralized error handler
-          const handlePollingError = function(error) {
-            pollingStopped = true;
-            console.error('Error in AI Readiness polling:', error);
-            if (statusEl) statusEl.textContent = '❌ Fehler';
-            if (statusDetailsEl) statusDetailsEl.textContent = error instanceof Error ? error.message : 'Unbekannter Fehler';
-            if (startBtn) {
-              startBtn.disabled = false;
-              startBtn.textContent = 'AI Readiness Check starten';
-            }
-            if (loadingEl) {
-              setTimeout(() => {
-                if (loadingEl) {
-                  loadingEl.style.display = 'none';
-                  loadingEl.classList.remove('show');
-                }
-              }, 2000);
-            }
-            alert('Fehler beim AI Readiness Check: ' + (error instanceof Error ? error.message : 'Unbekannter Fehler'));
-          };
-          
-          const pollStatus = async function() {
-            if (pollingStopped) {
-              return;
-            }
-            
-            attempts++;
-            
-            try {
-              const statusResponse = await fetch('/api/ai-readiness/status/' + runId);
-              if (statusResponse.ok) {
-                const statusData = await statusResponse.json();
-                
-                // Update UI with live status
-                if (statusData.message && statusData.message !== lastMessage) {
-                  lastMessage = statusData.message;
-                  if (statusDetailsEl) {
-                    statusDetailsEl.textContent = statusData.message;
-                  }
-                  
-                  // Update progress based on message content
-                  if (statusData.message.includes('robots.txt')) {
-                    if (progressEl) progressEl.style.width = '20%';
-                    if (progressTextEl) progressTextEl.textContent = '20%';
-                    if (statusEl) statusEl.textContent = 'Schritt 1: robots.txt und Sitemap';
-                  } else if (statusData.message.includes('Sitemap gefunden')) {
-                    if (progressEl) progressEl.style.width = '30%';
-                    if (progressTextEl) progressTextEl.textContent = '30%';
-                    if (statusEl) statusEl.textContent = 'Schritt 2: Sitemap gefunden';
-                  } else if (statusData.message.includes('Hole Seiten-Inhalte')) {
-                    const progressMatch = new RegExp('(\\\\d+)/(\\\\d+)');
-                    const match = statusData.message.match(progressMatch);
-                    if (match) {
-                      const current = parseInt(match[1]);
-                      const total = parseInt(match[2]);
-                      const percent = 30 + Math.floor((current / total) * 50); // 30% to 80%
-                      if (progressEl) progressEl.style.width = percent + '%';
-                      if (progressTextEl) progressTextEl.textContent = percent + '%';
-                      if (statusEl) statusEl.textContent = 'Schritt 3: Seiten-Inhalte holen';
-                    }
-                  } else if (statusData.message.includes('Generiere AI Readiness')) {
-                    if (progressEl) progressEl.style.width = '85%';
-                    if (progressTextEl) progressTextEl.textContent = '85%';
-                    if (statusEl) statusEl.textContent = 'Schritt 4: GPT-Analyse';
-                  }
-                }
-                
-                if (statusData.status === 'completed') {
-                  // Analysis complete
-                  pollingStopped = true;
-                  if (statusEl) statusEl.textContent = '✅ Analyse abgeschlossen';
-                  if (statusDetailsEl) statusDetailsEl.textContent = 'AI Readiness Check erfolgreich durchgeführt';
-                  if (progressEl) progressEl.style.width = '100%';
-                  if (progressTextEl) progressTextEl.textContent = '100%';
-                  
-                  if (resultsContentEl && statusData.recommendations) {
-                    resultsContentEl.innerHTML = 
-                      '<div style="white-space: pre-wrap; font-size: 14px; line-height: 1.7; color: #374151;">' +
-                      statusData.recommendations.replace(/</g, '&lt;').replace(/>/g, '&gt;') +
-                      '</div>';
-                  }
-                  
-                  if (resultsEl) resultsEl.style.display = 'block';
-                  if (startBtn) {
-                    startBtn.disabled = false;
-                    startBtn.textContent = 'AI Readiness Check starten';
-                  }
-                  
-                  // Hide loading after a delay
-                  setTimeout(() => {
-                    if (loadingEl) {
-                      loadingEl.style.display = 'none';
-                      loadingEl.classList.remove('show');
-                    }
-                  }, 2000);
-                  
-                  return; // Stop polling
-                } else if (statusData.status === 'error') {
-                  // Critical error - stop polling and handle
-                  handlePollingError(new Error(statusData.error || 'Fehler bei der Analyse'));
-                  return;
-                }
-              }
-              
-              // Check timeout before continuing
-              if (attempts >= maxAttempts) {
-                handlePollingError(new Error('Timeout: Die Analyse hat zu lange gedauert.'));
-                return;
-              }
-              
-              // Continue polling every 2 seconds for faster updates
-              // All errors in scheduled calls are handled by the catch block
-              setTimeout(() => {
-                pollStatus().catch(handlePollingError);
-              }, 2000);
-              
-            } catch (error) {
-              // Check if this is a critical error that should stop polling
-              const isCriticalError = error instanceof Error && (
-                error.message.includes('Timeout') || 
-                error.message.includes('Fehler bei der Analyse')
-              );
-              
-              if (isCriticalError) {
-                handlePollingError(error);
-                return;
-              }
-              
-              // Non-critical error - log and continue
-              console.error('Non-critical error polling status:', error);
-              
-              // Check timeout even on error
-              if (attempts >= maxAttempts) {
-                handlePollingError(new Error('Timeout: Die Analyse hat zu lange gedauert.'));
-                return;
-              }
-              
-              // Continue polling on non-critical errors
-              setTimeout(() => {
-                pollStatus().catch(handlePollingError);
-              }, 2000);
-            }
-          };
-          
-          // Start polling and handle errors
-          pollStatus().catch(handlePollingError);
-          
-        } catch (error) {
-          console.error('Error in AI Readiness check:', error);
-          if (statusEl) statusEl.textContent = '❌ Fehler';
-          if (statusDetailsEl) statusDetailsEl.textContent = error instanceof Error ? error.message : 'Unbekannter Fehler';
-          alert('Fehler beim AI Readiness Check: ' + (error instanceof Error ? error.message : 'Unbekannter Fehler'));
-          if (startBtn) {
-            startBtn.disabled = false;
-            startBtn.textContent = 'AI Readiness Check starten';
-          }
-          if (loadingEl) {
-            setTimeout(() => {
-              loadingEl.style.display = 'none';
-              loadingEl.classList.remove('show');
-            }, 2000);
-          }
-        }
-      };
-    })();
-  </script>
-</head>
-<body>
-  <div class="app-container">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="sidebar-header">
-        <h1>GEO</h1>
-        <p>Engine Optimization</p>
-      </div>
-      <nav class="sidebar-nav">
-        <div class="nav-item active" onclick="showDashboard(event)">
-          <span>Dashboard</span>
-        </div>
-        <div class="nav-item" onclick="showAnalyses(event)">
-          <span>Analysen</span>
-        </div>
-      </nav>
-    </aside>
-
-    <!-- Main Content -->
-    <main class="main-content">
-      <header class="top-header">
-        <h2>Neue Analyse starten</h2>
-        <div style="display: flex; gap: 12px; align-items: center;">
-          <span style="font-size: 14px; color: var(--gray-500);">Status: Bereit</span>
-        </div>
-      </header>
-
-      <div class="content-area">
-        <!-- Analysis Form -->
-        <div class="card">
-          <div class="card-header">
-            <h3>Analyse-Konfiguration</h3>
-          </div>
-          <div class="card-body">
-            <form id="analyzeForm">
-              <div class="form-grid">
-                <div class="form-group">
-                  <label for="websiteUrl">Website URL *</label>
-                  <input type="url" id="websiteUrl" name="websiteUrl" 
-                         placeholder="https://example.com" required>
-                </div>
-                <div class="form-group">
-                  <label for="country">Land (ISO Code) *</label>
-                  <input type="text" id="country" name="country" 
-                         placeholder="CH, DE, US" maxlength="2" required>
-                </div>
-                <div class="form-group">
-                  <label for="language">Sprache (ISO Code) *</label>
-                  <select id="language" name="language" required>
-                    <option value="de">Deutsch (de)</option>
-                    <option value="en">English (en)</option>
-                    <option value="fr">Français (fr)</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="region">Region (optional)</label>
-                  <input type="text" id="region" name="region" 
-                         placeholder="z.B. Zurich, Berlin">
-                </div>
-                <div class="form-group">
-                  <label for="questionsPerCategory">Fragen pro Kategorie</label>
-                  <input type="number" id="questionsPerCategory" name="questionsPerCategory" 
-                         value="3" min="1" max="10" style="width: 100px;">
-                  <small style="display: block; margin-top: 4px; color: var(--gray-500); font-size: 12px;">Anzahl der Fragen, die pro Kategorie generiert werden (Standard: 3)</small>
-                </div>
-              </div>
-              <button type="button" id="startAnalysisBtn" class="btn btn-primary btn-block" 
-                      onclick="if(window.startAnalysisNow){window.startAnalysisNow();}else{alert('startAnalysisNow nicht gefunden!');} return false;">
-                Analyse starten
-              </button>
-            </form>
-
-            <!-- Loading/Progress -->
-            <div class="loading" id="loading" style="display: none;">
-              <div class="progress-container">
-                <div class="progress-bar">
-                  <div class="progress-fill" id="progressFill" style="width: 0%"></div>
-                </div>
-                <div class="progress-text" id="progressText">Initializing...</div>
-              </div>
-              <div class="status-card">
-                <div class="status-title" id="currentStatus">Bereit zum Starten...</div>
-                <div class="status-details" id="statusDetails"></div>
-              </div>
-            </div>
-
-            <!-- Results -->
-            <div id="result" style="display: none; margin-top: 24px;">
-              <div class="card">
-                <div class="card-header">
-                  <h3>Analyse-Ergebnisse</h3>
-                </div>
-                <div class="card-body">
-                  <div id="resultContent"></div>
-                </div>
-              </div>
-            </div>
-
-            <div id="resultsContainer" style="display: none; margin-top: 24px;">
-              <div class="card">
-                <div class="card-header">
-                  <h3>Detaillierte Analyse-Ergebnisse</h3>
-                </div>
-                <div class="card-body">
-                  <div id="resultsContent"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Analyses Section (hidden by default) -->
-        <div id="analysesSection" style="display: none;">
-          <div class="card">
-            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-              <h3>Gespeicherte Analysen</h3>
-              <button class="btn btn-primary" onclick="if(typeof hideAllSections === 'function'){hideAllSections();} (function(){var card = document.querySelector('.content-area > .card'); if(card){card.style.display = 'block';}})();" style="padding: 8px 16px; font-size: 14px;">
-                + Neue Analyse
-              </button>
-            </div>
-            <div class="card-body">
-              <div id="analysesList" style="display: grid; gap: 16px;">
-                <div style="text-align: center; padding: 40px; color: var(--gray-500);">
-                  Lade Analysen...
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Analysis Detail Section (hidden by default) -->
-        <div id="analysisDetailSection" style="display: none;">
-          <div class="card">
-            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-              <h3 id="analysisDetailTitle">Analyse Details</h3>
-              <button class="btn" onclick="showAnalyses(event)" style="padding: 8px 16px; font-size: 14px; background: var(--gray-100); color: var(--gray-700);">
-                ← Zurück
-              </button>
-            </div>
-            <div class="card-body">
-              <div id="analysisDetailContent">
-                <div style="text-align: center; padding: 40px; color: var(--gray-500);">
-                  Lade Analyse-Details...
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- AI Readiness Section -->
-        <div id="aiReadinessSection" style="display: none;">
-          <div class="card">
-            <div class="card-header">
-              <h3>AI Readiness Check</h3>
-              <p style="margin: 8px 0 0 0; color: var(--gray-600); font-size: 14px;">
-                Analysiere die Website auf AI-Readiness: robots.txt, Sitemap und alle Seiten werden analysiert.
-              </p>
-            </div>
-            <div class="card-body">
-              <form id="aiReadinessForm">
-                <div class="form-group">
-                  <label for="aiReadinessUrl">Website URL *</label>
-                  <input type="text" id="aiReadinessUrl" name="aiReadinessUrl" 
-                         placeholder="example.com oder https://example.com" required>
-                  <small style="display: block; margin-top: 4px; color: var(--gray-500); font-size: 12px;">
-                    Die URL der zu analysierenden Website (https:// wird automatisch hinzugefügt)
-                  </small>
-                </div>
-                <button type="button" id="startAIReadinessBtn" class="btn btn-primary btn-block" 
-                        onclick="if(window.startAIReadiness){window.startAIReadiness();}else{alert('startAIReadiness nicht gefunden!');} return false;">
-                  AI Readiness Check starten
-                  </button>
-                </form>
-              
-              <!-- Progress -->
-              <div id="aiReadinessLoading" class="loading" style="margin-top: 24px;">
-                <div class="status-card">
-                  <div class="status-title" id="aiReadinessStatus">Vorbereitung...</div>
-                  <div class="status-details" id="aiReadinessStatusDetails">Starte Analyse...</div>
-                  <div class="progress-bar" style="margin-top: 16px;">
-                    <div class="progress-fill" id="aiReadinessProgress" style="width: 0%;"></div>
-                </div>
-                  <div class="progress-text" id="aiReadinessProgressText">0%</div>
-              </div>
-              
-              <!-- Console Log -->
-              <div id="aiReadinessConsole" style="display: none; margin-top: 24px;">
-                <div class="card" style="background: #1e1e1e; border: 1px solid #333;">
-                  <div class="card-header" style="background: #2d2d2d; border-bottom: 1px solid #444; padding: 12px 16px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                      <h4 style="margin: 0; color: #fff; font-size: 14px; font-weight: 600;">📋 Console Log</h4>
-                      <button type="button" id="clearConsoleBtn" style="background: #444; color: #fff; border: none; padding: 4px 12px; border-radius: 4px; cursor: pointer; font-size: 12px;">Löschen</button>
-                    </div>
-                  </div>
-                  <div class="card-body" style="padding: 16px;">
-                    <div id="aiReadinessConsoleContent" style="background: #1e1e1e; color: #d4d4d4; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.6; max-height: 400px; overflow-y: auto; padding: 12px; border-radius: 4px; white-space: pre-wrap; word-wrap: break-word;">
-                      <div style="color: #6a9955;">[System] Console bereit. Warte auf Logs...</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-              
-              <!-- Results -->
-              <div id="aiReadinessResults" style="display: none; margin-top: 32px;">
-                <div class="card">
-                  <div class="card-header">
-                    <h3>AI Readiness Empfehlungen</h3>
-          </div>
-                  <div class="card-body" id="aiReadinessResultsContent">
-                    <!-- Results werden hier angezeigt -->
-        </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </main>
-  </div>
-
-  <script>
-    // GLOBAL FUNCTIONS - available immediately (before DOMContentLoaded)
-    // These must be defined before any HTML tries to call them
-    window.showDashboard = function(event) {
-      if (event) event.preventDefault();
-      const analysesSection = document.getElementById('analysesSection');
-      const analysisDetailSection = document.getElementById('analysisDetailSection');
-      const analysisSection = document.querySelector('.content-area > .card');
-      if (analysesSection) analysesSection.style.display = 'none';
-      if (analysisDetailSection) analysisDetailSection.style.display = 'none';
-      if (analysisSection) analysisSection.style.display = 'block';
-      // Update navigation
-      const navItems = document.querySelectorAll('.nav-item');
-      navItems.forEach(item => item.classList.remove('active'));
-      if (event && event.target) {
-        event.target.closest('.nav-item')?.classList.add('active');
-      } else {
-        // Set first nav item (Dashboard) as active
-        const dashboardNav = document.querySelector('.nav-item');
-        if (dashboardNav) dashboardNav.classList.add('active');
-      }
-      // Try to call full implementation if available
-      if (window.showDashboardFull) {
-        window.showDashboardFull(event);
-      }
-    };
-    
-    window.showAnalyses = function(event) {
-      if (event) event.preventDefault();
-      const analysesSection = document.getElementById('analysesSection');
-      const analysisDetailSection = document.getElementById('analysisDetailSection');
-      const aiReadinessSection = document.getElementById('aiReadinessSection');
-      const analysisSection = document.querySelector('.content-area > .card');
-      if (analysesSection) analysesSection.style.display = 'block';
-      if (analysisDetailSection) analysisDetailSection.style.display = 'none';
-      if (aiReadinessSection) aiReadinessSection.style.display = 'none';
-      if (analysisSection) analysisSection.style.display = 'none';
-      // Update navigation
-      const navItems = document.querySelectorAll('.nav-item');
-      navItems.forEach(item => item.classList.remove('active'));
-      if (event && event.target) {
-        event.target.closest('.nav-item')?.classList.add('active');
-      }
-      // Try to load analyses if function is available
-      if (window.loadAnalyses) {
-        window.loadAnalyses();
-      } else if (window.showAnalysesFull) {
-        window.showAnalysesFull(event);
-      } else {
-        // Wait for DOMContentLoaded with max attempts
-        let attempts = 0;
-        const maxAttempts = 50;
-        const tryLoad = function() {
-          attempts++;
-          if (window.loadAnalyses) {
-            window.loadAnalyses();
-          } else if (window.showAnalysesFull) {
-            window.showAnalysesFull(event);
-          } else if (attempts < maxAttempts) {
-            if (document.readyState === 'loading') {
-              document.addEventListener('DOMContentLoaded', function() {
-                if (window.loadAnalyses) window.loadAnalyses();
-                else if (window.showAnalysesFull) window.showAnalysesFull(event);
-              });
-            } else {
-              setTimeout(tryLoad, 100);
-            }
-          } else {
-            console.error('❌ loadAnalyses not available after ' + maxAttempts + ' attempts');
-          }
-        };
-        tryLoad();
-      }
-    };
-    
-    window.showAIReadiness = function(event) {
-      if (event) event.preventDefault();
-      const analysesSection = document.getElementById('analysesSection');
-      const analysisDetailSection = document.getElementById('analysisDetailSection');
-      const aiReadinessSection = document.getElementById('aiReadinessSection');
-      const analysisSection = document.querySelector('.content-area > .card');
-      if (analysesSection) analysesSection.style.display = 'none';
-      if (analysisDetailSection) analysisDetailSection.style.display = 'none';
-      if (aiReadinessSection) aiReadinessSection.style.display = 'block';
-      if (analysisSection) analysisSection.style.display = 'none';
-      // Update navigation
-      const navItems = document.querySelectorAll('.nav-item');
-      navItems.forEach(item => item.classList.remove('active'));
-      if (event && event.target) {
-        event.target.closest('.nav-item')?.classList.add('active');
-      }
-      // Try to call full implementation if available
-      if (window.showAIReadinessFull) {
-        window.showAIReadinessFull(event);
-      }
-    };
-    
-    // startAIReadiness is already defined in <head> script tag above
-    
-    window.viewAnalysisDetails = function(runId) {
-      console.log('🔍 viewAnalysisDetails called with runId:', runId);
-      if (!runId) {
-        console.error('❌ No runId provided');
-        alert('Fehler: Keine Analyse-ID angegeben.');
-        return;
-      }
-      // Try to call the full implementation, with retry logic and max attempts
-      let attempts = 0;
-      const maxAttempts = 50; // 5 seconds max (50 * 100ms)
-      const startTime = Date.now();
-      const maxTime = 5000; // 5 seconds in milliseconds
-      let timeoutId = null;
-      
-      const tryCall = () => {
-        attempts++;
-        const elapsed = Date.now() - startTime;
-        
-        // Check if function is available
-        if (window.viewAnalysisDetailsFull) {
-          console.log('✅ Calling viewAnalysisDetailsFull');
-          if (timeoutId) clearTimeout(timeoutId);
-          window.viewAnalysisDetailsFull(runId);
-          return; // Success, exit
-        }
-        
-        // Check if we've exceeded max attempts or max time
-        if (attempts >= maxAttempts || elapsed >= maxTime) {
-          console.error('❌ viewAnalysisDetailsFull not available after ' + attempts + ' attempts or ' + elapsed + 'ms');
-          if (timeoutId) clearTimeout(timeoutId);
-          alert('Fehler: Funktion noch nicht geladen. Bitte Seite neu laden.');
-          return; // Exit retry loop
-        }
-        
-        // Continue retrying
-        console.warn('⚠️ viewAnalysisDetailsFull not yet available, retrying... (' + attempts + '/' + maxAttempts + ')');
-        timeoutId = setTimeout(tryCall, 100);
-      };
-      
-      tryCall();
-    };
-    
-    window.deleteAnalysis = function(runId) {
-      if (!runId) {
-        console.error('❌ No runId provided');
-        return;
-      }
-      let attempts = 0;
-      const maxAttempts = 50;
-      const startTime = Date.now();
-      const maxTime = 5000; // 5 seconds
-      let timeoutId = null;
-      
-      const tryCall = () => {
-        attempts++;
-        const elapsed = Date.now() - startTime;
-        
-        if (window.deleteAnalysisFull) {
-          if (timeoutId) clearTimeout(timeoutId);
-          window.deleteAnalysisFull(runId);
-          return;
-        }
-        
-        if (attempts >= maxAttempts || elapsed >= maxTime) {
-          console.error('❌ deleteAnalysisFull not available after ' + attempts + ' attempts or ' + elapsed + 'ms');
-          if (timeoutId) clearTimeout(timeoutId);
-          alert('Fehler: Funktion noch nicht geladen. Bitte Seite neu laden.');
-          return;
-        }
-        
-        timeoutId = setTimeout(tryCall, 100);
-      };
-      
-      tryCall();
-    };
-    
-    window.pauseAnalysis = function(runId) {
-      if (!runId) {
-        console.error('❌ No runId provided');
-        return;
-      }
-      let attempts = 0;
-      const maxAttempts = 50;
-      const startTime = Date.now();
-      const maxTime = 5000; // 5 seconds
-      let timeoutId = null;
-      
-      const tryCall = () => {
-        attempts++;
-        const elapsed = Date.now() - startTime;
-        
-        if (window.pauseAnalysisFull) {
-          if (timeoutId) clearTimeout(timeoutId);
-          window.pauseAnalysisFull(runId);
-          return;
-        }
-        
-        if (attempts >= maxAttempts || elapsed >= maxTime) {
-          console.error('❌ pauseAnalysisFull not available after ' + attempts + ' attempts or ' + elapsed + 'ms');
-          if (timeoutId) clearTimeout(timeoutId);
-          alert('Fehler: Funktion noch nicht geladen. Bitte Seite neu laden.');
-          return;
-        }
-        
-        timeoutId = setTimeout(tryCall, 100);
-      };
-      
-      tryCall();
-    };
-    
-    // GLOBAL FUNCTION - available immediately
-    window.startAnalysisNow = async function() {
-      try {
-        const btn = document.getElementById('startAnalysisBtn');
-        if (btn) {
-          btn.disabled = true;
-          btn.textContent = 'Starte Analyse...';
-        }
-        
-        const websiteUrlEl = document.getElementById('websiteUrl');
-        const countryEl = document.getElementById('country');
-        const languageEl = document.getElementById('language');
-        const regionEl = document.getElementById('region');
-        
-        let websiteUrl = websiteUrlEl?.value?.trim();
-        // Auto-add https:// if missing
-        var urlPattern1 = new RegExp("^https?:\\/\\/", "i");
-        if (websiteUrl && !urlPattern1.test(websiteUrl)) {
-          websiteUrl = "https://" + websiteUrl;
-        }
-        const country = countryEl?.value?.toUpperCase()?.trim();
-        const language = languageEl?.value?.trim();
-        const region = regionEl?.value?.trim();
-        const questionsPerCategoryEl = document.getElementById('questionsPerCategory');
-        const questionsPerCategory = questionsPerCategoryEl ? parseInt(questionsPerCategoryEl.value) || 3 : 3;
-        
-        if (!websiteUrl || !country || !language) {
-          alert('Bitte füllen Sie alle Pflichtfelder aus!\\n\\nURL: ' + (websiteUrl || 'FEHLT') + '\\nLand: ' + (country || 'FEHLT') + '\\nSprache: ' + (language || 'FEHLT'));
-          if (btn) {
-            btn.disabled = false;
-            btn.textContent = 'Analyse starten';
-          }
-          return;
-        }
-        
-        // Show loading
-        const loading = document.getElementById('loading');
-        if (loading) {
-          loading.style.display = 'block';
-          loading.classList.add('show');
-        }
-        
-        const progressFill = document.getElementById('progressFill');
-        const progressText = document.getElementById('progressText');
-        if (progressFill) progressFill.style.width = '5%';
-        if (progressText) progressText.textContent = 'Starte Analyse...';
-        
-        // Call the API
-        const response = await fetch('/api/workflow/step1', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            websiteUrl,
-            country,
-            language,
-            region: region || undefined
-          })
-        });
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('API error:', errorText);
-          alert('API Fehler: ' + response.status + ' - ' + errorText.substring(0, 100));
-          if (btn) {
-            btn.disabled = false;
-            btn.textContent = 'Analyse starten';
-          }
-          if (loading) {
-            loading.style.display = 'none';
-          }
-          return;
-        }
-        
-        const data = await response.json();
-        
-        if (data.error) {
-          alert('Fehler: ' + (data.message || data.error));
-          if (btn) {
-            btn.disabled = false;
-            btn.textContent = 'Analyse starten';
-          }
-          if (loading) {
-            loading.style.display = 'none';
-          }
-          return;
-        }
-        
-        // Continue with workflow - trigger executeStep1 from DOMContentLoaded scope
-        // The executeStep1 function will handle the rest of the workflow
-        if (data.runId && window.executeStep1) {
-          window.currentRunId = data.runId;
-          window.workflowData = { websiteUrl, country, language, region, questionsPerCategory };
-          window.workflowData.urls = data.urls || [];
-          // Call executeStep1 with the formData
-          await window.executeStep1({ websiteUrl, country, language, region, questionsPerCategory });
-        } else if (data.runId) {
-          // If DOMContentLoaded hasn't run yet, wait for it
-          document.addEventListener('DOMContentLoaded', async () => {
-            if (window.executeStep1) {
-              window.currentRunId = data.runId;
-              window.workflowData = { websiteUrl, country, language, region };
-              window.workflowData.urls = data.urls || [];
-              await window.executeStep1({ websiteUrl, country, language, region });
-            }
-          });
-        }
-        
-      } catch (error) {
-        console.error('Error:', error);
-        alert('Fehler: ' + (error.message || error));
-        const btn = document.getElementById('startAnalysisBtn');
-        if (btn) {
-          btn.disabled = false;
-          btn.textContent = 'Analyse starten';
-        }
-      }
-    };
-    
-    document.addEventListener('DOMContentLoaded', function() {
-    console.log('✅ DOM loaded, initializing form...');
-    let pollInterval = null;
-
-    async function pollStatus(runId) {
-      try {
-        const response = await fetch('/api/analysis/' + runId + '/status');
-        const status = await response.json();
-        
-        const progressFill = document.getElementById('progressFill');
-        const progressText = document.getElementById('progressText');
-        
-        if (status.progress) {
-          const progress = status.progress.progress || 0;
-          progressFill.style.width = progress + '%';
-          progressFill.textContent = progress + '%';
-          progressText.textContent = status.progress.message || status.progress.step || 'Processing...';
-        }
-        
-        if (status.status === 'completed') {
-          clearInterval(pollInterval);
-          document.getElementById('loading').classList.remove('show');
-          await loadResults(runId);
-        } else if (status.status === 'failed') {
-          clearInterval(pollInterval);
-          document.getElementById('loading').classList.remove('show');
-          document.getElementById('result').classList.add('show');
-          document.getElementById('resultContent').innerHTML = 
-            '<div style="color: red;"><h4>❌ Analyse fehlgeschlagen</h4><p>' + 
-            (status.error || status.progress?.message || 'Unknown error') + '</p></div>';
-        }
-      } catch (error) {
-        console.error('Status poll error:', error);
-      }
-    }
-
-    async function loadResults(runId) {
-      try {
-        const response = await fetch('/api/analysis/' + runId);
-        const result = await response.json();
-        
-        const resultsContainer = document.getElementById('resultsContainer');
-        const resultsContent = document.getElementById('resultsContent');
-        
-        let html = '<div class="metric-card">';
-        html += '<h4>🌐 Website</h4>';
-        html += '<p><strong>URL:</strong> ' + result.websiteUrl + '</p>';
-        html += '<p><strong>Land:</strong> ' + result.country + '</p>';
-        html += '<p><strong>Sprache:</strong> ' + result.language + '</p>';
-        html += '</div>';
-        
-        if (result.categoryMetrics && result.categoryMetrics.length > 0) {
-          html += '<div class="metric-card">';
-          html += '<h4>📈 Kategorie-Metriken</h4>';
-          result.categoryMetrics.forEach(metric => {
-            html += '<div style="margin: 10px 0; padding: 10px; background: #f0f0f0; border-radius: 4px;">';
-            html += '<strong>' + metric.categoryId + '</strong><br>';
-            html += 'Sichtbarkeit: <span class="metric-value">' + metric.visibilityScore.toFixed(1) + '</span><br>';
-            html += 'Zitationsrate: ' + metric.citationRate.toFixed(2) + '<br>';
-            html += 'Brand-Erwähnungen: ' + (metric.brandMentionRate * 100).toFixed(1) + '%';
-            html += '</div>';
-          });
-          html += '</div>';
-        }
-        
-        if (result.competitiveAnalysis) {
-          const comp = result.competitiveAnalysis;
-          html += '<div class="metric-card">';
-          html += '<h4>🏆 Wettbewerbsanalyse</h4>';
-          html += '<p><span class="metric-value">' + comp.brandShare.toFixed(1) + '%</span> Brand-Anteil</p>';
-          if (Object.keys(comp.competitorShares).length > 0) {
-            html += '<p><strong>Konkurrenten:</strong></p><ul>';
-            for (const [name, share] of Object.entries(comp.competitorShares)) {
-              html += '<li>' + name + ': ' + share.toFixed(1) + '%</li>';
-            }
-            html += '</ul>';
-          }
-          html += '</div>';
-        }
-        
-        resultsContent.innerHTML = html;
-        resultsContainer.style.display = 'block';
-        document.getElementById('result').classList.add('show');
-        document.getElementById('resultContent').innerHTML = 
-          '<div style="color: green;"><h4>✅ Analyse abgeschlossen!</h4><p>Run ID: ' + runId + '</p></div>';
-      } catch (error) {
-        document.getElementById('resultContent').innerHTML = 
-          '<div style="color: red;">Fehler beim Laden der Ergebnisse: ' + error.message + '</div>';
-      }
-    }
-
-    let currentRunId = null;
-    let currentStep = 'step1';
-    let workflowData = {};
-    
-    // Make variables available globally for startAnalysisNow
-    window.currentRunId = currentRunId;
-    window.workflowData = workflowData;
-
-    // Extract form submission logic to a function (DEFINED FIRST)
-    async function handleFormSubmit() {
-      console.log('🔵 handleFormSubmit called');
-      try {
-        if (pollInterval) {
-          clearInterval(pollInterval);
-        }
-        
-        const websiteUrlEl = document.getElementById('websiteUrl');
-        const countryEl = document.getElementById('country');
-        const languageEl = document.getElementById('language');
-        const regionEl = document.getElementById('region');
-        
-        console.log('Form elements:', {
-          websiteUrl: !!websiteUrlEl,
-          country: !!countryEl,
-          language: !!languageEl,
-          region: !!regionEl
-        });
-        
-        if (!websiteUrlEl || !countryEl || !languageEl) {
-          throw new Error('Form fields not found');
-        }
-        
-        const questionsPerCategoryEl = document.getElementById('questionsPerCategory');
-        const questionsPerCategory = questionsPerCategoryEl ? parseInt(questionsPerCategoryEl.value) || 3 : 3;
-        
-        let websiteUrl = websiteUrlEl.value.trim();
-        // Auto-add https:// if missing
-        var urlPattern2 = new RegExp("^https?:\\/\\/", "i");
-        if (websiteUrl && !urlPattern2.test(websiteUrl)) {
-          websiteUrl = "https://" + websiteUrl;
-        }
-        const formData = {
-          websiteUrl: websiteUrl,
-          country: countryEl.value.toUpperCase().trim(),
-          language: languageEl.value.trim(),
-          region: regionEl ? regionEl.value.trim() || undefined : undefined,
-          questionsPerCategory: questionsPerCategory
-        };
-        
-        console.log('📋 Form data extracted:', formData);
-        
-        // Validate form data
-        if (!formData.websiteUrl) {
-          throw new Error('Website URL ist erforderlich');
-        }
-        if (!formData.country) {
-          throw new Error('Land ist erforderlich');
-        }
-        if (!formData.language) {
-          throw new Error('Sprache ist erforderlich');
-        }
-        
-        console.log('✅ Form validation passed');
-
-        workflowData = { ...formData };
-
-        const loading = document.getElementById('loading');
-        const result = document.getElementById('result');
-        const resultsContainer = document.getElementById('resultsContainer');
-        const progressFill = document.getElementById('progressFill');
-        const progressText = document.getElementById('progressText');
-
-        if (!loading || !result || !progressFill || !progressText) {
-          throw new Error('UI elements not found');
-        }
-
-        // Show loading immediately with visual feedback
-        loading.style.display = 'block';
-        loading.classList.add('show');
-        result.classList.remove('show');
-        if (resultsContainer) {
-          resultsContainer.style.display = 'none';
-        }
-        
-        // Reset progress and show initial status
-        progressFill.style.width = '0%';
-        progressText.textContent = 'Starte Analyse...';
-        
-        const statusEl = document.getElementById('currentStatus');
-        const statusDetailsEl = document.getElementById('statusDetails');
-        if (statusEl) statusEl.textContent = '🚀 Analyse wird gestartet...';
-        if (statusDetailsEl) statusDetailsEl.textContent = 'Vorbereitung der Analyse...';
-        
-        console.log('Form submitted, calling executeStep1 with:', formData);
-        await executeStep1(formData);
-      } catch (error) {
-        console.error('Error in form submit:', error);
-        const startBtn = document.getElementById('startAnalysisBtn');
-        if (startBtn) {
-          startBtn.disabled = false;
-          startBtn.textContent = 'Analyse starten';
-        }
-        const result = document.getElementById('result');
-        const loading = document.getElementById('loading');
-        const resultContent = document.getElementById('resultContent');
-        
-        if (resultContent) {
-          resultContent.innerHTML = 
-            '<div style="color: red; padding: 15px; background: #ffebee; border-radius: 6px; border-left: 4px solid #f44336;">' +
-            '<strong>❌ Fehler:</strong><br>' + 
-            (error.message || error || 'Unbekannter Fehler') + 
-            '</div>';
-        }
-        if (result) result.classList.add('show');
-        if (loading) loading.classList.remove('show');
-        throw error;
-      }
-    }
-
-    // Step 1: Find Sitemap
-    async function executeStep1(formData) {
-      try {
-        console.log('executeStep1 called with:', formData);
-        const progressText = document.getElementById('progressText');
-        const progressFill = document.getElementById('progressFill');
-        const loading = document.getElementById('loading');
-        const result = document.getElementById('result');
-        
-        if (!progressText || !progressFill || !loading) {
-          throw new Error('UI elements not found');
-        }
-        
-        // Show loading immediately
-        loading.style.display = 'block';
-        loading.classList.add('show');
-        result.classList.remove('show');
-        progressFill.style.width = '5%';
-        progressText.textContent = 'Suche Sitemap.xml...';
-        
-        const statusEl1 = document.getElementById('currentStatus');
-        const statusDetailsEl1 = document.getElementById('statusDetails');
-        if (statusEl1) statusEl1.textContent = '🔍 Schritt 1: Sitemap wird gesucht...';
-        if (statusDetailsEl1) statusDetailsEl1.textContent = 'Suche nach sitemap.xml auf ' + formData.websiteUrl;
-        
-        console.log('Making API call to /api/workflow/step1');
-        const response = await fetch('/api/workflow/step1', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(formData)
-        });
-        
-        console.log('Response status:', response.status, response.statusText);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('API error response:', errorText);
-          let errorData;
-          try {
-            errorData = JSON.parse(errorText);
-          } catch {
-            errorData = { error: 'Unknown error', message: response.statusText };
-          }
-          throw new Error(errorData.message || errorData.error || 'Failed to start analysis');
-        }
-        
-        const data = await response.json();
-        console.log('API response data:', data);
-        
-        if (data.error) {
-          throw new Error(data.message || data.error);
-        }
-        
-        if (!data.runId) {
-          throw new Error('No runId received from server');
-        }
-        
-        currentRunId = data.runId;
-        workflowData.urls = data.urls || [];
-        workflowData.foundSitemap = data.foundSitemap !== false; // Default to true if not specified
-        progressFill.style.width = '20%';
-        
-        const statusEl2 = document.getElementById('currentStatus');
-        const statusDetailsEl2 = document.getElementById('statusDetails');
-        
-        if (data.foundSitemap) {
-          progressText.textContent = 'Sitemap gefunden: ' + (data.urls ? data.urls.length : 0) + ' URLs';
-          if (statusEl2) {
-            statusEl2.textContent = '✅ Schritt 1 abgeschlossen: Sitemap gefunden';
-            statusEl2.style.color = '#059669';
-          }
-          if (statusDetailsEl2) statusDetailsEl2.textContent = data.urls && data.urls.length > 0 
-            ? data.urls.length + ' URLs gefunden. Bereite Schritt 2 vor...'
-            : 'Keine URLs in Sitemap gefunden.';
-        } else {
-          progressText.textContent = 'Keine Sitemap gefunden: ' + (data.urls ? data.urls.length : 0) + ' URLs von Startseite';
-          if (statusEl2) {
-            statusEl2.textContent = '⚠️ Schritt 1 abgeschlossen: Keine Sitemap gefunden';
-            statusEl2.style.color = '#d97706';
-          }
-          if (statusDetailsEl2) {
-            statusDetailsEl2.textContent = data.message || (data.urls && data.urls.length > 0 
-              ? data.urls.length + ' URLs von Startseite extrahiert. Bereite Schritt 2 vor...'
-              : 'Keine URLs gefunden.');
-          }
-        }
-        
-        console.log('Step 1 completed. RunId:', currentRunId, 'URLs:', data.urls?.length || 0, 'FoundSitemap:', data.foundSitemap);
-        
-        if (data.urls && data.urls.length > 0) {
-          // Auto-proceed to step 2
-          setTimeout(() => executeStep2(), 1000);
-        } else {
-          document.getElementById('resultContent').innerHTML = 
-            '<div style="color: orange; padding: 15px; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">' +
-            '⚠️ Keine URLs gefunden. Bitte manuell URLs eingeben oder Crawling verwenden.</div>';
-          result.classList.add('show');
-          loading.classList.remove('show');
-          loading.style.display = 'none';
-        }
-      } catch (error) {
-        console.error('Error in executeStep1:', error);
-        const result = document.getElementById('result');
-        const loading = document.getElementById('loading');
-        const resultContent = document.getElementById('resultContent');
-        
-        if (resultContent) {
-          resultContent.innerHTML = 
-            '<div style="color: red; padding: 15px; background: #ffebee; border-radius: 8px; border-left: 4px solid #f44336;">' +
-            '<strong>❌ Fehler beim Starten der Analyse:</strong><br>' + 
-            (error.message || error || 'Unbekannter Fehler') + 
-            '</div>';
-        }
-        if (result) result.classList.add('show');
-        if (loading) loading.classList.remove('show');
-        throw error;
-      }
-    }
-
-    // Step 2: Fetch Content (with live updates)
-    async function executeStep2() {
-      // Update global reference
-      window.currentRunId = currentRunId;
-      window.workflowData = workflowData;
-      try {
-        const statusEl3 = document.getElementById('currentStatus');
-        const statusDetailsEl3 = document.getElementById('statusDetails');
-        if (statusEl3) statusEl3.textContent = '📄 Schritt 2: Inhalte werden geholt...';
-        if (statusDetailsEl3) statusDetailsEl3.textContent = 'Lade Inhalte von ' + workflowData.urls.length + ' URLs';
-        
-        const progressText = document.getElementById('progressText');
-        const resultContent = document.getElementById('resultContent');
-        resultContent.innerHTML = '<h3>📄 Geholte Inhalte:</h3><div id="contentList"></div>';
-        document.getElementById('result').classList.add('show');
-        
-        let fetchedCount = 0;
-        const contentList = document.getElementById('contentList');
-        const allContent = [];
-        
-        // Fetch URLs one by one with live updates
-        const maxUrls = Math.min(workflowData.urls.length, 50);
-        for (let i = 0; i < maxUrls; i++) {
-          const url = workflowData.urls[i];
-          progressText.textContent = 'Hole Inhalte... (' + (i + 1) + '/' + maxUrls + ')';
-          const statusDetailsEl3Loop = document.getElementById('statusDetails');
-          if (statusDetailsEl3Loop) statusDetailsEl3Loop.textContent = 'Lade URL ' + (i + 1) + ' von ' + maxUrls + ': ' + url.substring(0, 50) + '...';
-          document.getElementById('progressFill').style.width = (20 + (i / maxUrls) * 20) + '%';
-          
-          try {
-            const response = await fetch('/api/workflow/fetchUrl', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url: url })
-            });
-            const data = await response.json();
-            
-            if (data.content) {
-              fetchedCount++;
-              allContent.push(data.content);
-              const urlDiv = document.createElement('div');
-              urlDiv.style.cssText = 'margin: 5px 0; padding: 8px; background: #e8f5e9; border-radius: 4px; border-left: 3px solid #4caf50;';
-              urlDiv.innerHTML = '<strong>✓ ' + url + '</strong><br><small>' + 
-                (data.content.substring(0, 100) + '...') + '</small>';
-              contentList.appendChild(urlDiv);
-            }
-          } catch (error) {
-            const urlDiv = document.createElement('div');
-            urlDiv.style.cssText = 'margin: 5px 0; padding: 8px; background: #ffebee; border-radius: 4px; border-left: 3px solid #f44336;';
-            urlDiv.innerHTML = '<strong>✗ ' + url + '</strong><br><small>Fehler beim Laden</small>';
-            contentList.appendChild(urlDiv);
-          }
-        }
-        
-        const separator = String.fromCharCode(10) + String.fromCharCode(10);
-        workflowData.content = allContent.join(separator);
-        document.getElementById('progressFill').style.width = '40%';
-        progressText.textContent = 'Inhalte von ' + fetchedCount + ' Seiten geholt';
-        
-        const statusEl4 = document.getElementById('currentStatus');
-        const statusDetailsEl4 = document.getElementById('statusDetails');
-        if (statusEl4) statusEl4.textContent = '✅ Schritt 2 abgeschlossen: Inhalte geholt';
-        if (statusDetailsEl4) statusDetailsEl4.textContent = fetchedCount + ' Seiten erfolgreich geladen. Bereite Schritt 3 vor...';
-        
-        // Auto-proceed to step 3
-        setTimeout(() => executeStep3(), 1000);
-      } catch (error) {
-        throw error;
-      }
-    }
-
-    // Step 3: Generate Categories
-    async function executeStep3() {
-      try {
-        const statusEl5 = document.getElementById('currentStatus');
-        const statusDetailsEl5 = document.getElementById('statusDetails');
-        if (statusEl5) statusEl5.textContent = '🤖 Schritt 3: Kategorien werden generiert...';
-        if (statusDetailsEl5) statusDetailsEl5.textContent = 'GPT analysiert Inhalte und generiert Kategorien/Keywords...';
-        
-        document.getElementById('progressText').textContent = 'Generiere Kategorien/Keywords mit GPT...';
-        const response = await fetch('/api/workflow/step3', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            runId: currentRunId,
-            content: workflowData.content || 'Website content',
-            language: workflowData.language
-          })
-        });
-        const data = await response.json();
-        console.log('📊 Step 3 Response:', data);
-        console.log('📊 Categories received:', data.categories?.length || 0, data.categories);
-        
-        if (!data.categories || !Array.isArray(data.categories)) {
-          console.error('❌ Invalid categories data:', data);
-          alert('Fehler: Keine Kategorien erhalten. Bitte versuche es erneut.');
-          return;
-        }
-        
-        workflowData.categories = data.categories;
-        document.getElementById('progressFill').style.width = '60%';
-        document.getElementById('progressText').textContent = 
-          data.categories.length + ' Kategorien generiert';
-        
-        // Update status (reuse existing variables)
-        if (statusEl5) statusEl5.textContent = '✅ Schritt 3 abgeschlossen: ' + data.categories.length + ' Kategorien generiert';
-        if (statusDetailsEl5) statusDetailsEl5.textContent = 'Bitte wähle die Kategorien aus, für die Fragen generiert werden sollen.';
-        
-        // Show categories for user selection
-        try {
-          showCategorySelection(data.categories);
-        } catch (error) {
-          console.error('❌ Error in showCategorySelection:', error);
-          const resultContent = document.getElementById('resultContent');
-          if (resultContent) {
-            resultContent.innerHTML = 
-              '<div style="color: red; padding: 15px; background: #ffebee; border-radius: 8px; border-left: 4px solid #f44336;">' +
-              '<strong>❌ Fehler beim Anzeigen der Kategorien:</strong><br>' + 
-              (error.message || error || 'Unbekannter Fehler') + 
-              '</div>';
-          }
-          throw error;
-        }
-      } catch (error) {
-        console.error('❌ Error in executeStep3:', error);
-        throw error;
-      }
-    }
-
-    function showCategorySelection(categories) {
-      try {
-        console.log('📋 Showing categories:', categories.length, categories);
-        
-        if (!categories || !Array.isArray(categories)) {
-          throw new Error('Ungültige Kategorien-Daten: ' + typeof categories);
-        }
-        
-        const result = document.getElementById('result');
-        const resultContent = document.getElementById('resultContent');
-        
-        if (!result || !resultContent) {
-          console.error('❌ Result elements not found!');
-          alert('Fehler: Ergebnis-Container nicht gefunden. Bitte Seite neu laden.');
-          return;
-        }
-      
-      // Ensure result is visible
-      result.style.display = 'block';
-      result.classList.add('show');
-      
-      let html = '<div style="margin-bottom: 20px;">';
-      html += '<h3 style="margin-bottom: 16px; color: var(--gray-900); font-size: 20px;">📋 Wähle Kategorien aus (' + categories.length + ' gefunden):</h3>';
-      html += '<p style="color: var(--gray-600); font-size: 14px; margin-bottom: 20px;">Wähle die Kategorien aus, für die Fragen generiert werden sollen. Du kannst auch neue Kategorien hinzufügen.</p>';
-      html += '</div>';
-      
-      html += '<form id="categoryForm" style="margin-top: 20px;">';
-      
-      if (!categories || categories.length === 0) {
-        html += '<div style="padding: 20px; background: var(--gray-100); border-radius: 8px; color: var(--gray-600);">';
-        html += 'Keine Kategorien gefunden. Bitte versuche es erneut oder füge manuell Kategorien hinzu.';
-        html += '</div>';
-      } else {
-        // Use grid layout for compact display
-        html += '<div id="categoriesGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; margin-bottom: 16px;">';
-        categories.forEach(function(cat, index) {
-          const catId = (cat.id || 'cat_' + index).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-          const catName = (cat.name || 'Kategorie ' + (index + 1)).replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-          const catDesc = (cat.description || 'Keine Beschreibung').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-          html += '<div class="category-item-compact" data-cat-id="' + catId + '" style="padding: 10px; background: white; border: 1px solid var(--gray-200); border-radius: 6px; transition: all 0.2s; cursor: pointer;">';
-          html += '<label style="display: flex; align-items: center; cursor: pointer; gap: 8px; margin: 0;">';
-          html += '<input type="checkbox" name="category" value="' + catId + '" checked style="width: 16px; height: 16px; cursor: pointer; flex-shrink: 0;">';
-          html += '<div style="flex: 1; min-width: 0;">';
-          html += '<strong style="display: block; color: var(--gray-900); font-size: 14px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">' + catName + '</strong>';
-          html += '<span style="display: block; color: var(--gray-600); font-size: 12px; line-height: 1.3; max-height: 2.6em; overflow: hidden; text-overflow: ellipsis;">' + catDesc + '</span>';
-          html += '</div>';
-          html += '</label>';
-          html += '</div>';
-        });
-        html += '</div>';
-      }
-      
-      // Add custom category input
-      html += '<div style="margin-top: 24px; padding: 16px; background: var(--gray-50); border-radius: 8px; border: 2px dashed var(--gray-300);">';
-      html += '<h4 style="margin-bottom: 12px; color: var(--gray-900); font-size: 14px; font-weight: 600;">➕ Neue Kategorie hinzufügen</h4>';
-      html += '<div style="display: grid; grid-template-columns: 1fr 2fr; gap: 12px; margin-bottom: 12px;">';
-      html += '<input type="text" id="newCategoryName" placeholder="Kategorie-Name" style="padding: 10px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 14px;">';
-      html += '<input type="text" id="newCategoryDesc" placeholder="Beschreibung" style="padding: 10px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 14px;">';
-      html += '</div>';
-      html += '<button type="button" id="addCategoryBtn" class="btn" style="background: var(--gray-600); padding: 10px 20px; font-size: 14px;">Kategorie hinzufügen</button>';
-      html += '</div>';
-      
-      html += '<div style="margin-top: 24px; display: flex; gap: 12px;">';
-      html += '<button type="submit" class="btn btn-primary" style="flex: 1; padding: 14px 24px; font-size: 16px;">✅ Weiter zu Fragen generieren</button>';
-      html += '<button type="button" id="regenerateCategoriesBtn" class="btn" style="background: var(--gray-600); padding: 14px 24px; font-size: 16px;">🔄 Kategorien neu generieren</button>';
-      html += '</div>';
-      html += '</form>';
-      
-      resultContent.innerHTML = html;
-      
-      // Add click handlers for category items (click anywhere on card to toggle checkbox)
-      const categoryItems = document.querySelectorAll('.category-item-compact');
-      categoryItems.forEach(function(item) {
-        item.addEventListener('click', function(e) {
-          if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'LABEL' && e.target.tagName !== 'STRONG' && e.target.tagName !== 'SPAN' && e.target.tagName !== 'DIV') {
-            const checkbox = item.querySelector('input[type="checkbox"]');
-            if (checkbox) {
-              checkbox.click();
-            }
-          }
-        });
-      });
-      
-      // Add event listener for adding custom categories
-      const addCategoryBtn = document.getElementById('addCategoryBtn');
-      if (addCategoryBtn) {
-        addCategoryBtn.addEventListener('click', () => {
-          const nameInput = document.getElementById('newCategoryName');
-          const descInput = document.getElementById('newCategoryDesc');
-          const name = nameInput?.value?.trim();
-          const desc = descInput?.value?.trim();
-          
-          if (!name) {
-            alert('Bitte gib einen Kategorie-Namen ein.');
-            return;
-          }
-          
-          // Add new category to the form
-          const form = document.getElementById('categoryForm');
-          if (form) {
-            const newCategoryDiv = document.createElement('div');
-            newCategoryDiv.style.cssText = 'margin: 12px 0; padding: 16px; background: white; border: 2px solid var(--primary); border-radius: 8px;';
-            newCategoryDiv.innerHTML = 
-              '<label style="display: flex; align-items: flex-start; cursor: pointer; gap: 12px;">' +
-              '<input type="checkbox" name="category" value="custom_' + Date.now() + '" checked style="margin-top: 4px; width: 18px; height: 18px; cursor: pointer;">' +
-              '<div style="flex: 1;">' +
-              '<strong style="display: block; color: var(--gray-900); font-size: 16px; margin-bottom: 4px;">' + name + '</strong>' +
-              '<span style="display: block; color: var(--gray-600); font-size: 14px;">' + (desc || 'Benutzerdefinierte Kategorie') + '</span>' +
-              '</div>' +
-              '</label>';
-            
-            // Insert before the "Add category" section
-            const addSection = document.querySelector('#categoryForm > div:last-of-type');
-            if (addSection && addSection.previousElementSibling) {
-              addSection.parentNode?.insertBefore(newCategoryDiv, addSection);
-            } else {
-              form.insertBefore(newCategoryDiv, form.lastElementChild);
-            }
-            
-            // Clear inputs
-            if (nameInput) nameInput.value = '';
-            if (descInput) descInput.value = '';
-            
-            // Add to workflowData
-            if (!workflowData.categories) workflowData.categories = [];
-            workflowData.categories.push({
-              id: 'custom_' + Date.now(),
-              name: name,
-              description: desc || 'Benutzerdefinierte Kategorie',
-              confidence: 0.5,
-              sourcePages: []
-            });
-          }
-        });
-      }
-      
-      // Add event listener for regenerate button
-      const regenerateBtn = document.getElementById('regenerateCategoriesBtn');
-      if (regenerateBtn) {
-        regenerateBtn.addEventListener('click', async () => {
-          if (confirm('Möchtest du die Kategorien wirklich neu generieren? Die aktuellen Auswahlen gehen verloren.')) {
-            await executeStep3();
-          }
-        });
-      }
-      
-      // Add form submit handler
-      const categoryForm = document.getElementById('categoryForm');
-      if (categoryForm) {
-        console.log('📋 Setting up category form submit handler');
-        
-        // Remove existing listeners by cloning (but keep the form reference)
-        const formClone = categoryForm.cloneNode(true);
-        categoryForm.parentNode?.replaceChild(formClone, categoryForm);
-        
-        // Get the new form element
-        const newForm = document.getElementById('categoryForm');
-        if (newForm) {
-          console.log('✅ Category form found, adding submit listener');
-          
-          newForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            console.log('🔵 Category form submitted!');
-            
-            const selected = Array.from(document.querySelectorAll('input[name="category"]:checked'))
-              .map(cb => cb.value);
-            
-            console.log('✅ Selected categories:', selected);
-            console.log('📊 Available categories:', workflowData.categories?.length || 0);
-            
-            if (selected.length === 0) {
-              alert('Bitte wähle mindestens eine Kategorie aus.');
-              return;
-            }
-            
-            // Update workflow data
-            workflowData.selectedCategories = selected;
-            
-            // IMMEDIATE VISUAL FEEDBACK - Disable button and show loading
-            const submitBtn = e.target.closest('form')?.querySelector('button[type="submit"]');
-            if (submitBtn) {
-              submitBtn.disabled = true;
-              submitBtn.textContent = '⏳ Generiere Fragen...';
-              submitBtn.style.opacity = '0.7';
-              submitBtn.style.cursor = 'not-allowed';
-            }
-            
-            // Show loading state immediately
-            const loading = document.getElementById('loading');
-            if (loading) {
-              loading.style.display = 'block';
-              loading.classList.add('show');
-            }
-            
-            const progressFill = document.getElementById('progressFill');
-            const progressText = document.getElementById('progressText');
-            if (progressFill) {
-              progressFill.style.width = '60%';
-              progressFill.style.transition = 'width 0.3s ease';
-            }
-            if (progressText) progressText.textContent = 'Starte Fragen-Generierung...';
-            
-            const statusEl = document.getElementById('currentStatus');
-            const statusDetailsEl = document.getElementById('statusDetails');
-            if (statusEl) {
-              statusEl.textContent = '🤖 Schritt 4: Fragen werden generiert...';
-              statusEl.style.color = '#2563eb';
-            }
-            if (statusDetailsEl) {
-              statusDetailsEl.textContent = 'GPT generiert Fragen für ' + selected.length + ' ausgewählte Kategorien. Bitte warten...';
-            }
-            
-            // Show progress in result area too
-            const resultContent = document.getElementById('resultContent');
-            if (resultContent) {
-              resultContent.innerHTML = 
-                '<div style="text-align: center; padding: 40px;">' +
-                '<div style="font-size: 48px; margin-bottom: 20px;">⏳</div>' +
-                '<h3 style="color: var(--gray-900); margin-bottom: 12px;">Fragen werden generiert...</h3>' +
-                '<p style="color: var(--gray-600); margin-bottom: 20px;">GPT generiert ' + (workflowData.questionsPerCategory || 3) + ' Fragen pro Kategorie für ' + selected.length + ' Kategorien.</p>' +
-                '<div style="display: inline-block; width: 40px; height: 40px; border: 4px solid var(--gray-200); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;"></div>' +
-                '</div>';
-              document.getElementById('result').style.display = 'block';
-              document.getElementById('result').classList.add('show');
-            }
-            
-            // Add spinning animation CSS if not already present
-            if (!document.getElementById('spinnerStyle')) {
-              const style = document.createElement('style');
-              style.id = 'spinnerStyle';
-              style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
-              document.head.appendChild(style);
-            }
-            
-            try {
-              console.log('🚀 Calling executeStep4...');
-              await executeStep4();
-            } catch (error) {
-              console.error('❌ Error in executeStep4:', error);
-              const errorMessage = error && typeof error === 'object' && 'message' in error ? error.message : String(error);
-              alert('Fehler beim Generieren der Fragen: ' + errorMessage);
-              
-              // Re-enable button
-              if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = '✅ Weiter zu Fragen generieren';
-                submitBtn.style.opacity = '1';
-                submitBtn.style.cursor = 'pointer';
-              }
-              
-              if (loading) {
-                loading.style.display = 'none';
-              }
-            }
-          });
-          
-          console.log('✅ Category form submit handler attached');
-        } else {
-          console.error('❌ Could not find categoryForm after clone');
-        }
-      } else {
-        console.error('❌ Category form not found!');
-      }
-      } catch (error) {
-        console.error('❌ Error in showCategorySelection:', error);
-        const resultContent = document.getElementById('resultContent');
-        if (resultContent) {
-          resultContent.innerHTML = 
-            '<div style="color: red; padding: 15px; background: #ffebee; border-radius: 8px; border-left: 4px solid #f44336;">' +
-            '<strong>❌ Fehler beim Anzeigen der Kategorien:</strong><br>' + 
-            (error && typeof error === 'object' && 'message' in error ? error.message : String(error)) + 
-            '<br><small>Bitte versuche es erneut oder lade die Seite neu.</small>' +
-            '</div>';
-        }
-        throw error;
-      }
-    }
-
-    // Step 4: Generate Prompts
-    async function executeStep4() {
-      try {
-        console.log('🚀 executeStep4 called');
-        console.log('📊 Selected categories:', workflowData.selectedCategories);
-        console.log('📊 Available categories:', workflowData.categories?.length || 0);
-        console.log('📊 Current runId:', currentRunId);
-        
-        if (!workflowData.selectedCategories || workflowData.selectedCategories.length === 0) {
-          throw new Error('Keine Kategorien ausgewählt');
-        }
-        
-        if (!workflowData.categories || workflowData.categories.length === 0) {
-          throw new Error('Keine Kategorien verfügbar');
-        }
-        
-        const selectedCats = workflowData.categories.filter(c => 
-          workflowData.selectedCategories.includes(c.id)
-        );
-        
-        console.log('📋 Filtered selected categories:', selectedCats.length, selectedCats);
-        
-        if (selectedCats.length === 0) {
-          throw new Error('Keine passenden Kategorien gefunden. Bitte wähle Kategorien aus.');
-        }
-        
-        const questionsPerCategory = workflowData.questionsPerCategory || 3;
-        const totalQuestions = selectedCats.length * questionsPerCategory;
-        console.log('📊 Questions per category:', questionsPerCategory);
-        console.log('📊 Total questions to generate:', totalQuestions);
-        
-        // Update progress with detailed info
-        const progressText = document.getElementById('progressText');
-        const progressFill = document.getElementById('progressFill');
-        if (progressText) progressText.textContent = 'Generiere ' + totalQuestions + ' Fragen für ' + selectedCats.length + ' Kategorien...';
-        if (progressFill) {
-          progressFill.style.width = '65%';
-          progressFill.style.transition = 'width 0.3s ease';
-        }
-        
-        const statusEl = document.getElementById('currentStatus');
-        const statusDetailsEl = document.getElementById('statusDetails');
-        if (statusEl) {
-          statusEl.textContent = '🤖 Schritt 4: Fragen werden generiert...';
-          statusEl.style.color = '#2563eb';
-        }
-        if (statusDetailsEl) {
-          statusDetailsEl.textContent = 'GPT generiert ' + questionsPerCategory + ' Fragen pro Kategorie für ' + selectedCats.length + ' Kategorien. Dies kann einige Sekunden dauern...';
-        }
-        
-        // Update result area with progress
-        const resultContent = document.getElementById('resultContent');
-        if (resultContent) {
-          resultContent.innerHTML = 
-            '<div style="text-align: center; padding: 40px;">' +
-            '<div style="font-size: 48px; margin-bottom: 20px;">⏳</div>' +
-            '<h3 style="color: var(--gray-900); margin-bottom: 12px;">Fragen werden generiert...</h3>' +
-            '<p style="color: var(--gray-600); margin-bottom: 8px;">Generiere ' + questionsPerCategory + ' Fragen pro Kategorie</p>' +
-            '<p style="color: var(--gray-600); margin-bottom: 20px;">für ' + selectedCats.length + ' Kategorien = ' + totalQuestions + ' Fragen insgesamt</p>' +
-            '<div style="display: inline-block; width: 40px; height: 40px; border: 4px solid var(--gray-200); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite;"></div>' +
-            '<p style="color: var(--gray-500); font-size: 12px; margin-top: 20px;">Bitte warten, dies kann 30-60 Sekunden dauern...</p>' +
-            '</div>';
-        }
-        
-        console.log('📡 Making API call to /api/workflow/step4');
-        console.log('📊 Sending questionsPerCategory:', questionsPerCategory);
-        const response = await fetch('/api/workflow/step4', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            runId: currentRunId,
-            categories: selectedCats,
-            userInput: workflowData,
-            content: workflowData.content || '',
-            questionsPerCategory: questionsPerCategory
-          })
-        });
-        
-        console.log('📡 API Response status:', response.status);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error('❌ API Error:', errorText);
-          throw new Error('API Fehler: ' + response.status + ' - ' + errorText.substring(0, 200));
-        }
-        
-        const data = await response.json();
-        console.log('✅ API Response data:', data);
-        console.log('📋 Prompts received:', data.prompts?.length || 0);
-        
-        if (!data.prompts || !Array.isArray(data.prompts)) {
-          throw new Error('Keine Fragen erhalten. Bitte versuche es erneut.');
-        }
-        
-        workflowData.prompts = data.prompts;
-        
-        // Update progress to 80%
-        if (progressFill) {
-          progressFill.style.width = '80%';
-          progressFill.style.transition = 'width 0.3s ease';
-        }
-        if (progressText) {
-          progressText.textContent = '✅ ' + data.prompts.length + ' Fragen erfolgreich generiert!';
-        }
-        
-        if (statusEl) {
-          statusEl.textContent = '✅ Schritt 4 abgeschlossen: ' + data.prompts.length + ' Fragen generiert';
-          statusEl.style.color = '#059669';
-        }
-        if (statusDetailsEl) {
-          statusDetailsEl.textContent = 'Alle Fragen wurden erfolgreich generiert. Bitte überprüfe und bearbeite die Fragen.';
-        }
-        
-        // Show success message briefly before showing prompts
-        if (resultContent) {
-          resultContent.innerHTML = 
-            '<div style="text-align: center; padding: 40px;">' +
-            '<div style="font-size: 48px; margin-bottom: 20px;">✅</div>' +
-            '<h3 style="color: var(--success); margin-bottom: 12px;">Fragen erfolgreich generiert!</h3>' +
-            '<p style="color: var(--gray-600); margin-bottom: 20px;">' + data.prompts.length + ' Fragen wurden generiert und werden gleich angezeigt...</p>' +
-            '</div>';
-        }
-        
-        // Wait a moment to show success, then display prompts
-        setTimeout(function() {
-          showPromptSelection(data.prompts);
-        }, 1000);
-      } catch (error) {
-        console.error('❌ Error in executeStep4:', error);
-        const errorMessage = error && typeof error === 'object' && 'message' in error ? error.message : String(error);
-        const errorStack = error && typeof error === 'object' && 'stack' in error ? error.stack : '';
-        console.error('Error details:', errorMessage, errorStack);
-        
-        const statusEl = document.getElementById('currentStatus');
-        const statusDetailsEl = document.getElementById('statusDetails');
-        if (statusEl) statusEl.textContent = '❌ Fehler beim Generieren der Fragen';
-        if (statusDetailsEl) statusDetailsEl.textContent = errorMessage || 'Unbekannter Fehler';
-        
-        alert('Fehler beim Generieren der Fragen: ' + errorMessage);
-        throw error;
-      }
-    }
-
-    function showPromptSelection(prompts) {
-      console.log('📋 Showing prompts:', prompts.length);
-      const resultContent = document.getElementById('resultContent');
-      if (!resultContent) {
-        console.error('❌ resultContent not found!');
-        return;
-      }
-      
-      let html = '<div style="margin-bottom: 20px;">';
-      html += '<h3 style="margin-bottom: 16px; color: var(--gray-900); font-size: 20px;">❓ Generierte Fragen (' + prompts.length + '):</h3>';
-      html += '<p style="color: var(--gray-600); font-size: 14px; margin-bottom: 20px;">Du kannst die Fragen bearbeiten oder einzelne deaktivieren, bevor die Analyse startet.</p>';
-      html += '</div>';
-      
-      html += '<form id="promptForm" style="margin-top: 20px;">';
-      
-      if (!prompts || prompts.length === 0) {
-        html += '<div style="padding: 20px; background: var(--gray-100); border-radius: 8px; color: var(--gray-600);">';
-        html += 'Keine Fragen gefunden. Bitte versuche es erneut.';
-        html += '</div>';
-      } else {
-        prompts.forEach((prompt, idx) => {
-          const promptId = prompt.id || 'prompt_' + idx;
-          const promptQuestion = prompt.question || prompt.text || '';
-          html += '<div style="margin-bottom: 16px; padding: 16px; background: white; border: 1px solid var(--gray-200); border-radius: 8px; transition: all 0.2s;">';
-          html += '<div style="display: flex; align-items: flex-start; gap: 12px;">';
-          html += '<input type="checkbox" name="selected" value="' + promptId + '" checked style="width: 20px; height: 20px; margin-top: 4px; cursor: pointer; flex-shrink: 0;">';
-          html += '<div style="flex: 1;">';
-          html += '<label style="display: block; color: var(--gray-700); font-size: 12px; font-weight: 600; margin-bottom: 6px;">Frage ' + (idx + 1) + ':</label>';
-          html += '<textarea name="prompt_' + promptId + '" style="width: 100%; padding: 12px; border: 1px solid var(--gray-300); border-radius: 6px; font-size: 14px; font-family: inherit; resize: vertical; min-height: 60px;" rows="2">' + promptQuestion.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</textarea>';
-          html += '</div>';
-          html += '</div>';
-          html += '</div>';
-        });
-      }
-      
-      html += '<div style="margin-top: 24px; display: flex; gap: 12px;">';
-      html += '<button type="submit" class="btn btn-primary" style="flex: 1; padding: 14px 24px; font-size: 16px;">🚀 Analyse mit GPT-5 starten</button>';
-      html += '</div>';
-      html += '</form>';
-      
-      resultContent.innerHTML = html;
-      
-      // Remove existing form and recreate to avoid duplicate listeners
-      const promptForm = document.getElementById('promptForm');
-      if (promptForm) {
-        const formClone = promptForm.cloneNode(true);
-        promptForm.parentNode?.replaceChild(formClone, promptForm);
-        
-        const newPromptForm = document.getElementById('promptForm');
-        if (newPromptForm) {
-          newPromptForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            console.log('🔵 Prompt form submitted!');
-            
-            const updatedPrompts = prompts.map(p => {
-              const textarea = document.querySelector('textarea[name="prompt_' + p.id + '"]');
-              const checkbox = document.querySelector('input[name="selected"][value="' + p.id + '"]');
-              return {
-                ...p,
-                question: textarea ? textarea.value : p.question,
-                isSelected: checkbox ? checkbox.checked : true
-              };
-            }).filter(p => p.isSelected);
-            
-            console.log('✅ Updated prompts:', updatedPrompts.length);
-            
-            if (updatedPrompts.length === 0) {
-              alert('Bitte wähle mindestens eine Frage aus.');
-              return;
-            }
-            
-            workflowData.prompts = updatedPrompts;
-            
-            // Show loading
-            const loading = document.getElementById('loading');
-            if (loading) {
-              loading.style.display = 'block';
-              loading.classList.add('show');
-            }
-            
-            const progressFill = document.getElementById('progressFill');
-            const progressText = document.getElementById('progressText');
-            if (progressFill) progressFill.style.width = '80%';
-            if (progressText) progressText.textContent = 'Starte GPT-5 Ausführung...';
-            
-            const statusEl = document.getElementById('currentStatus');
-            const statusDetailsEl = document.getElementById('statusDetails');
-            if (statusEl) statusEl.textContent = '🤖 Schritt 5: GPT-5 Ausführung...';
-            if (statusDetailsEl) statusDetailsEl.textContent = 'Führe ' + updatedPrompts.length + ' Fragen aus...';
-            
-            try {
-              await executeStep5();
-            } catch (error) {
-              console.error('❌ Error in executeStep5:', error);
-              const errorMessage = error && typeof error === 'object' && 'message' in error ? error.message : String(error);
-              alert('Fehler beim Ausführen der Fragen: ' + errorMessage);
-              if (loading) {
-                loading.style.display = 'none';
-              }
-            }
-          });
-          
-          console.log('✅ Prompt form submit handler attached');
-        }
-      }
-    }
-
-    // Step 5: Execute with GPT-5 (with live updates)
-    async function executeStep5() {
-      try {
-        const progressText = document.getElementById('progressText');
-        const progressFill = document.getElementById('progressFill');
-        const resultContent = document.getElementById('resultContent');
-        const statusEl = document.getElementById('currentStatus');
-        const statusDetailsEl = document.getElementById('statusDetails');
-        
-        // Initialize result area
-        resultContent.innerHTML = 
-          '<div style="margin-bottom: 20px;">' +
-          '<h3 style="margin-bottom: 16px; color: var(--gray-900); font-size: 20px;">🤖 GPT-5 Antworten (Live):</h3>' +
-          '<p style="color: var(--gray-600); font-size: 14px;">Jede Frage wird einzeln ausgeführt und live angezeigt...</p>' +
-          '</div>' +
-          '<div id="responsesList" style="display: flex; flex-direction: column; gap: 16px;"></div>';
-        document.getElementById('result').style.display = 'block';
-        document.getElementById('result').classList.add('show');
-        
-        const responsesList = document.getElementById('responsesList');
-        let executedCount = 0;
-        const promptsLength = workflowData.prompts.length;
-        
-        // Store all questions and answers for summary
-        const allQuestionsAndAnswers = [];
-        
-        // Update status
-        if (statusEl) statusEl.textContent = '🤖 Schritt 5: GPT-5 Ausführung läuft...';
-        if (statusDetailsEl) statusDetailsEl.textContent = 'Führe ' + promptsLength + ' Fragen mit Web Search aus...';
-        
-        // Execute prompts one by one with live updates
-        for (let i = 0; i < promptsLength; i++) {
-          const prompt = workflowData.prompts[i];
-          const progressPercent = 80 + ((i / promptsLength) * 20);
-          
-          // Update progress
-          if (progressText) progressText.textContent = 'Frage ' + (i + 1) + '/' + promptsLength + ' wird ausgeführt...';
-          if (progressFill) {
-            progressFill.style.width = progressPercent + '%';
-            progressFill.style.transition = 'width 0.3s ease';
-          }
-          
-          // Show "processing" indicator for current question
-          const processingDiv = document.createElement('div');
-          processingDiv.id = 'processing_' + i;
-          processingDiv.style.cssText = 'padding: 16px; background: var(--gray-100); border: 2px dashed var(--gray-300); border-radius: 8px; text-align: center;';
-          processingDiv.innerHTML = 
-            '<div style="display: inline-block; width: 24px; height: 24px; border: 3px solid var(--gray-300); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 8px;"></div>' +
-            '<p style="color: var(--gray-700); font-weight: 600; margin: 0;">Frage ' + (i + 1) + ' wird ausgeführt...</p>' +
-            '<p style="color: var(--gray-600); font-size: 14px; margin: 4px 0 0 0;">' + prompt.question + '</p>';
-          responsesList.appendChild(processingDiv);
-          processingDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          
-          try {
-            const response = await fetch('/api/workflow/executePrompt', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                runId: currentRunId,
-                prompt: prompt,
-                userInput: workflowData
-              })
-            });
-            
-            if (!response.ok) {
-              const errorData = await response.json();
-              throw new Error(errorData.error || 'API Fehler: ' + response.status);
-            }
-            
-            const data = await response.json();
-            
-            console.log('📡 API Response data:', JSON.stringify(data, null, 2));
-            console.log('📊 Response outputText:', data.response?.outputText);
-            console.log('📊 Response citations:', JSON.stringify(data.response?.citations, null, 2));
-            console.log('📊 Analysis citations:', JSON.stringify(data.analysis?.citations, null, 2));
-            console.log('📊 Citations count in response:', data.response?.citations?.length || 0);
-            console.log('📊 Citations count in analysis:', data.analysis?.citations?.length || 0);
-            console.log('📊 Full response object keys:', data.response ? Object.keys(data.response) : 'no response');
-            console.log('📊 Full analysis object keys:', data.analysis ? Object.keys(data.analysis) : 'no analysis');
-            
-            // Remove processing indicator
-            const processingEl = document.getElementById('processing_' + i);
-            if (processingEl) processingEl.remove();
-            
-            if (data.response && data.analysis) {
-              executedCount++;
-              let answerText = data.response.outputText || '';
-              
-              console.log('✅ Answer text length:', answerText.length);
-              console.log('✅ Answer text preview:', answerText.substring(0, 100));
-              console.log('📊 Full response object:', data.response);
-              
-              // If answer is empty, try to get it from different paths
-              if (!answerText || answerText.trim().length === 0) {
-                console.warn('⚠️ Empty answer text! Trying fallback paths...');
-                if (data.response?.text) {
-                  answerText = data.response.text;
-                  console.log('✅ Found text in response.text');
-                } else if (data.response?.content) {
-                  answerText = typeof data.response.content === 'string' 
-                    ? data.response.content 
-                    : JSON.stringify(data.response.content);
-                  console.log('✅ Found text in response.content');
-                } else if (data.outputText) {
-                  answerText = data.outputText;
-                  console.log('✅ Found text in data.outputText');
-                } else {
-                  console.warn('⚠️ No answer text found anywhere! Full data:', JSON.stringify(data, null, 2));
-                  answerText = '⚠️ Keine Antwort erhalten. Bitte Browser-Konsole für Details prüfen.';
-                }
-              }
-              
-              // Use citations directly from GPT-5 Web Search response (response.citations)
-              // Fallback to analysis.citations if response.citations is not available
-              const responseCitations = data.response?.citations || [];
-              const analysisCitations = data.analysis?.citations || [];
-              const citations = responseCitations.length > 0 ? responseCitations : analysisCitations;
-              
-              const brandMentions = data.analysis.brandMentions || { exact: 0, fuzzy: 0, contexts: [], citations: 0 };
-              const competitors = data.analysis.competitors || [];
-              const sentiment = data.analysis.sentiment || { tone: 'neutral', confidence: 0 };
-              
-              // Store question and answer for summary
-              allQuestionsAndAnswers.push({
-                question: prompt.question,
-                answer: answerText,
-                citations: citations,
-                brandMentions: brandMentions,
-                competitors: competitors
-              });
-              
-              // Create response card
-              const responseDiv = document.createElement('div');
-              responseDiv.style.cssText = 'padding: 20px; background: white; border: 1px solid var(--gray-200); border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);';
-              
-              let citationsHtml = '';
-              if (citations.length > 0) {
-                citationsHtml = '<div style="margin-top: 16px; padding: 16px; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px;">';
-                citationsHtml += '<div style="font-size: 13px; font-weight: 500; color: #0369a1; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">Quellen (' + citations.length + ')</div>';
-                citationsHtml += '<div style="display: flex; flex-direction: column; gap: 8px;">';
-                citations.forEach(function(citation, idx) {
-                  const url = citation.url || '';
-                  const title = citation.title || url || 'Unbenannte Quelle';
-                  const snippet = citation.snippet || '';
-                  citationsHtml += '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="citation-link" style="color: #0369a1; font-size: 13px; text-decoration: none; padding: 12px; background: #ffffff; border-radius: 6px; display: block; border: 1px solid #e5e7eb; transition: all 0.2s ease; box-shadow: 0 1px 2px rgba(0,0,0,0.05); cursor: pointer;">';
-                  citationsHtml += '<div style="display: flex; align-items: start; gap: 10px;">';
-                  citationsHtml += '<span style="font-weight: 600; color: #3b82f6; font-size: 13px; min-width: 24px; padding-top: 2px;">' + (idx + 1) + '.</span>';
-                  citationsHtml += '<div style="flex: 1;">';
-                  citationsHtml += '<div style="font-weight: 500; color: #111827; margin-bottom: 4px; line-height: 1.4;">' + title.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
-                  if (url) {
-                    try {
-                      const hostname = new URL(url).hostname;
-                      citationsHtml += '<div style="color: #6b7280; font-size: 11px; margin-bottom: 6px; font-family: ui-monospace, monospace;">' + hostname + '</div>';
-                    } catch (e) {
-                      // Invalid URL, skip hostname
-                    }
-                  }
-                  if (snippet && snippet.trim().length > 0) {
-                    citationsHtml += '<div style="color: #6b7280; font-size: 12px; line-height: 1.5; font-style: normal;">';
-                    citationsHtml += snippet.substring(0, 120).replace(/</g, '&lt;').replace(/>/g, '&gt;') + (snippet.length > 120 ? '...' : '');
-                    citationsHtml += '</div>';
-                  }
-                  citationsHtml += '</div></div></a>';
-                });
-                citationsHtml += '</div></div>';
-                // Add CSS for citation links hover effect (after HTML is inserted)
-                if (!document.getElementById('citation-link-style')) {
-                  const style = document.createElement('style');
-                  style.id = 'citation-link-style';
-                  style.textContent = '.citation-link:hover { border-color: #3b82f6 !important; box-shadow: 0 2px 4px rgba(59,130,246,0.1) !important; transform: translateY(-1px) !important; }';
-                  document.head.appendChild(style);
-                }
-              } else {
-                // Show message if no citations available
-                citationsHtml = '<div style="margin-top: 16px; padding: 12px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;">';
-                citationsHtml += '<div style="font-size: 13px; color: #6b7280;">Keine Quellen verfügbar</div>';
-                citationsHtml += '</div>';
-              }
-              
-              let mentionsHtml = '';
-              const totalMentions = brandMentions.exact + brandMentions.fuzzy;
-              if (totalMentions > 0) {
-                mentionsHtml = '<div style="margin-top: 16px; padding: 14px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;">';
-                mentionsHtml += '<div style="display: flex; align-items: center; gap: 12px; font-size: 13px;">';
-                mentionsHtml += '<span style="color: #10b981; font-weight: 600;">Markenerwähnungen gefunden</span>';
-                mentionsHtml += '<span style="color: #6b7280;">•</span>';
-                mentionsHtml += '<span style="color: #374151;"><strong>' + brandMentions.exact + '</strong> exakt</span>';
-                if (brandMentions.fuzzy > 0) {
-                  mentionsHtml += '<span style="color: #6b7280;">•</span>';
-                  mentionsHtml += '<span style="color: #374151;"><strong>' + brandMentions.fuzzy + '</strong> ähnlich</span>';
-                }
-                mentionsHtml += '</div></div>';
-              }
-              
-              // Competitors section removed as requested
-              let competitorsHtml = '';
-              
-              responseDiv.innerHTML = 
-                '<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid #e5e7eb;">' +
-                '<span style="display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; background: #3b82f6; color: white; border-radius: 8px; font-weight: 600; font-size: 15px; flex-shrink: 0;">' + (i + 1) + '</span>' +
-                '<h4 style="margin: 0; color: #111827; font-size: 17px; font-weight: 600; line-height: 1.4;">' + prompt.question.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</h4>' +
-                '</div>' +
-                '<div style="margin-bottom: 16px;">' +
-                '<div style="font-size: 13px; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;">Antwort</div>' +
-                '<div style="white-space: pre-wrap; background: #f9fafb; padding: 18px; border-radius: 8px; border: 1px solid #e5e7eb; color: #374151; line-height: 1.7; font-size: 14px; max-height: 400px; overflow-y: auto;">' + 
-                answerText.replace(/</g, '&lt;').replace(/>/g, '&gt;') + 
-                '</div>' +
-                '</div>' +
-                mentionsHtml +
-                citationsHtml;
-              
-              responsesList.appendChild(responseDiv);
-              responseDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            } else {
-              throw new Error('Ungültige Antwort vom Server');
-            }
-          } catch (error) {
-            // Remove processing indicator
-            const processingEl = document.getElementById('processing_' + i);
-            if (processingEl) processingEl.remove();
-            
-            const errorDiv = document.createElement('div');
-            errorDiv.style.cssText = 'padding: 16px; background: #ffebee; border: 1px solid #f44336; border-radius: 8px; border-left: 4px solid #f44336;';
-            errorDiv.innerHTML = 
-              '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">' +
-              '<span style="font-size: 20px;">❌</span>' +
-              '<strong style="color: #c62828;">Fehler bei Frage ' + (i + 1) + ':</strong>' +
-              '</div>' +
-              '<p style="margin: 4px 0; color: var(--gray-700);">' + prompt.question + '</p>' +
-              '<small style="color: #d32f2f;">' + (error.message || 'Unbekannter Fehler') + '</small>';
-            responsesList.appendChild(errorDiv);
-            errorDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          }
-        }
-        
-        // Final update
-        if (progressFill) {
-          progressFill.style.width = '100%';
-          progressFill.style.transition = 'width 0.3s ease';
-        }
-        if (progressText) progressText.textContent = '✅ Analyse abgeschlossen! ' + executedCount + ' von ' + promptsLength + ' Fragen erfolgreich ausgeführt';
-        if (statusEl) {
-          statusEl.textContent = '✅ Schritt 5 abgeschlossen';
-          statusEl.style.color = '#059669';
-        }
-        if (statusDetailsEl) statusDetailsEl.textContent = 'Alle Fragen wurden ausgeführt. Ergebnisse sind unten sichtbar.';
-        
-        // Save all responses
-        try {
-          await fetch('/api/workflow/step5', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              runId: currentRunId,
-              prompts: workflowData.prompts
-            })
-          });
-        } catch (error) {
-          console.error('Error saving responses:', error);
-        }
-        
-        // Generate summary/fazit after all questions are answered
-        if (executedCount > 0 && allQuestionsAndAnswers.length > 0) {
-          await generateSummary(allQuestionsAndAnswers, workflowData);
-        }
-        
-        const loading = document.getElementById('loading');
-        if (loading) {
-          loading.style.display = 'none';
-          loading.classList.remove('show');
-        }
-      } catch (error) {
-        console.error('Error in executeStep5:', error);
-        throw error;
-      }
-    }
-
-    async function generateSummary(questionsAndAnswers, workflowData) {
-      try {
-        const statusEl = document.getElementById('currentStatus');
-        const statusDetailsEl = document.getElementById('statusDetails');
-        const responsesList = document.getElementById('responsesList');
-        
-        if (statusEl) {
-          statusEl.textContent = '📊 Fazit wird generiert...';
-          statusEl.style.color = '#7c3aed';
-        }
-        if (statusDetailsEl) {
-          statusDetailsEl.textContent = 'GPT analysiert alle Fragen und Antworten...';
-        }
-        
-        // Check if responsesList exists
-        if (!responsesList) {
-          console.error('❌ responsesList element not found');
-          throw new Error('Responses list element not found');
-        }
-        
-        // Show loading indicator
-        const summaryLoadingDiv = document.createElement('div');
-        summaryLoadingDiv.id = 'summaryLoading';
-        summaryLoadingDiv.style.cssText = 'padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center; margin-top: 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
-        summaryLoadingDiv.innerHTML = 
-          '<div style="display: inline-block; width: 32px; height: 32px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 12px;"></div>' +
-          '<p style="color: white; font-weight: 600; margin: 0; font-size: 16px;">Fazit wird generiert...</p>' +
-          '<p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 8px 0 0 0;">GPT analysiert alle Fragen und Antworten</p>';
-        responsesList.appendChild(summaryLoadingDiv);
-        summaryLoadingDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        
-        // Call API to generate summary
-        const response = await fetch('/api/workflow/generateSummary', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            runId: currentRunId,
-            questionsAndAnswers: questionsAndAnswers,
-            userInput: workflowData
-          })
-        });
-        
-        if (!response.ok) {
-          throw new Error('Fehler beim Generieren des Fazits');
-        }
-        
-        const summaryData = await response.json();
-        
-        // Remove loading indicator
-        const loadingEl = document.getElementById('summaryLoading');
-        if (loadingEl) loadingEl.remove();
-        
-        // Display summary
-        const summaryDiv = document.createElement('div');
-        summaryDiv.id = 'summary';
-        summaryDiv.style.cssText = 'padding: 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; margin-top: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); color: white;';
-        
-        const totalMentions = summaryData.totalMentions || 0;
-        const totalCitations = summaryData.totalCitations || 0;
-        const bestPrompts = summaryData.bestPrompts || [];
-        const otherSources = summaryData.otherSources || {};
-        
-        let bestPromptsHtml = '';
-        if (bestPrompts.length > 0) {
-          bestPromptsHtml = '<div style="margin-top: 16px; padding: 16px; background: rgba(255,255,255,0.15); border-radius: 8px; backdrop-filter: blur(10px);">';
-          bestPromptsHtml += '<h4 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 700; color: white;">🏆 Beste Prompts:</h4>';
-          bestPromptsHtml += '<ul style="margin: 0; padding-left: 20px; list-style: none;">';
-          bestPrompts.forEach(function(prompt, idx) {
-            bestPromptsHtml += '<li style="margin-bottom: 8px; padding: 8px 12px; background: rgba(255,255,255,0.1); border-radius: 6px; border-left: 3px solid white;">';
-            bestPromptsHtml += '<span style="font-weight: 600; margin-right: 8px;">' + (idx + 1) + '.</span>';
-            bestPromptsHtml += '<span>' + prompt.question.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
-            bestPromptsHtml += '<div style="margin-top: 4px; font-size: 12px; opacity: 0.9;">Erwähnungen: ' + prompt.mentions + ', Zitierungen: ' + prompt.citations + '</div>';
-            bestPromptsHtml += '</li>';
-          });
-          bestPromptsHtml += '</ul></div>';
-        }
-        
-        let otherSourcesHtml = '';
-        const sourceEntries = Object.entries(otherSources);
-        if (sourceEntries.length > 0) {
-          otherSourcesHtml = '<div style="margin-top: 16px; padding: 16px; background: rgba(255,255,255,0.15); border-radius: 8px; backdrop-filter: blur(10px);">';
-          otherSourcesHtml += '<h4 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 700; color: white;">📚 Andere Quellen:</h4>';
-          otherSourcesHtml += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">';
-          sourceEntries.forEach(function([source, count]) {
-            otherSourcesHtml += '<div style="padding: 10px; background: rgba(255,255,255,0.1); border-radius: 6px; text-align: center;">';
-            otherSourcesHtml += '<div style="font-size: 24px; font-weight: 700; margin-bottom: 4px;">' + count + '</div>';
-            otherSourcesHtml += '<div style="font-size: 12px; opacity: 0.9; word-break: break-word;">' + source.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
-            otherSourcesHtml += '</div>';
-          });
-          otherSourcesHtml += '</div></div>';
-        }
-        
-        summaryDiv.innerHTML = 
-          '<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">' +
-          '<span style="font-size: 32px;">📊</span>' +
-          '<h3 style="margin: 0; font-size: 24px; font-weight: 700; color: white;">Fazit</h3>' +
-          '</div>' +
-          '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">' +
-          '<div style="padding: 16px; background: rgba(255,255,255,0.15); border-radius: 8px; backdrop-filter: blur(10px); text-align: center;">' +
-          '<div style="font-size: 32px; font-weight: 700; margin-bottom: 8px;">' + totalMentions + '</div>' +
-          '<div style="font-size: 14px; opacity: 0.9;">Anzahl Erwähnungen</div>' +
-          '</div>' +
-          '<div style="padding: 16px; background: rgba(255,255,255,0.15); border-radius: 8px; backdrop-filter: blur(10px); text-align: center;">' +
-          '<div style="font-size: 32px; font-weight: 700; margin-bottom: 8px;">' + totalCitations + '</div>' +
-          '<div style="font-size: 14px; opacity: 0.9;">Anzahl Zitierungen</div>' +
-          '</div>' +
-          '</div>' +
-          bestPromptsHtml +
-          otherSourcesHtml;
-        
-        // Check if responsesList still exists before appending
-        if (responsesList) {
-          responsesList.appendChild(summaryDiv);
-          summaryDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        } else {
-          console.error('❌ responsesList element not found when trying to append summary');
-        }
-        
-        if (statusEl) {
-          statusEl.textContent = '✅ Fazit generiert';
-          statusEl.style.color = '#059669';
-        }
-        if (statusDetailsEl) {
-          statusDetailsEl.textContent = 'Alle Analysen abgeschlossen';
-        }
-      } catch (error) {
-        console.error('Error generating summary:', error);
-        const loadingEl = document.getElementById('summaryLoading');
-        if (loadingEl) loadingEl.remove();
-        
-        const errorDiv = document.createElement('div');
-        errorDiv.style.cssText = 'padding: 16px; background: #ffebee; border: 1px solid #f44336; border-radius: 8px; margin-top: 24px;';
-        errorDiv.innerHTML = 
-          '<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">' +
-          '<span style="font-size: 20px;">❌</span>' +
-          '<strong style="color: #c62828;">Fehler beim Generieren des Fazits:</strong>' +
-          '</div>' +
-          '<small style="color: #d32f2f;">' + (error.message || 'Unbekannter Fehler') + '</small>';
-        const responsesList = document.getElementById('responsesList');
-        if (responsesList) responsesList.appendChild(errorDiv);
-      }
-    }
-
-    const analyzeForm = document.getElementById('analyzeForm');
-    if (!analyzeForm) {
-      console.error('❌ Form element not found!');
-      alert('Fehler: Formular nicht gefunden. Bitte Seite neu laden.');
-      return;
-    }
-    
-    console.log('✅ Form found, adding event listeners...');
-    
-    // Handle button click - PRIMARY METHOD
-    const startBtn = document.getElementById('startAnalysisBtn');
-    if (!startBtn) {
-      console.error('❌ Start button not found!');
-      alert('Fehler: Start-Button nicht gefunden. Bitte Seite neu laden.');
-      return;
-    }
-    
-    console.log('✅ Start button found, attaching click handler...');
-    
-    // Override the inline onclick with our full handler
-    startBtn.onclick = async function(e) {
-      console.log('🔵 Button clicked via onclick handler!');
-      if (e) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-      
-      try {
-        // Visual feedback immediately
-        startBtn.disabled = true;
-        const originalText = startBtn.textContent;
-        startBtn.textContent = 'Starte Analyse...';
-        startBtn.style.opacity = '0.7';
-        startBtn.style.cursor = 'not-allowed';
-        
-        console.log('🔵 Calling handleFormSubmit...');
-        await handleFormSubmit();
-        
-        // Re-enable button after completion
-        startBtn.disabled = false;
-        startBtn.textContent = originalText;
-        startBtn.style.opacity = '1';
-        startBtn.style.cursor = 'pointer';
-      } catch (error) {
-        console.error('❌ Error in button click handler:', error);
-        alert('Fehler beim Starten der Analyse: ' + (error.message || error));
-        
-        // Re-enable button on error
-        startBtn.disabled = false;
-        startBtn.textContent = 'Analyse starten';
-        startBtn.style.opacity = '1';
-        startBtn.style.cursor = 'pointer';
-      }
-    };
-    
-    console.log('✅ Button onclick handler attached');
-    
-    // Prevent form submission on Enter key in input fields
-    const formInputs = analyzeForm.querySelectorAll('input, select');
-    formInputs.forEach(input => {
-      input.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          e.stopPropagation();
-          console.log('🔵 Enter key pressed, triggering button click');
-          startBtn.click();
-        }
-      });
-    });
-    
-    // Also handle form submit (as fallback)
-    analyzeForm.addEventListener('submit', async function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      console.log('🔵 Form submitted (fallback)!');
-      startBtn.click(); // Trigger button click instead
-    });
-    
-    // Prevent AI Readiness form from submitting to wrong handler
-    const aiReadinessForm = document.getElementById('aiReadinessForm');
-    if (aiReadinessForm) {
-      aiReadinessForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        e.stopPropagation();
-        console.log('🔵 AI Readiness form submitted - preventing default');
-        // Call startAIReadiness if available
-        if (window.startAIReadiness) {
-          window.startAIReadiness();
-        }
-        return false;
-      });
-    }
-    
-    console.log('✅ All event listeners attached successfully');
-    
-    // Make functions available globally for startAnalysisNow
-    window.executeStep1 = executeStep1;
-    window.executeStep2 = executeStep2;
-    window.executeStep3 = executeStep3;
-    window.executeStep4 = executeStep4;
-    window.executeStep5 = executeStep5;
-
-    // Helper functions
-    function hideAllSections() {
-      const analysisSection = document.querySelector('.content-area > .card');
-      const analysesSection = document.getElementById('analysesSection');
-      const analysisDetailSection = document.getElementById('analysisDetailSection');
-      const aiReadinessSection = document.getElementById('aiReadinessSection');
-      if (analysisSection) analysisSection.style.display = 'none';
-      if (analysesSection) analysesSection.style.display = 'none';
-      if (analysisDetailSection) analysisDetailSection.style.display = 'none';
-      if (aiReadinessSection) aiReadinessSection.style.display = 'none';
-    }
-    
-    function updateNavActive(event) {
-      const navItems = document.querySelectorAll('.nav-item');
-      navItems.forEach(item => item.classList.remove('active'));
-      if (event && event.target) {
-        event.target.closest('.nav-item')?.classList.add('active');
-      }
-    }
-    
-    // Dashboard functionality
-    function showDashboard(event) {
-      hideAllSections();
-      const analysisSection = document.querySelector('.content-area > .card');
-      if (analysisSection) {
-        analysisSection.style.display = 'block';
-      }
-      updateNavActive(event);
-    }
-    
-    // Analyses functionality
-    function showAnalyses(event) {
-      hideAllSections();
-      const analysesSection = document.getElementById('analysesSection');
-      if (analysesSection) {
-        analysesSection.style.display = 'block';
-        loadAnalyses();
-      }
-      updateNavActive(event);
-    }
-    
-    // AI Readiness functionality
-    function showAIReadiness(event) {
-      hideAllSections();
-      const aiReadinessSection = document.getElementById('aiReadinessSection');
-      if (aiReadinessSection) {
-        aiReadinessSection.style.display = 'block';
-      }
-      updateNavActive(event);
-    }
-    
-    // Start AI Readiness Check
-    async function startAIReadiness() {
-      const urlInput = document.getElementById('aiReadinessUrl');
-      const url = urlInput?.value?.trim();
-      
-      if (!url) {
-        alert('Bitte geben Sie eine URL ein.');
-            return;
-          }
-          
-      // Validate URL
-      let websiteUrl = url;
-      const urlPattern = new RegExp('^https?:\\/\\/', 'i');
-      if (!urlPattern.test(websiteUrl)) {
-        websiteUrl = 'https://' + websiteUrl;
-      }
-      
-      try {
-        new URL(websiteUrl);
-      } catch (e) {
-        alert('Ungültige URL. Bitte geben Sie eine gültige URL ein.');
-        return;
-      }
-      
-      const loadingEl = document.getElementById('aiReadinessLoading');
-      const resultsEl = document.getElementById('aiReadinessResults');
-      const statusEl = document.getElementById('aiReadinessStatus');
-      const statusDetailsEl = document.getElementById('aiReadinessStatusDetails');
-      const progressEl = document.getElementById('aiReadinessProgress');
-      const progressTextEl = document.getElementById('aiReadinessProgressText');
-      const resultsContentEl = document.getElementById('aiReadinessResultsContent');
-      const consoleEl = document.getElementById('aiReadinessConsole');
-      const consoleContentEl = document.getElementById('aiReadinessConsoleContent');
-      
-      // Console logging function
-      const addConsoleLog = (message, type = 'info') => {
-        if (!consoleContentEl) return;
-        const timestamp = new Date().toLocaleTimeString('de-DE');
-        const colors = {
-          info: '#4fc3f7',
-          success: '#66bb6a',
-          warning: '#ffa726',
-          error: '#ef5350',
-          system: '#6a9955'
-        };
-        const icons = {
-          info: 'ℹ️',
-          success: '✅',
-          warning: '⚠️',
-          error: '❌',
-          system: '🔵'
-        };
-        const color = colors[type] || colors.info;
-        const icon = icons[type] || icons.info;
-        const logLine = document.createElement('div');
-        logLine.style.color = color;
-        logLine.style.marginBottom = '4px';
-        const timestampSpan = document.createElement('span');
-        timestampSpan.style.color = '#858585';
-        timestampSpan.textContent = '[' + timestamp + ']';
-        logLine.appendChild(timestampSpan);
-        logLine.appendChild(document.createTextNode(' ' + icon + ' ' + message));
-        consoleContentEl.appendChild(logLine);
-        consoleContentEl.scrollTop = consoleContentEl.scrollHeight;
-      };
-      
-      // Clear console function
-      const clearConsole = () => {
-        if (consoleContentEl) {
-          consoleContentEl.innerHTML = '<div style="color: #6a9955;">[System] Console gelöscht.</div>';
-        }
-      };
-      
-      // Setup clear button
-      const clearBtn = document.getElementById('clearConsoleBtn');
-      if (clearBtn) {
-        clearBtn.onclick = clearConsole;
-      }
-      
-      if (loadingEl) {
-        loadingEl.style.display = 'block';
-        loadingEl.classList.add('show');
-      }
-      if (consoleEl) {
-        consoleEl.style.display = 'block';
-        clearConsole();
-        addConsoleLog('AI Readiness Analyse gestartet', 'system');
-        addConsoleLog('Ziel-URL: ' + websiteUrl, 'info');
-      }
-      if (resultsEl) resultsEl.style.display = 'none';
-      if (statusEl) statusEl.textContent = 'Vorbereitung...';
-      if (statusDetailsEl) statusDetailsEl.textContent = 'Starte AI Readiness Check...';
-      if (progressEl) progressEl.style.width = '0%';
-      if (progressTextEl) progressTextEl.textContent = '0%';
-      
-      try {
-        // Step 1: Start analysis
-        addConsoleLog('Starte Analyse-Request an Server...', 'info');
-        if (statusEl) statusEl.textContent = 'Schritt 1: robots.txt und Sitemap holen...';
-        if (statusDetailsEl) statusDetailsEl.textContent = 'Lade robots.txt und Sitemap...';
-        if (progressEl) progressEl.style.width = '20%';
-        if (progressTextEl) progressTextEl.textContent = '20%';
-        
-        const step1Response = await fetch('/api/ai-readiness/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ websiteUrl })
-        });
-        
-        if (!step1Response.ok) {
-          addConsoleLog('Fehler beim Starten der Analyse', 'error');
-          throw new Error('Fehler beim Starten der Analyse');
-        }
-        
-        const step1Data = await step1Response.json();
-        addConsoleLog('Analyse gestartet. Run ID: ' + step1Data.runId, 'success');
-        addConsoleLog('Warte auf Hintergrund-Verarbeitung...', 'info');
-        
-        // Wait for completion (polling)
-        let attempts = 0;
-        const maxAttempts = 120; // 10 minutes max (120 * 5 seconds)
-        let recommendations = null;
-        let lastMessage = '';
-        
-        while (attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
-          
-          const statusResponse = await fetch('/api/ai-readiness/status/' + step1Data.runId);
-          if (statusResponse.ok) {
-            const statusData = await statusResponse.json();
-            
-            // Log status updates
-            if (statusData.message && statusData.message !== lastMessage) {
-              addConsoleLog(statusData.message, 'info');
-              lastMessage = statusData.message;
-              
-              // Parse step from message
-              if (statusData.message.includes('Schritt 1')) {
-                if (progressEl) progressEl.style.width = '15%';
-                if (progressTextEl) progressTextEl.textContent = '15%';
-                if (statusEl) statusEl.textContent = 'Schritt 1/6: robots.txt';
-              } else if (statusData.message.includes('Schritt 2')) {
-                if (progressEl) progressEl.style.width = '30%';
-                if (progressTextEl) progressTextEl.textContent = '30%';
-                if (statusEl) statusEl.textContent = 'Schritt 2/6: Sitemap';
-              } else if (statusData.message.includes('Schritt 3')) {
-                if (progressEl) progressEl.style.width = '45%';
-                if (progressTextEl) progressTextEl.textContent = '45%';
-                if (statusEl) statusEl.textContent = 'Schritt 3/6: Homepage';
-              } else if (statusData.message.includes('Schritt 4')) {
-                if (progressEl) progressEl.style.width = '60%';
-                if (progressTextEl) progressTextEl.textContent = '60%';
-                if (statusEl) statusEl.textContent = 'Schritt 4/6: Seiten scrapen';
-              } else if (statusData.message.includes('Schritt 5')) {
-                if (progressEl) progressEl.style.width = '75%';
-                if (progressTextEl) progressTextEl.textContent = '75%';
-                if (statusEl) statusEl.textContent = 'Schritt 5/6: Daten analysieren';
-              } else if (statusData.message.includes('Schritt 6')) {
-                if (progressEl) progressEl.style.width = '85%';
-                if (progressTextEl) progressTextEl.textContent = '85%';
-                if (statusEl) statusEl.textContent = 'Schritt 6/6: GPT-Analyse';
-              }
-            }
-            
-            if (statusData.status === 'completed') {
-              addConsoleLog('Analyse erfolgreich abgeschlossen!', 'success');
-              recommendations = statusData.recommendations;
-              break;
-            } else if (statusData.status === 'error') {
-              addConsoleLog('Fehler: ' + (statusData.error || 'Unbekannter Fehler'), 'error');
-              throw new Error(statusData.error || 'Fehler bei der Analyse');
-            }
-            
-            // Update progress
-            if (statusDetailsEl && statusData.message) {
-              statusDetailsEl.textContent = statusData.message;
-            }
-          } else {
-            addConsoleLog('Status-Abfrage fehlgeschlagen (Versuch ' + (attempts + 1) + '/' + maxAttempts + ')', 'warning');
-          }
-          
-          attempts++;
-        }
-        
-        if (!recommendations) {
-          addConsoleLog('Timeout: Die Analyse hat zu lange gedauert.', 'error');
-          throw new Error('Timeout: Die Analyse hat zu lange gedauert.');
-        }
-        
-        // Display results
-        addConsoleLog('Ergebnisse werden angezeigt...', 'success');
-        if (statusEl) statusEl.textContent = '✅ Analyse abgeschlossen';
-        if (statusDetailsEl) statusDetailsEl.textContent = 'AI Readiness Check erfolgreich durchgeführt';
-        if (progressEl) progressEl.style.width = '100%';
-        if (progressTextEl) progressTextEl.textContent = '100%';
-        
-        if (resultsContentEl) {
-          resultsContentEl.innerHTML = 
-            '<div style="white-space: pre-wrap; font-size: 14px; line-height: 1.7; color: #374151;">' +
-            recommendations.replace(/</g, '&lt;').replace(/>/g, '&gt;') +
-            '</div>';
-        }
-        
-        if (resultsEl) resultsEl.style.display = 'block';
-        
-      } catch (error) {
-        console.error('Error in AI Readiness check:', error);
-        addConsoleLog('Fehler: ' + (error instanceof Error ? error.message : 'Unbekannter Fehler'), 'error');
-        if (statusEl) statusEl.textContent = '❌ Fehler';
-        if (statusDetailsEl) statusDetailsEl.textContent = error instanceof Error ? error.message : 'Unbekannter Fehler';
-        alert('Fehler beim AI Readiness Check: ' + (error instanceof Error ? error.message : 'Unbekannter Fehler'));
-      } finally {
-        if (loadingEl) {
-          setTimeout(() => {
-            loadingEl.style.display = 'none';
-            loadingEl.classList.remove('show');
-          }, 2000);
-        }
-      }
-    }
-    
-    function loadAnalyses() {
-      const analysesList = document.getElementById('analysesList');
-      if (!analysesList) return;
-      
-      analysesList.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--gray-500);">Lade Analysen...</div>';
-      
-      fetch('/api/analyses')
-        .then(res => res.json())
-        .then(analyses => {
-          if (analyses.length === 0) {
-            analysesList.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--gray-500);">Keine Analysen vorhanden. Starte eine neue Analyse.</div>';
-            return;
-          }
-          
-          analysesList.innerHTML = analyses.map(function(analysis) {
-            const createdAt = new Date(analysis.createdAt);
-            const statusBadge = analysis.status === 'completed' 
-              ? '<span style="padding: 4px 12px; background: #059669; color: white; border-radius: 12px; font-size: 12px; font-weight: 600;">Abgeschlossen</span>'
-              : analysis.status === 'running'
-              ? '<span style="padding: 4px 12px; background: #d97706; color: white; border-radius: 12px; font-size: 12px; font-weight: 600;">Läuft</span>'
-              : '<span style="padding: 4px 12px; background: #cbd5e1; color: white; border-radius: 12px; font-size: 12px; font-weight: 600;">' + analysis.status + '</span>';
-            
-            const runId = analysis.id || '';
-            return '<div style="padding: 20px; background: white; border: 1px solid var(--gray-200); border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: all 0.2s;">' +
-              '<div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">' +
-                '<div style="flex: 1;">' +
-                  '<h4 style="margin: 0 0 4px 0; font-size: 18px; font-weight: 600; color: var(--gray-900);">' + (analysis.websiteUrl || 'Unbekannte URL') + '</h4>' +
-                  '<p style="margin: 0; font-size: 13px; color: var(--gray-500);">' + createdAt.toLocaleString('de-DE') + '</p>' +
-                '</div>' +
-                statusBadge +
-              '</div>' +
-              '<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 16px;">' +
-                '<div>' +
-                  '<div style="font-size: 11px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Land</div>' +
-                  '<div style="font-size: 14px; font-weight: 600; color: var(--gray-900);">' + (analysis.country || '') + '</div>' +
-                '</div>' +
-                '<div>' +
-                  '<div style="font-size: 11px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Sprache</div>' +
-                  '<div style="font-size: 14px; font-weight: 600; color: var(--gray-900);">' + (analysis.language || '') + '</div>' +
-                '</div>' +
-                '<div>' +
-                  '<div style="font-size: 11px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Region</div>' +
-                  '<div style="font-size: 14px; font-weight: 600; color: var(--gray-900);">' + (analysis.region || '-') + '</div>' +
-                '</div>' +
-              '</div>' +
-              '<div style="margin-top: 16px; display: flex; gap: 8px;">' +
-                '<button class="btn btn-primary" data-run-id="' + String(runId).replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '" onclick="viewAnalysisDetails(this.dataset.runId)" style="flex: 1; padding: 8px 16px; font-size: 13px;">' +
-                  '📊 Details anzeigen' +
-                '</button>' +
-                (analysis.status === 'running' 
-                  ? '<button class="btn" data-run-id="' + String(runId).replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '" onclick="pauseAnalysis(this.dataset.runId)" style="padding: 8px 16px; font-size: 13px; background: var(--warning); color: white;">⏸ Pausieren</button>'
-                  : '') +
-                '<button class="btn" data-run-id="' + String(runId).replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '" onclick="deleteAnalysis(this.dataset.runId)" style="padding: 8px 16px; font-size: 13px; background: var(--error); color: white;">🗑 Löschen</button>' +
-              '</div>' +
-            '</div>';
-          }).join('');
-        })
-        .catch(err => {
-          console.error('Error loading analyses:', err);
-          analysesList.innerHTML = '<div style="text-align: center; padding: 40px; color: #dc2626;">Fehler beim Laden der Analysen.</div>';
-        });
-    }
-    
-    function viewAnalysisDetails(runId) {
-      console.log('🔍 Loading analysis details for runId:', runId);
-      hideAllSections();
-      const analysisDetailSection = document.getElementById('analysisDetailSection');
-      const analysisDetailContent = document.getElementById('analysisDetailContent');
-      const analysisDetailTitle = document.getElementById('analysisDetailTitle');
-      
-      if (!analysisDetailSection || !analysisDetailContent) {
-        console.error('❌ Analysis detail elements not found!');
-        return;
-      }
-      
-      analysisDetailSection.style.display = 'block';
-      analysisDetailContent.innerHTML = 
-        '<div style="text-align: center; padding: 40px; color: var(--gray-500);">' +
-        '<div style="display: inline-block; width: 40px; height: 40px; border: 4px solid var(--gray-200); border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 16px;"></div>' +
-        '<p style="margin-top: 16px; font-size: 14px;">Lade Analyse-Insights...</p>' +
-        '<p style="margin-top: 8px; font-size: 12px; color: var(--gray-400);">Dies kann einige Sekunden dauern</p>' +
-        '</div>';
-      
-      // Add spinner animation if not already present
-      if (!document.getElementById('spinnerStyle')) {
-        const style = document.createElement('style');
-        style.id = 'spinnerStyle';
-        style.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
-        document.head.appendChild(style);
-      }
-      
-      // Fetch insights instead of full analysis
-      const startTime = Date.now();
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-      
-      fetch('/api/analysis/' + runId + '/insights', {
-        signal: controller.signal
-      })
-        .then(res => {
-          if (!res.ok) {
-            return res.text().then(text => {
-              throw new Error('HTTP ' + res.status + ': ' + text.substring(0, 200));
-            });
-          }
-          return res.json();
-        })
-        .then(insights => {
-          clearTimeout(timeoutId);
-          const loadTime = ((Date.now() - startTime) / 1000).toFixed(2);
-          console.log('✅ Insights loaded in', loadTime, 'seconds');
-          
-          if (insights.error) {
-            console.error('❌ API returned error:', insights.error);
-            analysisDetailContent.innerHTML = '<div style="color: #dc2626; padding: 20px;">Fehler: ' + insights.error + '</div>';
-            return;
-          }
-          
-          // Validate that insights has required structure
-          if (!insights || !insights.summary) {
-            console.error('❌ Invalid insights data structure:', insights);
-            analysisDetailContent.innerHTML = '<div style="color: #dc2626; padding: 20px; background: #ffebee; border-radius: 8px; border-left: 4px solid #f44336;">' +
-              '<strong>❌ Fehler beim Laden der Insights</strong><br>' +
-              '<p style="margin-top: 8px; color: #c62828;">Ungültige Datenstruktur erhalten. Bitte versuche es erneut.</p>' +
-              '<p style="margin-top: 12px; font-size: 12px; color: #666;">Empfangen: ' + JSON.stringify(insights).substring(0, 200) + '</p>' +
-              '</div>';
-            return;
-          }
-          
-          // Ensure all required fields exist with defaults
-          if (!insights.summary) {
-            insights.summary = { totalBrandMentions: 0, totalBrandCitations: 0, promptsWithMentions: 0, totalPrompts: 0 };
-          }
-          if (!insights.promptsWithMentions) {
-            insights.promptsWithMentions = [];
-          }
-          if (!insights.allCompetitors) {
-            insights.allCompetitors = [];
-          }
-          if (!insights.detailedData) {
-            insights.detailedData = [];
-          }
-          
-          console.log('📊 Insights data:', {
-            totalBrandMentions: insights.summary.totalBrandMentions,
-            totalBrandCitations: insights.summary.totalBrandCitations,
-            promptsWithMentions: insights.summary.promptsWithMentions,
-            totalPrompts: insights.summary.totalPrompts
-          });
-          
-          // Build insights dashboard - Professional design
-          let html = '<div style="margin-bottom: 40px; padding-bottom: 24px; border-bottom: 1px solid #e5e7eb;">';
-          html += '<h2 style="margin: 0 0 8px 0; color: #111827; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">Analyse-Ergebnisse</h2>';
-          html += '<div style="display: flex; gap: 24px; margin-top: 12px; font-size: 14px; color: #6b7280;">';
-          html += '<span style="display: flex; align-items: center; gap: 6px;"><span style="width: 8px; height: 8px; background: #3b82f6; border-radius: 50%;"></span> ' + (insights.websiteUrl || '') + '</span>';
-          if (insights.brandName) {
-            html += '<span style="display: flex; align-items: center; gap: 6px;"><span style="width: 8px; height: 8px; background: #10b981; border-radius: 50%;"></span> ' + insights.brandName + '</span>';
-          }
-          html += '</div>';
-          html += '</div>';
-          
-          // Summary Metrics Cards - Clean, professional design
-          html += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 48px;">';
-          html += '<div style="padding: 28px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: all 0.2s;">';
-          html += '<div style="font-size: 13px; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">Markenerwähnungen</div>';
-          html += '<div style="font-size: 42px; font-weight: 700; color: #111827; margin-bottom: 4px; line-height: 1;">' + (insights.summary?.totalBrandMentions || 0) + '</div>';
-          html += '<div style="font-size: 13px; color: #9ca3af; margin-top: 8px;">Gesamtanzahl</div>';
-          html += '</div>';
-          
-          html += '<div style="padding: 28px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: all 0.2s;">';
-          html += '<div style="font-size: 13px; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">Zitationen</div>';
-          html += '<div style="font-size: 42px; font-weight: 700; color: #111827; margin-bottom: 4px; line-height: 1;">' + (insights.summary?.totalBrandCitations || 0) + '</div>';
-          html += '<div style="font-size: 13px; color: #9ca3af; margin-top: 8px;">Von dieser Marke</div>';
-          html += '</div>';
-          
-          html += '<div style="padding: 28px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: all 0.2s;">';
-          html += '<div style="font-size: 13px; font-weight: 500; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px;">Erfolgreiche Prompts</div>';
-          html += '<div style="font-size: 42px; font-weight: 700; color: #111827; margin-bottom: 4px; line-height: 1;">' + (insights.summary?.promptsWithMentions || 0) + '</div>';
-          html += '<div style="font-size: 13px; color: #9ca3af; margin-top: 8px;">von ' + (insights.summary?.totalPrompts || 0) + ' analysiert</div>';
-          html += '</div>';
-          html += '</div>';
-          
-          // Prompts where brand is mentioned - Professional design
-          if (insights.promptsWithMentions && insights.promptsWithMentions.length > 0) {
-            html += '<div style="margin-bottom: 48px;">';
-            html += '<h3 style="margin: 0 0 24px 0; color: #111827; font-size: 20px; font-weight: 600; letter-spacing: -0.3px;">Prompts mit Markenerwähnungen</h3>';
-            html += '<div style="display: grid; gap: 16px;">';
-            insights.promptsWithMentions.forEach(function(prompt) {
-              html += '<div style="padding: 20px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">';
-              html += '<div style="font-weight: 500; color: #111827; margin-bottom: 12px; font-size: 15px; line-height: 1.5;">' + (prompt?.question || 'Unbekannte Frage').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
-              html += '<div style="display: flex; gap: 24px; font-size: 13px; color: #6b7280; padding-top: 12px; border-top: 1px solid #f3f4f6;">';
-              html += '<span style="display: flex; align-items: center; gap: 6px;"><span style="color: #3b82f6; font-weight: 600;">' + (prompt?.mentionCount || 0) + '</span> Erwähnungen</span>';
-              html += '<span style="display: flex; align-items: center; gap: 6px;"><span style="color: #10b981; font-weight: 600;">' + (prompt?.citationCount || 0) + '</span> Zitationen</span>';
-              html += '</div>';
-              html += '</div>';
-            });
-            html += '</div></div>';
-          }
-          
-          // Competitors section removed as requested
-          
-          // Detailed data (collapsible) - Professional design
-          html += '<div style="margin-bottom: 32px;">';
-          html += '<details style="cursor: pointer;">';
-          html += '<summary style="padding: 18px 20px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; font-weight: 500; color: #111827; font-size: 15px; user-select: none; transition: background 0.2s;">Detaillierte Analyse-Ergebnisse</summary>';
-          html += '<div style="display: grid; gap: 20px; margin-top: 20px;">';
-          (insights.detailedData || []).forEach(function(data) {
-            html += '<div style="padding: 24px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">';
-            html += '<div style="font-weight: 500; color: #111827; margin-bottom: 16px; font-size: 16px; line-height: 1.5;">' + (data?.question || 'Unbekannte Frage').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
-            if (data?.answer) {
-              const answerText = String(data.answer || '');
-              html += '<div style="padding: 16px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 16px; font-size: 14px; color: #374151; line-height: 1.7;">';
-              html += answerText.substring(0, 400).replace(/</g, '&lt;').replace(/>/g, '&gt;') + (answerText.length > 400 ? '...' : '');
-              html += '</div>';
-            }
-            html += '<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding-top: 16px; border-top: 1px solid #f3f4f6;">';
-            html += '<div style="font-size: 13px;"><span style="color: #6b7280; display: block; margin-bottom: 4px;">Erwähnungen</span><span style="color: #111827; font-weight: 600; font-size: 18px;">' + (data?.brandMentions?.total || 0) + '</span></div>';
-            html += '<div style="font-size: 13px;"><span style="color: #6b7280; display: block; margin-bottom: 4px;">Zitate (Marke)</span><span style="color: #111827; font-weight: 600; font-size: 18px;">' + (data?.citations?.brandCitations || 0) + '</span></div>';
-            html += '<div style="font-size: 13px;"><span style="color: #6b7280; display: block; margin-bottom: 4px;">Zitate (gesamt)</span><span style="color: #111827; font-weight: 600; font-size: 18px;">' + (data?.citations?.total || 0) + '</span></div>';
-            html += '</div>';
-            html += '</div>';
-          });
-          html += '</div></details></div>';
-          
-          analysisDetailContent.innerHTML = html;
-          console.log('✅ Analysis details rendered successfully');
-        })
-        .catch(err => {
-          clearTimeout(timeoutId);
-          const loadTime = ((Date.now() - startTime) / 1000).toFixed(2);
-          console.error('❌ Error loading analysis insights after', loadTime, 'seconds:', err);
-          
-          let errorMessage = 'Unbekannter Fehler';
-          if (err.name === 'AbortError') {
-            errorMessage = 'Zeitüberschreitung: Die Anfrage hat zu lange gedauert (>30 Sekunden). Bitte versuche es erneut.';
-          } else if (err && err.message) {
-            errorMessage = err.message;
-          }
-          analysisDetailContent.innerHTML = 
-            '<div style="color: #dc2626; padding: 20px; background: #ffebee; border-radius: 8px; border-left: 4px solid #f44336;">' +
-            '<strong>❌ Fehler beim Laden der Analyse-Insights</strong><br>' +
-            '<p style="margin-top: 8px; color: #c62828;">' + errorMessage + '</p>' +
-            '<p style="margin-top: 12px; font-size: 12px; color: #666;">Bitte überprüfe die Browser-Konsole für weitere Details oder versuche es später erneut.</p>' +
-            '<button data-run-id="' + String(runId).replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '" onclick="viewAnalysisDetails(this.dataset.runId)" class="btn" style="margin-top: 12px; padding: 8px 16px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer;">🔄 Erneut versuchen</button>' +
-            '</div>';
-        });
-    }
-    
-    function deleteAnalysis(runId) {
-      if (!confirm('Möchtest du diese Analyse wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.')) {
-        return;
-      }
-      
-      fetch('/api/analysis/' + runId, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' }
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            alert('Analyse erfolgreich gelöscht!');
-            loadAnalyses(); // Reload the list
-          } else {
-            alert('Fehler beim Löschen: ' + (data.error || 'Unbekannter Fehler'));
-          }
-        })
-        .catch(err => {
-          console.error('Error deleting analysis:', err);
-          alert('Fehler beim Löschen der Analyse.');
-        });
-    }
-    
-    function pauseAnalysis(runId) {
-      if (!confirm('Möchtest du diese Analyse pausieren?')) {
-            return;
-          }
-          
-      fetch('/api/analysis/' + runId + '/pause', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' }
-          })
-            .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            alert('Analyse erfolgreich pausiert!');
-            loadAnalyses(); // Reload the list
-          } else {
-            alert('Fehler beim Pausieren: ' + (data.error || 'Unbekannter Fehler'));
-          }
-        })
-        .catch(err => {
-          console.error('Error pausing analysis:', err);
-          alert('Fehler beim Pausieren der Analyse.');
-        });
-    }
-    
-    // Store full implementations for use by global stubs
-    window.showDashboardFull = showDashboard;
-    window.showAnalysesFull = showAnalyses;
-    window.showAIReadinessFull = showAIReadiness;
-    window.startAIReadinessFull = startAIReadiness;
-    window.loadAnalyses = loadAnalyses;
-    window.viewAnalysisDetailsFull = viewAnalysisDetails;
-    window.deleteAnalysisFull = deleteAnalysis;
-    window.pauseAnalysisFull = pauseAnalysis;
-    
-    // Update global functions to use full implementations
-    // Note: window.startAIReadiness is already defined in <head> script, don't override it
-    window.showDashboard = showDashboard;
-    window.showAnalyses = showAnalyses;
-    window.showAIReadiness = showAIReadiness;
-    window.viewAnalysisDetails = viewAnalysisDetails;
-    window.deleteAnalysis = deleteAnalysis;
-    window.pauseAnalysis = pauseAnalysis;
-    }); // End of DOMContentLoaded
-  </script>
-</body>
-</html>`;
+        const html = LANDING_PAGE_HTML;
 
         return new Response(html, {
           headers: {
@@ -3798,7 +481,8 @@ export class APIRoutes {
       
       // Extract brand name from website URL
       const websiteUrl = userInput?.websiteUrl || '';
-      const brandName = this.extractBrandName(websiteUrl);
+      const { extractBrandName } = await import("./utils.js");
+      const brandName = extractBrandName(websiteUrl);
       
       // Perform analysis: Brand mentions, Citations, Competitors, Sentiment
       const { AnalysisEngine } = await import("../analysis/index.js");
@@ -3882,7 +566,8 @@ export class APIRoutes {
     try {
       // Extract brand name from website URL
       const websiteUrl = userInput?.websiteUrl || '';
-      const brandName = this.extractBrandName(websiteUrl);
+      const { extractBrandName } = await import("./utils.js");
+      const brandName = extractBrandName(websiteUrl);
       
       // Calculate totals
       let totalMentions = 0;
@@ -4009,17 +694,7 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
     }
   }
   
-  private extractBrandName(websiteUrl: string): string {
-    try {
-      const url = new URL(websiteUrl);
-      const hostname = url.hostname.replace('www.', '');
-      const parts = hostname.split('.');
-      // Return the main domain name (e.g., "example" from "example.com")
-      return parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
-    } catch {
-      return 'Company';
-    }
-  }
+  // extractBrandName moved to utils.ts
 
   /**
    * Check if a hostname belongs to the brand's own website
@@ -4529,7 +1204,8 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
         throw new Error("Analysis run not found");
       }
 
-      const brandName = this.extractBrandName(runInfo.website_url);
+      const { extractBrandName } = await import("./utils.js");
+      const brandName = extractBrandName(runInfo.website_url);
       const analysisEngine = new AnalysisEngine(brandName, config.analysis.brandFuzzyThreshold);
 
       // Load all prompts for this run
@@ -4879,7 +1555,8 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
       }
       
       // Extract brand name from website URL
-      const brandName = this.extractBrandName(run.website_url);
+      const { extractBrandName } = await import("./utils.js");
+      const brandName = extractBrandName(run.website_url);
       
       // Get all prompts for this run
       const prompts = await db.db
@@ -5138,8 +1815,214 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
   }
 
   // Pause an analysis
-  
+  private async handlePauseAnalysis(
+    runId: string,
+    env: Env,
+    corsHeaders: Record<string, string>
+  ): Promise<Response> {
+    try {
+      const { Database } = await import("../persistence/index.js");
+      const db = new Database(env.geo_db as any);
+      
+      // Update status to paused
+      await db.updateAnalysisStatus(runId, "paused", {
+        step: "paused",
+        progress: undefined,
+        message: "Analysis paused by user",
+      });
 
+      return new Response(
+        JSON.stringify({ success: true, message: "Analysis paused successfully" }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    } catch (error) {
+      console.error("Error pausing analysis:", error);
+      return new Response(
+        JSON.stringify({
+          error: error instanceof Error ? error.message : "Unknown error",
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+  }
+
+  // AI Readiness: Start analysis
+  private async handleAIReadinessAnalyze(
+    request: Request,
+    env: Env,
+    corsHeaders: Record<string, string>,
+    ctx?: ExecutionContext
+  ): Promise<Response> {
+    try {
+      const body = await request.json() as { websiteUrl: string };
+      let { websiteUrl } = body;
+      
+      if (!websiteUrl || !websiteUrl.trim()) {
+        return new Response(
+          JSON.stringify({ error: "websiteUrl is required" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+      
+      // URL Normalisierung: Ergänze https:// falls fehlend
+      websiteUrl = websiteUrl.trim();
+      const urlPattern = /^https?:\/\//i;
+      if (!urlPattern.test(websiteUrl)) {
+        websiteUrl = 'https://' + websiteUrl;
+      }
+      
+      // Validiere URL
+      try {
+        new URL(websiteUrl);
+      } catch (e) {
+        return new Response(
+          JSON.stringify({ error: "Invalid URL format" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          }
+        );
+      }
+      
+      // Erstelle Run-ID
+      const runId = `ai_readiness_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      console.log(`[AI Readiness ${runId}] ========================================`);
+      console.log(`[AI Readiness ${runId}] 🚀 STARTING ANALYSIS`);
+      console.log(`[AI Readiness ${runId}] URL: ${websiteUrl}`);
+      console.log(`[AI Readiness ${runId}] RunId: ${runId}`);
+      console.log(`[AI Readiness ${runId}] Timestamp: ${new Date().toISOString()}`);
+      console.log(`[AI Readiness ${runId}] ctx available: ${!!ctx}`);
+      console.log(`[AI Readiness ${runId}] ctx.waitUntil available: ${ctx ? typeof ctx.waitUntil : 'N/A'}`);
+      console.log(`[AI Readiness ${runId}] ========================================`);
+      
+      // Erstelle sofort einen Datenbankeintrag, damit der Status-Endpoint etwas zurückgeben kann
+      let dbInitSuccess = false;
+      try {
+        console.log(`[AI Readiness ${runId}] → Step 1: Creating database connection...`);
+        const { Database } = await import("../persistence/index.js");
+        const db = new Database(env.geo_db as any);
+        console.log(`[AI Readiness ${runId}] → Step 2: Creating table if not exists...`);
+        await db.db.exec(
+          'CREATE TABLE IF NOT EXISTS ai_readiness_runs (id TEXT PRIMARY KEY, website_url TEXT NOT NULL, status TEXT NOT NULL, robots_txt TEXT, sitemap_urls TEXT, total_urls INTEGER, recommendations TEXT, message TEXT, error TEXT, logs TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)'
+        );
+        console.log(`[AI Readiness ${runId}] → Step 3: Inserting initial record...`);
+        const now = new Date().toISOString();
+        const insertResult = await db.db
+          .prepare('INSERT OR REPLACE INTO ai_readiness_runs (id, website_url, status, created_at, updated_at, message, logs) VALUES (?, ?, ?, ?, ?, ?, ?)')
+          .bind(runId, websiteUrl, 'processing', now, now, '🚀 Analyse wird gestartet...', '[]')
+          .run();
+        console.log(`[AI Readiness ${runId}] ✓ Initial database record created:`, {
+          success: insertResult.success,
+          changes: insertResult.meta?.changes
+        });
+        
+        // Verify it was created
+        const verify = await db.db
+          .prepare('SELECT id, status, message FROM ai_readiness_runs WHERE id = ?')
+          .bind(runId)
+          .first();
+        console.log(`[AI Readiness ${runId}] ✓ Verified record exists:`, verify);
+        dbInitSuccess = true;
+      } catch (initError: any) {
+        console.error(`[AI Readiness ${runId}] ❌ Database initialization failed:`, {
+          message: initError?.message,
+          stack: initError?.stack,
+          name: initError?.name,
+          error: initError
+        });
+      }
+      
+      // Starte asynchrone Verarbeitung mit besserem Error Handling
+      console.log(`[AI Readiness ${runId}] → Step 4: Starting processAIReadiness function...`);
+      const processStartTime = Date.now();
+      
+      const promise = this.processAIReadiness(runId, websiteUrl, env).catch(async (error) => {
+        const processTime = Date.now() - processStartTime;
+        console.error(`[AI Readiness ${runId}] ========================================`);
+        console.error(`[AI Readiness ${runId}] ❌ CRITICAL ERROR in processAIReadiness`);
+        console.error(`[AI Readiness ${runId}] Time elapsed: ${processTime}ms`);
+        console.error(`[AI Readiness ${runId}] Error type: ${error?.constructor?.name}`);
+        console.error(`[AI Readiness ${runId}] Error message: ${error instanceof Error ? error.message : String(error)}`);
+        console.error(`[AI Readiness ${runId}] Error stack:`, error instanceof Error ? error.stack : 'No stack');
+        console.error(`[AI Readiness ${runId}] Full error:`, error);
+        console.error(`[AI Readiness ${runId}] ========================================`);
+        
+        try {
+          const { Database } = await import("../persistence/index.js");
+          const db = new Database(env.geo_db as any);
+          await db.db
+            .prepare('UPDATE ai_readiness_runs SET status = ?, error = ?, message = ?, updated_at = ? WHERE id = ?')
+            .bind(
+              'error',
+              error instanceof Error ? error.message : 'Unknown error',
+              `❌ Fehler: ${error instanceof Error ? error.message : 'Unbekannter Fehler'}`,
+              new Date().toISOString(),
+              runId
+            )
+            .run();
+          console.log(`[AI Readiness ${runId}] ✓ Error status saved to database`);
+        } catch (dbError: any) {
+          console.error(`[AI Readiness ${runId}] ❌ Could not update error status in database:`, {
+            message: dbError?.message,
+            stack: dbError?.stack,
+            error: dbError
+          });
+        }
+      });
+      
+      // In Cloudflare Workers: waitUntil sorgt dafür, dass die async Funktion vollständig ausgeführt wird
+      console.log(`[AI Readiness ${runId}] → Step 5: Setting up waitUntil...`);
+      if (ctx && typeof ctx.waitUntil === 'function') {
+        ctx.waitUntil(promise);
+        console.log(`[AI Readiness ${runId}] ✓ Analysis promise started with ctx.waitUntil`);
+        console.log(`[AI Readiness ${runId}] ✓ Promise will continue in background`);
+      } else {
+        console.warn(`[AI Readiness ${runId}] ⚠ No ExecutionContext available!`);
+        console.warn(`[AI Readiness ${runId}] ⚠ ctx:`, ctx);
+        console.warn(`[AI Readiness ${runId}] ⚠ Running without waitUntil - function may be cancelled`);
+        // Fallback: Start promise anyway, but it might be cancelled
+        promise.catch(err => {
+          console.error(`[AI Readiness ${runId}] Promise failed (no waitUntil):`, err);
+        });
+      }
+      
+      console.log(`[AI Readiness ${runId}] ========================================`);
+      console.log(`[AI Readiness ${runId}] ✓ HANDLE REQUEST COMPLETE`);
+      console.log(`[AI Readiness ${runId}] Returning response with runId: ${runId}`);
+      console.log(`[AI Readiness ${runId}] ========================================`);
+      
+      return new Response(
+        JSON.stringify({
+          runId,
+          status: "started",
+          message: "AI Readiness Check gestartet",
+        }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    } catch (error) {
+      console.error("Error in handleAIReadinessAnalyze:", error);
+      return new Response(
+        JSON.stringify({
+          error: error instanceof Error ? error.message : "Unknown error",
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+  }
 
   // AI Readiness: Get status
   private async handleAIReadinessStatus(
@@ -5154,7 +2037,7 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
       // Create table if not exists (using try-catch to ignore if already exists)
       try {
         await db.db.exec(
-          'CREATE TABLE IF NOT EXISTS ai_readiness_runs (id TEXT PRIMARY KEY, website_url TEXT NOT NULL, status TEXT NOT NULL, robots_txt TEXT, sitemap_urls TEXT, total_urls INTEGER, recommendations TEXT, message TEXT, error TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)'
+          'CREATE TABLE IF NOT EXISTS ai_readiness_runs (id TEXT PRIMARY KEY, website_url TEXT NOT NULL, status TEXT NOT NULL, robots_txt TEXT, sitemap_urls TEXT, total_urls INTEGER, recommendations TEXT, message TEXT, error TEXT, logs TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)'
         );
       } catch (e: any) {
         // Ignore error if table already exists
@@ -5184,6 +2067,17 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
         );
       }
       
+      // Parse logs if available
+      let logs: any[] = [];
+      try {
+        const logsField = (result as any).logs;
+        if (logsField) {
+          logs = JSON.parse(logsField);
+        }
+      } catch (e) {
+        console.warn('Error parsing logs:', e);
+      }
+      
       return new Response(
         JSON.stringify({
           runId: result.id,
@@ -5191,6 +2085,7 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
           recommendations: result.recommendations,
           message: result.message,
           error: result.error,
+          logs: logs,
         }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -5219,10 +2114,67 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
     const { Database } = await import("../persistence/index.js");
     const db = new Database(env.geo_db as any);
     
+    // Protocol Log Entry Interface
+    interface LogEntry {
+      timestamp: string;
+      stepId: string;
+      stepName: string;
+      status: 'OK' | 'WARN' | 'ERROR';
+      details: any;
+      responseTime?: number;
+    }
+    
+    const logs: LogEntry[] = [];
+    let stepCounter = 0;
+    
+    // Helper: Add log entry
+    const addLog = (stepName: string, status: 'OK' | 'WARN' | 'ERROR', details: any, responseTime?: number) => {
+      stepCounter++;
+      const logEntry: LogEntry = {
+        timestamp: new Date().toISOString(),
+        stepId: `STEP-${stepCounter}`,
+        stepName,
+        status,
+        details,
+        responseTime
+      };
+      logs.push(logEntry);
+      console.log(`[${logEntry.timestamp}] [${logEntry.stepId}] [${status}] ${stepName}`, details);
+    };
+    
+    // Helper: Save logs to database
+    const saveLogs = async () => {
+      try {
+        const logsStart = Date.now();
+        const logsJson = JSON.stringify(logs);
+        console.log(`[AI Readiness ${runId}] → Saving ${logs.length} logs (${logsJson.length} bytes)...`);
+        const result = await db.db
+          .prepare('UPDATE ai_readiness_runs SET logs = ?, updated_at = ? WHERE id = ?')
+          .bind(logsJson, new Date().toISOString(), runId)
+          .run();
+        const logsTime = Date.now() - logsStart;
+        console.log(`[AI Readiness ${runId}] ✓ Logs saved (${logsTime}ms):`, {
+          success: result.success,
+          changes: result.meta?.changes,
+          logCount: logs.length
+        });
+      } catch (e: any) {
+        console.error(`[AI Readiness ${runId}] ❌ Error saving logs:`, {
+          message: e?.message,
+          stack: e?.stack,
+          error: e
+        });
+      }
+    };
+    
     // Report structure
     interface PageData {
       url: string;
       title: string;
+      metaDescription: string;
+      h1: string[];
+      h2: string[];
+      h3: string[];
       content: string;
       responseTime: number;
       status: number;
@@ -5230,10 +2182,10 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
     }
     
     const report = {
-      websiteUrl,
-      robotsTxt: { found: false, content: '', note: '' },
-      sitemap: { found: false, urls: [] as string[], note: '' },
+      originalUrl: '',
+      normalizedUrl: '',
       homepage: { scraped: false, data: null as PageData | null },
+      internalLinks: [] as string[],
       pages: [] as PageData[],
       summary: {
         totalPages: 0,
@@ -5246,78 +2198,274 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
     
     const updateStatus = async (message: string) => {
       try {
-        console.log(`[AI Readiness ${runId}] Status update: ${message}`);
-        await db.db
+        const statusStart = Date.now();
+        console.log(`[AI Readiness ${runId}] → Updating status: "${message}"`);
+        const result = await db.db
           .prepare('UPDATE ai_readiness_runs SET message = ?, updated_at = ? WHERE id = ?')
           .bind(message, new Date().toISOString(), runId)
           .run();
+        const statusTime = Date.now() - statusStart;
+        console.log(`[AI Readiness ${runId}] ✓ Status updated (${statusTime}ms):`, {
+          success: result.success,
+          changes: result.meta?.changes
+        });
       } catch (e: any) {
-        console.error(`[AI Readiness ${runId}] Error updating status:`, e);
+        console.error(`[AI Readiness ${runId}] ❌ Error updating status:`, {
+          message: e?.message,
+          stack: e?.stack,
+          error: e
+        });
       }
     };
     
-    console.log(`[AI Readiness ${runId}] processAIReadiness started for ${websiteUrl}`);
+    console.log(`[AI Readiness ${runId}] ========================================`);
+    console.log(`[AI Readiness ${runId}] 🚀 processAIReadiness FUNCTION CALLED`);
+    console.log(`[AI Readiness ${runId}] URL: ${websiteUrl}`);
+    console.log(`[AI Readiness ${runId}] Timestamp: ${new Date().toISOString()}`);
+    console.log(`[AI Readiness ${runId}] Database connection: ${!!db}`);
+    console.log(`[AI Readiness ${runId}] ========================================`);
+    
+    const startTime = Date.now();
+    let lastStep = 'initialization';
+    let lastHeartbeat = Date.now();
+    let stepStartTime = Date.now();
+    
+    // Helper to log step timing
+    const logStep = (stepName: string) => {
+      const stepTime = Date.now() - stepStartTime;
+      if (lastStep !== 'initialization') {
+        console.log(`[AI Readiness ${runId}] ⏱️  Step "${lastStep}" took ${stepTime}ms`);
+      }
+      lastStep = stepName;
+      stepStartTime = Date.now();
+      console.log(`[AI Readiness ${runId}] → Starting step: ${stepName}`);
+    };
+    
+    // Heartbeat function - updates status periodically to show we're alive
+    // Note: setInterval might not work in Cloudflare Workers, so we'll use a different approach
+    let heartbeatCount = 0;
+    const sendHeartbeat = async () => {
+      try {
+        const now = Date.now();
+        heartbeatCount++;
+        const elapsed = Math.round((now - startTime) / 1000);
+        const message = `⏳ Läuft... (${lastStep}, ${elapsed}s)`;
+        const result = await db.db
+          .prepare('UPDATE ai_readiness_runs SET message = ?, updated_at = ? WHERE id = ?')
+          .bind(message, new Date().toISOString(), runId)
+          .run();
+        console.log(`[AI Readiness ${runId}] 💓 Heartbeat #${heartbeatCount}: ${lastStep} (${elapsed}s elapsed)`, {
+          success: result.success,
+          changes: result.meta?.changes
+        });
+      } catch (e: any) {
+        console.error(`[AI Readiness ${runId}] ❌ Heartbeat error:`, {
+          message: e?.message,
+          stack: e?.stack,
+          error: e
+        });
+      }
+    };
+    
+    // Send heartbeat after each major step instead of using setInterval
     
     try {
+      logStep('database_setup');
+      
       // Create table if not exists
       try {
+        console.log(`[AI Readiness ${runId}] → Creating table if not exists...`);
+        const tableStart = Date.now();
         await db.db.exec(
-          'CREATE TABLE IF NOT EXISTS ai_readiness_runs (id TEXT PRIMARY KEY, website_url TEXT NOT NULL, status TEXT NOT NULL, robots_txt TEXT, sitemap_urls TEXT, total_urls INTEGER, recommendations TEXT, message TEXT, error TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)'
+          'CREATE TABLE IF NOT EXISTS ai_readiness_runs (id TEXT PRIMARY KEY, website_url TEXT NOT NULL, status TEXT NOT NULL, robots_txt TEXT, sitemap_urls TEXT, total_urls INTEGER, recommendations TEXT, message TEXT, error TEXT, logs TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)'
         );
+        console.log(`[AI Readiness ${runId}] ✓ Table check complete (${Date.now() - tableStart}ms)`);
       } catch (e: any) {
+        console.error(`[AI Readiness ${runId}] ⚠ Table creation error:`, {
+          message: e?.message,
+          stack: e?.stack,
+          error: e
+        });
         if (!e?.message?.includes('already exists') && !e?.message?.includes('duplicate')) {
-          console.warn('Could not create ai_readiness_runs table:', e);
+          console.warn(`[AI Readiness ${runId}] Could not create table:`, e);
         }
       }
       
       // Update initial record
+      logStep('initial_record');
       try {
-        await db.db
-          .prepare('INSERT OR IGNORE INTO ai_readiness_runs (id, website_url, status, created_at, updated_at, message) VALUES (?, ?, ?, ?, ?, ?)')
-          .bind(runId, websiteUrl, 'processing', new Date().toISOString(), new Date().toISOString(), 'Starte Analyse...')
+        console.log(`[AI Readiness ${runId}] → Creating/updating initial record...`);
+        const recordStart = Date.now();
+        const now = new Date().toISOString();
+        const result = await db.db
+          .prepare('INSERT OR IGNORE INTO ai_readiness_runs (id, website_url, status, created_at, updated_at, message, logs) VALUES (?, ?, ?, ?, ?, ?, ?)')
+          .bind(runId, websiteUrl, 'processing', now, now, '🚀 Starte Analyse...', '[]')
           .run();
+        console.log(`[AI Readiness ${runId}] ✓ INSERT result:`, {
+          success: result.success,
+          meta: result.meta,
+          time: Date.now() - recordStart
+        });
+        
+        // If INSERT didn't work (already exists), try UPDATE
+        if (!result.success || result.meta?.changes === 0) {
+          console.log(`[AI Readiness ${runId}] → Record might already exist, trying UPDATE...`);
+          const updateResult = await db.db
+            .prepare('UPDATE ai_readiness_runs SET message = ?, updated_at = ?, logs = ? WHERE id = ?')
+            .bind('🚀 Starte Analyse...', now, '[]', runId)
+            .run();
+          console.log(`[AI Readiness ${runId}] ✓ UPDATE result:`, {
+            success: updateResult.success,
+            meta: updateResult.meta,
+            time: Date.now() - recordStart
+          });
+        }
+        
+        // Verify it was created
+        const verify = await db.db
+          .prepare('SELECT id, status, message FROM ai_readiness_runs WHERE id = ?')
+          .bind(runId)
+          .first();
+        console.log(`[AI Readiness ${runId}] ✓ Verified record exists:`, verify);
+        if (!verify) {
+          throw new Error('Record was not created or cannot be verified');
+        }
       } catch (e: any) {
-        await db.db
-          .prepare('UPDATE ai_readiness_runs SET message = ?, updated_at = ? WHERE id = ?')
-          .bind('Starte Analyse...', new Date().toISOString(), runId)
-          .run();
+        console.error(`[AI Readiness ${runId}] ❌ Database record error:`, {
+          message: e?.message,
+          stack: e?.stack,
+          name: e?.name,
+          error: e
+        });
+        throw new Error(`Database error: ${e.message}`);
       }
       
-      // Immediately update to first step to confirm function is running
-      console.log(`[AI Readiness ${runId}] Updating status to Step 1...`);
-      await updateStatus('Schritt 1/6: Prüfe robots.txt...');
-      console.log(`[AI Readiness ${runId}] Status updated successfully`);
+      // Helper function to execute a step with timeout and continue on error
+      const executeStepWithTimeout = async <T>(
+        stepName: string,
+        timeoutMs: number,
+        stepFunction: () => Promise<T>,
+        fallbackValue: T
+      ): Promise<T> => {
+        try {
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error(`Timeout: ${stepName} hat zu lange gedauert (${timeoutMs}ms)`)), timeoutMs);
+          });
+          
+          const result = await Promise.race([stepFunction(), timeoutPromise]);
+          return result;
+        } catch (error: any) {
+          const isTimeout = error.message?.includes('Timeout') || error.message?.includes('zu lange gedauert');
+          console.warn(`[AI Readiness ${runId}] ⚠ ${stepName} fehlgeschlagen oder zu lange gedauert:`, error.message);
+          addLog(stepName, 'WARN', {
+            error: isTimeout ? `Zu lange gedauert (${timeoutMs}ms)` : (error.message || 'Unbekannter Fehler'),
+            skipped: true,
+            message: isTimeout ? 'Schritt übersprungen - zu lange gedauert' : 'Schritt übersprungen - Fehler aufgetreten'
+          });
+          await saveLogs();
+          return fallbackValue;
+        }
+      };
       
-      // Helper function to measure response time
-      const measureResponseTime = async (url: string): Promise<{ responseTime: number; response: Response; html: string }> => {
+      // ========================================
+      // STEP 1: URL NORMALISIERUNG
+      // ========================================
+      logStep('url_normalization');
+      console.log(`[AI Readiness ${runId}] → STEP 1: URL Normalisierung`);
+      await updateStatus('Schritt 1/6: Normalisiere URL...');
+      
+      // Execute with timeout - continue even if it fails (though this step should be very fast)
+      await executeStepWithTimeout(
+        'URL Normalisierung',
+        5000, // 5 seconds timeout (should be instant, but just in case)
+        async () => {
+          const step1Start = Date.now();
+          report.originalUrl = websiteUrl;
+          const urlPattern = /^https?:\/\//i;
+          if (!urlPattern.test(websiteUrl)) {
+            websiteUrl = 'https://' + websiteUrl;
+          }
+          report.normalizedUrl = websiteUrl;
+          console.log(`[AI Readiness ${runId}] → Original: ${report.originalUrl}`);
+          console.log(`[AI Readiness ${runId}] → Normalized: ${report.normalizedUrl}`);
+          
+          addLog('URL Normalisierung', 'OK', {
+            original: report.originalUrl,
+            normalized: report.normalizedUrl
+          });
+          console.log(`[AI Readiness ${runId}] → Log added, updating status...`);
+          
+          await updateStatus('Schritt 1/6: URL normalisiert');
+          console.log(`[AI Readiness ${runId}] → Status updated, saving logs...`);
+          
+          await saveLogs();
+          console.log(`[AI Readiness ${runId}] → Logs saved, sending heartbeat...`);
+          
+          await sendHeartbeat();
+          console.log(`[AI Readiness ${runId}] ✓ STEP 1 complete (${Date.now() - step1Start}ms)`);
+        },
+        websiteUrl // Fallback: use original URL
+      );
+      
+      // Ensure normalized URL is set even if step failed
+      if (!report.normalizedUrl) {
+        report.normalizedUrl = websiteUrl;
+        report.originalUrl = websiteUrl;
+      }
+      
+      // Helper function to measure response time with timeout
+      const measureResponseTime = async (url: string, timeoutMs: number = 20000): Promise<{ responseTime: number; response: Response; html: string }> => {
         const startTime = Date.now();
         try {
           const response = await fetch(url, {
             headers: { "User-Agent": "GEO-Platform/1.0" },
-            signal: AbortSignal.timeout(15000) // 15 second timeout
+            signal: AbortSignal.timeout(timeoutMs) // Configurable timeout
           });
           const html = await response.text();
           const responseTime = Date.now() - startTime;
           return { responseTime, response, html };
         } catch (error: any) {
           const responseTime = Date.now() - startTime;
-          // Return a failed response object
+          const isTimeout = error.name === 'AbortError' || error.name === 'TimeoutError' || error.message?.includes('timeout');
           return {
             responseTime,
-            response: new Response(null, { status: 0, statusText: error.message || 'Request failed' }) as any,
+            response: new Response(null, { 
+              status: 0, 
+              statusText: isTimeout ? 'Timeout - Zu lange gedauert' : (error.message || 'Request failed')
+            }) as any,
             html: ''
           };
         }
       };
       
-      // Helper function to scrape page
-      const scrapePage = (html: string, url: string): { title: string; content: string } => {
+      // Helper function to scrape page with enhanced extraction
+      const scrapePageEnhanced = (html: string, url: string): PageData => {
+        // Title
         const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-        const title = titleMatch ? titleMatch[1].trim().replace(/\s+/g, ' ') : url;
+        const title = titleMatch ? titleMatch[1].trim().replace(/\s+/g, ' ') : '';
         
+        // Meta Description
+        const metaDescMatch = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["'][^>]*>/i) ||
+                               html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']description["'][^>]*>/i);
+        const metaDescription = metaDescMatch ? metaDescMatch[1].trim() : '';
+        
+        // H1-H3 Hierarchy
+        const h1Matches = html.match(/<h1[^>]*>([^<]+)<\/h1>/gi) || [];
+        const h1 = h1Matches.map(h => h.replace(/<[^>]+>/g, '').trim()).filter(h => h);
+        
+        const h2Matches = html.match(/<h2[^>]*>([^<]+)<\/h2>/gi) || [];
+        const h2 = h2Matches.map(h => h.replace(/<[^>]+>/g, '').trim()).filter(h => h);
+        
+        const h3Matches = html.match(/<h3[^>]*>([^<]+)<\/h3>/gi) || [];
+        const h3 = h3Matches.map(h => h.replace(/<[^>]+>/g, '').trim()).filter(h => h);
+        
+        // Main content (remove scripts, styles, nav, footer, cookie banners)
         let textContent = html
           .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+          .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
+          .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
           .replace(/<[^>]+>/g, ' ')
           .replace(/\s+/g, ' ')
           .trim();
@@ -5326,169 +2474,238 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
           textContent = textContent.substring(0, 10000) + '...';
         }
         
-        return { title, content: textContent };
+        return {
+          url,
+          title,
+          metaDescription,
+          h1,
+          h2,
+          h3,
+          content: textContent,
+          responseTime: 0,
+          status: 0,
+          success: false
+        };
       };
       
-      // STEP 1: Check robots.txt
-      console.log(`[AI Readiness ${runId}] ========================================`);
-      console.log(`[AI Readiness ${runId}] STEP 1: Checking robots.txt`);
-      console.log(`[AI Readiness ${runId}] ========================================`);
-      await updateStatus('Schritt 1/6: Prüfe robots.txt...');
-      try {
-        const robotsUrl = new URL('/robots.txt', websiteUrl).toString();
-        console.log(`[AI Readiness ${runId}] → Fetching robots.txt from: ${robotsUrl}`);
-        const startTime = Date.now();
-        const { responseTime, response, html } = await measureResponseTime(robotsUrl);
-        const totalTime = Date.now() - startTime;
-        console.log(`[AI Readiness ${runId}] → Response Status: ${response.status}`);
-        console.log(`[AI Readiness ${runId}] → Response Time: ${responseTime}ms`);
-        console.log(`[AI Readiness ${runId}] → Content Length: ${html.length} bytes`);
-        if (response.ok && response.status !== 0) {
-          report.robotsTxt = { found: true, content: html, note: `Gefunden (${responseTime}ms)` };
-          console.log(`[AI Readiness ${runId}] ✓ robots.txt gefunden (${responseTime}ms, ${html.length} bytes)`);
-          await updateStatus(`✓ robots.txt gefunden (${responseTime}ms)`);
-        } else {
-          report.robotsTxt = { found: false, content: '', note: `Nicht gefunden (Status: ${response.status})` };
-          console.log(`[AI Readiness ${runId}] ⚠ robots.txt nicht gefunden (Status: ${response.status})`);
-          await updateStatus(`⚠ robots.txt nicht gefunden`);
-        }
-      } catch (e: any) {
-        console.error(`[AI Readiness ${runId}] ❌ Error checking robots.txt:`, e.message || e);
-        report.robotsTxt = { found: false, content: '', note: 'Nicht erreichbar' };
-        await updateStatus(`⚠ robots.txt nicht erreichbar`);
-      }
+      // ========================================
+      // STEP 2: HOMEPAGE SCRAPING
+      // ========================================
+      lastStep = 'homepage_scraping';
+      console.log(`[AI Readiness ${runId}] → STEP 2: Homepage Scraping`);
+      await updateStatus('Schritt 2/6: Scrape Homepage...');
+      let homepageHtml = ''; // Store HTML for later use
       
-      // STEP 2: Check sitemap
-      console.log(`[AI Readiness ${runId}] ========================================`);
-      console.log(`[AI Readiness ${runId}] STEP 2: Checking sitemap`);
-      console.log(`[AI Readiness ${runId}] ========================================`);
-      await updateStatus('Schritt 2/6: Prüfe Sitemap...');
-      try {
-        const { SitemapParser } = await import("../ingestion/sitemap.js");
-        const sitemapParser = new SitemapParser();
-        console.log(`[AI Readiness ${runId}] → Parsing sitemap for: ${websiteUrl}`);
-        const startTime = Date.now();
-        const sitemapResult = await sitemapParser.findAndParseSitemap(websiteUrl);
-        const parseTime = Date.now() - startTime;
-        console.log(`[AI Readiness ${runId}] → Sitemap found: ${sitemapResult.foundSitemap}`);
-        console.log(`[AI Readiness ${runId}] → URLs found: ${sitemapResult.urls.length}`);
-        console.log(`[AI Readiness ${runId}] → Parse time: ${parseTime}ms`);
-        if (sitemapResult.foundSitemap && sitemapResult.urls.length > 0) {
-          report.sitemap = { found: true, urls: sitemapResult.urls, note: `${sitemapResult.urls.length} URLs gefunden` };
-          console.log(`[AI Readiness ${runId}] ✓ Sitemap gefunden (${sitemapResult.urls.length} URLs in ${parseTime}ms)`);
-          await updateStatus(`✓ Sitemap gefunden (${sitemapResult.urls.length} URLs)`);
-        } else {
-          report.sitemap = { found: false, urls: [], note: 'Nicht gefunden' };
-          console.log(`[AI Readiness ${runId}] ⚠ Sitemap nicht gefunden`);
-          await updateStatus(`⚠ Sitemap nicht gefunden`);
-        }
-      } catch (e: any) {
-        console.error(`[AI Readiness ${runId}] ❌ Error checking sitemap:`, e.message || e);
-        report.sitemap = { found: false, urls: [], note: 'Fehler beim Parsen' };
-        await updateStatus(`⚠ Sitemap-Fehler`);
-      }
+      // Execute with timeout - continue even if it fails
+      await executeStepWithTimeout(
+        'Homepage Scraping',
+        25000, // 25 seconds timeout
+        async () => {
+          console.log(`[AI Readiness ${runId}] Fetching homepage: ${websiteUrl}`);
+          const { responseTime, response, html } = await measureResponseTime(websiteUrl, 20000);
+          homepageHtml = html; // Store for internal links extraction
+          console.log(`[AI Readiness ${runId}] Homepage response: status=${response.status}, time=${responseTime}ms, htmlLength=${html.length}`);
+          
+          if (response.ok && response.status !== 0 && html) {
+            const pageData = scrapePageEnhanced(html, websiteUrl);
+            pageData.responseTime = responseTime;
+            pageData.status = response.status;
+            pageData.success = true;
+            // Store HTML in pageData for later use
+            (pageData as any).html = html;
+            
+            report.homepage = { scraped: true, data: pageData };
+            
+            addLog('Homepage Scraping', 'OK', {
+              url: websiteUrl,
+              httpStatus: response.status,
+              responseTime: responseTime,
+              title: pageData.title,
+              metaDescription: pageData.metaDescription,
+              h1Count: pageData.h1.length,
+              h2Count: pageData.h2.length,
+              h3Count: pageData.h3.length,
+              contentLength: pageData.content.length,
+              structure: {
+                h1: pageData.h1,
+                h2: pageData.h2.slice(0, 5), // First 5 H2s
+                h3: pageData.h3.slice(0, 5)  // First 5 H3s
+              }
+            }, responseTime);
+            await updateStatus(`✓ Homepage gescraped (${responseTime}ms, ${pageData.content.length} Zeichen)`);
+            await sendHeartbeat();
+          } else {
+            report.homepage = {
+              scraped: false,
+              data: { url: websiteUrl, title: '', metaDescription: '', h1: [], h2: [], h3: [], content: '', responseTime, status: response.status || 0, success: false }
+            };
+            addLog('Homepage Scraping', 'WARN', {
+              url: websiteUrl,
+              httpStatus: response.status || 0,
+              responseTime: responseTime,
+              message: response.statusText?.includes('Timeout') ? 'Zu lange gedauert - übersprungen' : 'Homepage konnte nicht geladen werden - übersprungen'
+            }, responseTime);
+            await updateStatus(`⚠ Homepage übersprungen (Status: ${response.status || 0})`);
+          }
+          await saveLogs();
+        },
+        null // Fallback value
+      );
       
-      // STEP 3: Scrape homepage
-      console.log(`[AI Readiness ${runId}] ========================================`);
-      console.log(`[AI Readiness ${runId}] STEP 3: Scraping homepage`);
-      console.log(`[AI Readiness ${runId}] ========================================`);
-      await updateStatus('Schritt 3/6: Scrape Homepage...');
-      try {
-        console.log(`[AI Readiness ${runId}] → Fetching homepage: ${websiteUrl}`);
-        const { responseTime, response, html } = await measureResponseTime(websiteUrl);
-        console.log(`[AI Readiness ${runId}] → Response Status: ${response.status}`);
-        console.log(`[AI Readiness ${runId}] → Response Time: ${responseTime}ms`);
-        console.log(`[AI Readiness ${runId}] → HTML Length: ${html.length} bytes`);
-        if (response.ok && response.status !== 0 && html) {
-          const { title, content } = scrapePage(html, websiteUrl);
-          console.log(`[AI Readiness ${runId}] → Title extracted: ${title.substring(0, 60)}${title.length > 60 ? '...' : ''}`);
-          console.log(`[AI Readiness ${runId}] → Content extracted: ${content.length} characters`);
-          report.homepage = {
-            scraped: true,
-            data: { url: websiteUrl, title, content, responseTime, status: response.status, success: true }
-          };
-          console.log(`[AI Readiness ${runId}] ✓ Homepage gescraped (${responseTime}ms, ${content.length} Zeichen)`);
-          await updateStatus(`✓ Homepage gescraped (${responseTime}ms, ${content.length} Zeichen)`);
-        } else {
-          report.homepage = {
-            scraped: false,
-            data: { url: websiteUrl, title: '', content: '', responseTime, status: response.status || 0, success: false }
-          };
-          console.log(`[AI Readiness ${runId}] ⚠ Homepage-Fehler (Status: ${response.status || 0})`);
-          await updateStatus(`⚠ Homepage-Fehler (Status: ${response.status || 0})`);
-        }
-      } catch (e: any) {
-        console.error(`[AI Readiness ${runId}] ❌ Error scraping homepage:`, e.message || e);
+      // Ensure we have a default homepage structure even if step failed
+      if (!report.homepage.data) {
         report.homepage = {
           scraped: false,
-          data: { url: websiteUrl, title: '', content: '', responseTime: 0, status: 0, success: false }
+          data: { url: websiteUrl, title: '', metaDescription: '', h1: [], h2: [], h3: [], content: '', responseTime: 0, status: 0, success: false }
         };
-        await updateStatus(`⚠ Homepage-Fehler`);
       }
       
-      // STEP 4: Scrape all sitemap links
-      console.log(`[AI Readiness ${runId}] ========================================`);
-      console.log(`[AI Readiness ${runId}] STEP 4: Scraping pages`);
-      console.log(`[AI Readiness ${runId}] ========================================`);
-      const urlsToScrape = report.sitemap.found ? report.sitemap.urls.slice(0, 50) : [websiteUrl];
-      console.log(`[AI Readiness ${runId}] → Total pages to scrape: ${urlsToScrape.length}`);
-      await updateStatus(`Schritt 4/6: Scrape ${urlsToScrape.length} Seiten...`);
+      // ========================================
+      // STEP 3: INTERNE LINKS
+      // ========================================
+      lastStep = 'internal_links';
+      console.log(`[AI Readiness ${runId}] → STEP 3: Interne Links`);
+      await updateStatus('Schritt 3/6: Extrahiere interne Links...');
       
-      const startTime = Date.now();
-      let successCount = 0;
-      let failCount = 0;
-      
-      for (let i = 0; i < urlsToScrape.length; i++) {
-        const url = urlsToScrape[i];
-        try {
-          console.log(`[AI Readiness ${runId}] → [${i + 1}/${urlsToScrape.length}] Scraping: ${url}`);
-          const { responseTime, response, html } = await measureResponseTime(url);
-          if (response.ok && response.status !== 0 && html) {
-            const { title, content } = scrapePage(html, url);
-            report.pages.push({
-              url,
-              title,
-              content,
-              responseTime,
-              status: response.status,
-              success: true
+      await executeStepWithTimeout(
+        'Interne Links Extraktion',
+        15000, // 15 seconds timeout
+        async () => {
+          if (report.homepage.scraped && report.homepage.data && homepageHtml) {
+            console.log(`[AI Readiness ${runId}] Extracting internal links from homepage HTML...`);
+            // Use the HTML we already fetched
+            const html = homepageHtml;
+            const baseUrl = new URL(websiteUrl);
+            const linkMatches = html.match(/<a[^>]*href=["']([^"']+)["'][^>]*>/gi) || [];
+            const allLinks: string[] = [];
+            
+            for (const linkMatch of linkMatches) {
+              const hrefMatch = linkMatch.match(/href=["']([^"']+)["']/i);
+              if (hrefMatch) {
+                let href = hrefMatch[1];
+                try {
+                  // Resolve relative URLs
+                  const resolvedUrl = new URL(href, baseUrl);
+                  // Check if it's internal (same domain)
+                  if (resolvedUrl.hostname === baseUrl.hostname) {
+                    allLinks.push(resolvedUrl.toString());
+                  }
+                } catch (e) {
+                  // Skip invalid URLs
+                }
+              }
+            }
+            
+            // Remove duplicates
+            report.internalLinks = [...new Set(allLinks)];
+            
+            addLog('Interne Links Extraktion', 'OK', {
+              totalLinksFound: allLinks.length,
+              uniqueInternalLinks: report.internalLinks.length,
+              links: report.internalLinks.slice(0, 20) // First 20 links
             });
-            successCount++;
-            console.log(`[AI Readiness ${runId}]   ✓ Success (${responseTime}ms, ${content.length} chars)`);
+            await updateStatus(`✓ ${report.internalLinks.length} interne Links gefunden`);
+            await sendHeartbeat();
           } else {
-            report.pages.push({
-              url,
-              title: '',
-              content: '',
-              responseTime,
-              status: response.status || 0,
-              success: false
+            addLog('Interne Links Extraktion', 'WARN', {
+              message: 'Homepage nicht verfügbar, kann Links nicht extrahieren - übersprungen'
             });
-            failCount++;
-            console.log(`[AI Readiness ${runId}]   ✗ Failed (Status: ${response.status || 0})`);
+            await updateStatus(`⚠ Homepage nicht verfügbar - übersprungen`);
+          }
+          await saveLogs();
+        },
+        [] // Fallback: empty array
+      );
+      
+      // Ensure we have an array even if step failed
+      if (!report.internalLinks) {
+        report.internalLinks = [];
+      }
+      
+      // ========================================
+      // STEP 4: SCRAPE WEITERE SEITEN (optional, für bessere Analyse)
+      // ========================================
+      lastStep = 'scrape_pages';
+      console.log(`[AI Readiness ${runId}] → STEP 4: Scrape weitere Seiten`);
+      await updateStatus('Schritt 4/6: Scrape weitere Seiten...');
+      const urlsToScrape = report.internalLinks.slice(0, 20); // Use internal links, limit to 20 pages for performance
+      if (urlsToScrape.length === 0) {
+        urlsToScrape.push(websiteUrl); // At least scrape homepage
+      }
+      console.log(`[AI Readiness ${runId}] Scraping ${urlsToScrape.length} pages...`);
+      
+      // Execute with timeout - continue even if it fails
+      await executeStepWithTimeout(
+        'Seiten Scraping',
+        120000, // 2 minutes timeout for all pages (20 pages * 6 seconds max each)
+        async () => {
+          const startTime = Date.now();
+          let successCount = 0;
+          let failCount = 0;
+          
+          for (let i = 0; i < urlsToScrape.length; i++) {
+            const url = urlsToScrape[i];
+            try {
+              // Each page gets max 15 seconds
+              const { responseTime, response, html } = await measureResponseTime(url, 15000);
+              if (response.ok && response.status !== 0 && html) {
+                const pageData = scrapePageEnhanced(html, url);
+                pageData.responseTime = responseTime;
+                pageData.status = response.status;
+                pageData.success = true;
+                report.pages.push(pageData);
+                successCount++;
+              } else {
+                // Timeout or error - skip this page
+                report.pages.push({
+                  url,
+                  title: '',
+                  metaDescription: '',
+                  h1: [],
+                  h2: [],
+                  h3: [],
+                  content: '',
+                  responseTime,
+                  status: response.status || 0,
+                  success: false
+                });
+                failCount++;
+              }
+              
+              if ((i + 1) % 5 === 0 || i === urlsToScrape.length - 1) {
+                await updateStatus(`Schritt 4/6: ${i + 1}/${urlsToScrape.length} Seiten gescraped...`);
+                await saveLogs();
+              }
+            } catch (e: any) {
+              // Skip this page and continue
+              report.pages.push({
+                url,
+                title: '',
+                metaDescription: '',
+                h1: [],
+                h2: [],
+                h3: [],
+                content: '',
+                responseTime: 0,
+                status: 0,
+                success: false
+              });
+              failCount++;
+            }
           }
           
-          if ((i + 1) % 5 === 0 || i === urlsToScrape.length - 1) {
-            const elapsed = Date.now() - startTime;
-            console.log(`[AI Readiness ${runId}] → Progress: ${i + 1}/${urlsToScrape.length} (${successCount} success, ${failCount} failed, ${elapsed}ms elapsed)`);
-            await updateStatus(`Schritt 4/6: ${i + 1}/${urlsToScrape.length} Seiten gescraped...`);
-          }
-        } catch (e: any) {
-          console.error(`[AI Readiness ${runId}]   ❌ Error scraping ${url}:`, e.message || e);
-          report.pages.push({
-            url,
-            title: '',
-            content: '',
-            responseTime: 0,
-            status: 0,
-            success: false
+          const totalTime = Date.now() - startTime;
+          addLog('Seiten Scraping', successCount > 0 ? 'OK' : 'WARN', {
+            totalPages: urlsToScrape.length,
+            successfulPages: successCount,
+            failedPages: failCount,
+            totalTime: totalTime,
+            message: failCount > 0 ? `${failCount} Seiten übersprungen (Timeout/Fehler)` : 'Alle Seiten erfolgreich gescraped'
           });
-          failCount++;
-        }
-      }
-      
-      const totalTime = Date.now() - startTime;
-      console.log(`[AI Readiness ${runId}] ✓ Step 4 complete: ${report.pages.length} pages scraped (${successCount} success, ${failCount} failed, ${totalTime}ms total)`);
+          await saveLogs();
+        },
+        [] // Fallback: empty pages array
+      );
       
       // Calculate summary
       const successfulPages = report.pages.filter(p => p.success);
@@ -5511,68 +2728,178 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
         slowestPage
       };
       
-      // STEP 5: Analyze data
-      console.log(`[AI Readiness ${runId}] ========================================`);
-      console.log(`[AI Readiness ${runId}] STEP 5: Analyzing data`);
-      console.log(`[AI Readiness ${runId}] ========================================`);
-      console.log(`[AI Readiness ${runId}] → Total pages: ${report.pages.length}`);
-      console.log(`[AI Readiness ${runId}] → Successful pages: ${successfulPages.length}`);
-      console.log(`[AI Readiness ${runId}] → Average response time: ${avgResponseTime}ms`);
-      console.log(`[AI Readiness ${runId}] → Fastest page: ${fastestPage}`);
-      console.log(`[AI Readiness ${runId}] → Slowest page: ${slowestPage}`);
-      await updateStatus(`Schritt 5/6: Analysiere Daten (${successfulPages.length}/${report.pages.length} erfolgreich, Ø ${avgResponseTime}ms)...`);
+      // ========================================
+      // STEP 5: GPT AUSWERTUNG – AI READINESS SCORE
+      // ========================================
+      lastStep = 'gpt_evaluation';
+      console.log(`[AI Readiness ${runId}] → STEP 5: GPT Auswertung`);
+      await updateStatus('Schritt 5/6: Generiere AI Readiness Score mit GPT...');
       
-      // STEP 5: Build comprehensive report for GPT
-      console.log(`[AI Readiness ${runId}] → Building GPT prompt...`);
-      const promptStartTime = Date.now();
-      const prompt = this.buildAIReadinessPromptFromReport(report);
-      const promptTime = Date.now() - promptStartTime;
-      console.log(`[AI Readiness ${runId}] → GPT prompt built (${prompt.length} characters, ${promptTime}ms)`);
+      let gptResponse: string = 'GPT-Auswertung übersprungen - zu lange gedauert oder Fehler aufgetreten';
       
-      // STEP 6: Send to GPT
-      console.log(`[AI Readiness ${runId}] ========================================`);
-      console.log(`[AI Readiness ${runId}] STEP 6: Sending to GPT`);
-      console.log(`[AI Readiness ${runId}] ========================================`);
-      await updateStatus('Schritt 6/6: Generiere AI Readiness Analyse mit GPT...');
-      console.log(`[AI Readiness ${runId}] → Sending request to OpenAI API...`);
-      const gptStartTime = Date.now();
-      const gptResponse = await this.callGPTForAIReadiness(prompt, env);
-      const gptTime = Date.now() - gptStartTime;
-      console.log(`[AI Readiness ${runId}] → GPT response received (${gptResponse.length} characters, ${gptTime}ms)`);
+      // Execute with timeout - continue even if it fails
+      await executeStepWithTimeout(
+        'GPT Auswertung',
+        60000, // 60 seconds timeout for GPT call
+        async () => {
+          addLog('GPT Auswertung', 'OK', {
+            message: 'Starte GPT-Analyse...'
+          });
+          await saveLogs();
+          
+          console.log(`[AI Readiness ${runId}] Building GPT prompt...`);
+          const promptStartTime = Date.now();
+          const prompt = this.buildAIReadinessPromptFromReport(report);
+          const promptTime = Date.now() - promptStartTime;
+          console.log(`[AI Readiness ${runId}] GPT prompt built: ${prompt.length} chars in ${promptTime}ms`);
+          
+          console.log(`[AI Readiness ${runId}] Calling GPT API...`);
+          const gptStartTime = Date.now();
+          try {
+            gptResponse = await this.callGPTForAIReadiness(prompt, env);
+            const gptTime = Date.now() - gptStartTime;
+            console.log(`[AI Readiness ${runId}] ✓ GPT response received: ${gptResponse.length} chars in ${gptTime}ms`);
+            
+            addLog('GPT Auswertung', 'OK', {
+              promptLength: prompt.length,
+              promptBuildTime: promptTime,
+              responseLength: gptResponse.length,
+              responseTime: gptTime
+            }, gptTime);
+            await saveLogs();
+          } catch (gptError: any) {
+            console.error(`[AI Readiness ${runId}] ❌ GPT Error:`, gptError);
+            const gptTime = Date.now() - gptStartTime;
+            addLog('GPT Auswertung', 'WARN', {
+              error: gptError.message || 'Unbekannter GPT-Fehler',
+              responseTime: gptTime,
+              message: 'GPT-Auswertung fehlgeschlagen - übersprungen'
+            }, gptTime);
+            await saveLogs();
+            // Continue with error message instead of failing completely
+            gptResponse = `GPT-Auswertung übersprungen: ${gptError.message || 'Unbekannter Fehler'}`;
+          }
+        },
+        'GPT-Auswertung übersprungen - zu lange gedauert' // Fallback message
+      );
       
       // Save final results
-      console.log(`[AI Readiness ${runId}] → Saving results to database...`);
-      await db.db
-        .prepare('UPDATE ai_readiness_runs SET status = ?, recommendations = ?, message = ?, robots_txt = ?, updated_at = ? WHERE id = ?')
-        .bind(
-          'completed',
-          gptResponse,
-          '✓ Analyse abgeschlossen',
-          JSON.stringify(report),
-          new Date().toISOString(),
-          runId
-        )
-        .run();
+      lastStep = 'save_results';
+      console.log(`[AI Readiness ${runId}] Saving final results...`);
+      try {
+        await db.db
+          .prepare('UPDATE ai_readiness_runs SET status = ?, recommendations = ?, message = ?, robots_txt = ?, logs = ?, updated_at = ? WHERE id = ?')
+          .bind(
+            'completed',
+            gptResponse,
+            '✓ Analyse abgeschlossen',
+            JSON.stringify(report),
+            JSON.stringify(logs),
+            new Date().toISOString(),
+            runId
+          )
+          .run();
+        console.log(`[AI Readiness ${runId}] ✓ Results saved to database`);
+      } catch (saveError: any) {
+        console.error(`[AI Readiness ${runId}] ❌ Error saving results:`, saveError);
+        // Try to save at least the error
+        try {
+          await db.db
+            .prepare('UPDATE ai_readiness_runs SET status = ?, error = ?, message = ?, updated_at = ? WHERE id = ?')
+            .bind(
+              'error',
+              `Save error: ${saveError.message}`,
+              '❌ Fehler beim Speichern',
+              new Date().toISOString(),
+              runId
+            )
+            .run();
+        } catch (e) {
+          console.error(`[AI Readiness ${runId}] ❌ Could not save error status:`, e);
+        }
+        throw saveError;
+      }
+      
+      addLog('Analyse Abgeschlossen', 'OK', {
+        message: 'AI Readiness Check erfolgreich abgeschlossen',
+        totalSteps: logs.length,
+        totalPages: report.pages.length,
+        totalTime: Date.now() - startTime
+      });
+      await saveLogs();
+      
+      const totalTime = Date.now() - startTime;
       console.log(`[AI Readiness ${runId}] ========================================`);
       console.log(`[AI Readiness ${runId}] ✓ ANALYSIS COMPLETE`);
+      console.log(`[AI Readiness ${runId}] Total time: ${totalTime}ms`);
       console.log(`[AI Readiness ${runId}] ========================================`);
       
     } catch (error) {
+      const totalTime = Date.now() - startTime;
       console.error(`[AI Readiness ${runId}] ========================================`);
-      console.error(`[AI Readiness ${runId}] ❌ ERROR in processAIReadiness:`, error);
+      console.error(`[AI Readiness ${runId}] ❌ ERROR in processAIReadiness`);
+      console.error(`[AI Readiness ${runId}] Last step: ${lastStep}`);
+      console.error(`[AI Readiness ${runId}] Total time: ${totalTime}ms`);
+      console.error(`[AI Readiness ${runId}] Error:`, error);
+      console.error(`[AI Readiness ${runId}] Stack:`, error instanceof Error ? error.stack : 'No stack');
       console.error(`[AI Readiness ${runId}] ========================================`);
-      await db.db
-        .prepare(`
-          UPDATE ai_readiness_runs 
-          SET status = ?, error = ?, updated_at = ?
-          WHERE id = ?
-        `)
-        .bind(
-          'error',
-          error instanceof Error ? error.message : 'Unknown error',
-          new Date().toISOString()
-        )
-        .run();
+      
+      try {
+        // Add error log
+        console.error(`[AI Readiness ${runId}] ========================================`);
+        console.error(`[AI Readiness ${runId}] ❌ CRITICAL ERROR CAUGHT`);
+        console.error(`[AI Readiness ${runId}] Last step: ${lastStep}`);
+        console.error(`[AI Readiness ${runId}] Total time: ${totalTime}ms`);
+        console.error(`[AI Readiness ${runId}] Error type: ${error?.constructor?.name}`);
+        console.error(`[AI Readiness ${runId}] Error message: ${error instanceof Error ? error.message : String(error)}`);
+        console.error(`[AI Readiness ${runId}] Error stack:`, error instanceof Error ? error.stack : 'No stack');
+        console.error(`[AI Readiness ${runId}] Full error object:`, error);
+        console.error(`[AI Readiness ${runId}] ========================================`);
+        
+        addLog('Analyse Fehler', 'ERROR', {
+          step: lastStep,
+          error: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          totalTime: totalTime,
+          errorType: error?.constructor?.name
+        });
+        
+        console.log(`[AI Readiness ${runId}] → Saving error logs...`);
+        await saveLogs();
+        
+        // Update database with error
+        console.log(`[AI Readiness ${runId}] → Updating database with error status...`);
+        try {
+          const errorResult = await db.db
+            .prepare('UPDATE ai_readiness_runs SET status = ?, error = ?, message = ?, logs = ?, updated_at = ? WHERE id = ?')
+            .bind(
+              'error',
+              error instanceof Error ? error.message : 'Unknown error',
+              `❌ Fehler in Schritt: ${lastStep}`,
+              JSON.stringify(logs),
+              new Date().toISOString(),
+              runId
+            )
+            .run();
+          console.log(`[AI Readiness ${runId}] ✓ Error status saved to database:`, {
+            success: errorResult.success,
+            changes: errorResult.meta?.changes
+          });
+        } catch (dbUpdateError: any) {
+          console.error(`[AI Readiness ${runId}] ❌ Could not update database with error:`, {
+            message: dbUpdateError?.message,
+            stack: dbUpdateError?.stack,
+            error: dbUpdateError
+          });
+        }
+      } catch (dbError: any) {
+        console.error(`[AI Readiness ${runId}] ❌ Could not save error to database:`, {
+          message: dbError?.message,
+          stack: dbError?.stack,
+          name: dbError?.name,
+          error: dbError
+        });
+      }
     }
   }
 
@@ -5581,29 +2908,6 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
     let prompt = `# AI READINESS ANALYSE\n\n`;
     prompt += `Analysiere die folgende Website auf AI-Readiness und bewerte, wie gut sie von KI-Systemen gelesen und verstanden werden kann.\n\n`;
     prompt += `## WEBSITE\n${report.websiteUrl}\n\n`;
-    
-    // Robots.txt
-    prompt += `## ROBOTS.TXT\n`;
-    if (report.robotsTxt.found) {
-      prompt += `Status: ✓ Gefunden\n`;
-      prompt += `Hinweis: ${report.robotsTxt.note}\n`;
-      prompt += `Inhalt:\n\`\`\`\n${report.robotsTxt.content}\n\`\`\`\n\n`;
-    } else {
-      prompt += `Status: ✗ Nicht gefunden\n`;
-      prompt += `Hinweis: ${report.robotsTxt.note}\n\n`;
-    }
-    
-    // Sitemap
-    prompt += `## SITEMAP\n`;
-    if (report.sitemap.found) {
-      prompt += `Status: ✓ Gefunden\n`;
-      prompt += `Anzahl URLs: ${report.sitemap.urls.length}\n`;
-      prompt += `Hinweis: ${report.sitemap.note}\n`;
-      prompt += `Erste 20 URLs:\n${report.sitemap.urls.slice(0, 20).map((url: string, i: number) => `${i + 1}. ${url}`).join('\n')}\n\n`;
-    } else {
-      prompt += `Status: ✗ Nicht gefunden\n`;
-      prompt += `Hinweis: ${report.sitemap.note}\n\n`;
-    }
     
     // Homepage
     prompt += `## HOMEPAGE\n`;
@@ -5642,26 +2946,32 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
       }
     });
     
-    // Task
+    // Task with detailed scoring requirements
     prompt += `\n\n## AUFGABE\n\n`;
-    prompt += `Bewerte diese Website auf AI-Readiness und gib eine strukturierte Analyse:\n\n`;
-    prompt += `1. **GESAMTBEWERTUNG**\n`;
-    prompt += `   - Wie gut ist die Website für KI-Systeme lesbar? (1-10)\n`;
-    prompt += `   - Kurze Zusammenfassung der Hauptprobleme und Stärken\n\n`;
-    prompt += `2. **STRUKTUR & ORGANISATION**\n`;
-    prompt += `   - Bewertung der Sitemap (falls vorhanden)\n`;
-    prompt += `   - URL-Struktur und -Konsistenz\n`;
-    prompt += `   - robots.txt Konfiguration\n\n`;
-    prompt += `3. **CONTENT-QUALITÄT**\n`;
-    prompt += `   - Wie strukturiert und semantisch ist der Content?\n`;
-    prompt += `   - Gibt es klare Überschriften, Meta-Informationen?\n`;
-    prompt += `   - Ist der Content für KI verständlich?\n\n`;
-    prompt += `4. **PERFORMANCE**\n`;
-    prompt += `   - Bewertung der Response Times\n`;
-    prompt += `   - Empfehlungen zur Performance-Optimierung\n\n`;
-    prompt += `5. **PRIORITÄTEN**\n`;
-    prompt += `   - Top 5 sofort umsetzbare Maßnahmen\n`;
-    prompt += `   - Langfristige Verbesserungen\n\n`;
+    prompt += `Bewerte diese Website auf AI-Readiness und gib eine strukturierte Analyse mit detailliertem Scoring:\n\n`;
+    prompt += `**WICHTIG: Du MUSST folgendes Format verwenden:**\n\n`;
+    prompt += `## AI READINESS SCORE\n\n`;
+    prompt += `**Gesamtscore: [0-100]**\n\n`;
+    prompt += `### Teil-Scores:\n`;
+    prompt += `- **Technische AI-Readiness: [0-100]**\n`;
+    prompt += `  - Crawlability: [0-100]\n`;
+    prompt += `  - Response Speed: [0-100]\n`;
+    prompt += `  - Link-Struktur: [0-100]\n\n`;
+    prompt += `- **Strukturelle Readability: [0-100]**\n`;
+    prompt += `  - Headline-Hierarchie: [0-100]\n`;
+    prompt += `  - Content-Struktur: [0-100]\n`;
+    prompt += `  - Semantische Klarheit: [0-100]\n\n`;
+    prompt += `- **Content Readability für LLMs: [0-100]**\n`;
+    prompt += `  - Klarheit: [0-100]\n`;
+    prompt += `  - Kontext-Vollständigkeit: [0-100]\n`;
+    prompt += `  - Redundanz: [0-100]\n\n`;
+    prompt += `### Begründung pro Score:\n`;
+    prompt += `Für jeden Teil-Score eine klare Begründung basierend auf den gefundenen Daten.\n\n`;
+    prompt += `### Priorisierte Verbesserungsvorschläge:\n`;
+    prompt += `1. [Konkreter, umsetzbarer Vorschlag mit höchster Priorität]\n`;
+    prompt += `2. [Zweiter Vorschlag]\n`;
+    prompt += `3. [Dritter Vorschlag]\n`;
+    prompt += `...\n\n`;
     prompt += `Gib konkrete, umsetzbare Empfehlungen auf Deutsch. Sei spezifisch und beziehe dich auf die tatsächlich gefundenen Daten.`;
     
     return prompt;

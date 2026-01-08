@@ -432,6 +432,99 @@ export class Database {
     return run?.id || null;
   }
 
+  async deleteAnalysis(runId: string): Promise<void> {
+    // Delete in order: child records first, then parent
+    // Get all prompt IDs for this run
+    const prompts = await this.db
+      .prepare("SELECT id FROM prompts WHERE run_id = ?")
+      .bind(runId)
+      .all<{ id: string }>();
+
+    const promptIds = (prompts.results || []).map(p => p.id);
+
+    if (promptIds.length > 0) {
+      // Get all LLM response IDs for these prompts
+      const responses = await this.db
+        .prepare(`SELECT id FROM llm_responses WHERE prompt_id IN (${promptIds.map(() => '?').join(',')})`)
+        .bind(...promptIds)
+        .all<{ id: string }>();
+
+      const responseIds = (responses.results || []).map(r => r.id);
+
+      if (responseIds.length > 0) {
+        // Delete citations
+        await this.db
+          .prepare(`DELETE FROM citations WHERE llm_response_id IN (${responseIds.map(() => '?').join(',')})`)
+          .bind(...responseIds)
+          .run();
+
+        // Delete LLM responses
+        await this.db
+          .prepare(`DELETE FROM llm_responses WHERE id IN (${responseIds.map(() => '?').join(',')})`)
+          .bind(...responseIds)
+          .run();
+      }
+
+      // Get all prompt analysis IDs
+      const analyses = await this.db
+        .prepare(`SELECT id FROM prompt_analyses WHERE prompt_id IN (${promptIds.map(() => '?').join(',')})`)
+        .bind(...promptIds)
+        .all<{ id: string }>();
+
+      const analysisIds = (analyses.results || []).map(a => a.id);
+
+      if (analysisIds.length > 0) {
+        // Delete competitor mentions
+        await this.db
+          .prepare(`DELETE FROM competitor_mentions WHERE prompt_analysis_id IN (${analysisIds.map(() => '?').join(',')})`)
+          .bind(...analysisIds)
+          .run();
+
+        // Delete prompt analyses
+        await this.db
+          .prepare(`DELETE FROM prompt_analyses WHERE id IN (${analysisIds.map(() => '?').join(',')})`)
+          .bind(...analysisIds)
+          .run();
+      }
+
+      // Delete prompts
+      await this.db
+        .prepare(`DELETE FROM prompts WHERE id IN (${promptIds.map(() => '?').join(',')})`)
+        .bind(...promptIds)
+        .run();
+    }
+
+    // Delete category metrics
+    await this.db
+      .prepare("DELETE FROM category_metrics WHERE analysis_run_id = ?")
+      .bind(runId)
+      .run();
+
+    // Delete competitive analyses
+    await this.db
+      .prepare("DELETE FROM competitive_analyses WHERE analysis_run_id = ?")
+      .bind(runId)
+      .run();
+
+    // Delete time series
+    await this.db
+      .prepare("DELETE FROM time_series WHERE analysis_run_id = ?")
+      .bind(runId)
+      .run();
+
+    // Delete categories
+    await this.db
+      .prepare("DELETE FROM categories WHERE analysis_run_id = ?")
+      .bind(runId)
+      .run();
+
+    // Finally, delete the analysis run
+    await this.db
+      .prepare("DELETE FROM analysis_runs WHERE id = ?")
+      .bind(runId)
+      .run();
+  }
+
   // Company Management
   async createCompany(company: Omit<Company, "id" | "createdAt" | "updatedAt">): Promise<string> {
     const id = `company_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
