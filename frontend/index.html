@@ -68,21 +68,44 @@
             console.log('[API Fetch Override] Intercepted:', input, '->', url);
             const promise = originalFetch.call(this, url, init);
             // Log response for debugging
-            promise.then(response => {
+            promise.then(async response => {
               if (!response.ok) {
-                console.error('[API Fetch Override] Request failed:', {
+                // Try to read response body for more details
+                let errorBody = null;
+                try {
+                  const text = await response.clone().text();
+                  try {
+                    errorBody = JSON.parse(text);
+                  } catch {
+                    errorBody = text;
+                  }
+                } catch (e) {
+                  // Could not read body
+                }
+                
+                const errorInfo = {
                   url: url,
                   status: response.status,
                   statusText: response.statusText,
-                  originalInput: input
-                });
+                  originalInput: input,
+                  method: init?.method || 'GET',
+                  errorBody: errorBody
+                };
+                
+                console.error('[API Fetch Override] Request failed:', errorInfo);
+                console.error('[API Fetch Override] Request failed (JSON):', JSON.stringify(errorInfo, null, 2));
               }
             }).catch(error => {
-              console.error('[API Fetch Override] Request error:', {
+              const errorInfo = {
                 url: url,
-                error: error,
-                originalInput: input
-              });
+                error: error?.message || String(error),
+                errorStack: error?.stack,
+                originalInput: input,
+                method: init?.method || 'GET'
+              };
+              
+              console.error('[API Fetch Override] Request error:', errorInfo);
+              console.error('[API Fetch Override] Request error (JSON):', JSON.stringify(errorInfo, null, 2));
             });
             return promise;
           }
@@ -101,12 +124,55 @@
               const newUrl = window.getApiUrl(path);
               console.log('[API Fetch Override] Intercepted Request:', path, '->', newUrl);
               // Create a new Request with the updated URL
-              return originalFetch.call(this, newUrl, {
+              const promise = originalFetch.call(this, newUrl, {
                 method: input.method,
                 headers: input.headers,
                 body: input.body,
                 ...init
               });
+              // Log response for debugging
+              promise.then(async response => {
+                if (!response.ok) {
+                  // Try to read response body for more details
+                  let errorBody = null;
+                  try {
+                    const text = await response.clone().text();
+                    try {
+                      errorBody = JSON.parse(text);
+                    } catch {
+                      errorBody = text;
+                    }
+                  } catch (e) {
+                    // Could not read body
+                  }
+                  
+                  const errorInfo = {
+                    url: newUrl,
+                    status: response.status,
+                    statusText: response.statusText,
+                    originalPath: path,
+                    originalUrl: url,
+                    method: input.method || 'GET',
+                    errorBody: errorBody
+                  };
+                  
+                  console.error('[API Fetch Override] Request failed:', errorInfo);
+                  console.error('[API Fetch Override] Request failed (JSON):', JSON.stringify(errorInfo, null, 2));
+                }
+              }).catch(error => {
+                const errorInfo = {
+                  url: newUrl,
+                  error: error?.message || String(error),
+                  errorStack: error?.stack,
+                  originalPath: path,
+                  originalUrl: url,
+                  method: input.method || 'GET'
+                };
+                
+                console.error('[API Fetch Override] Request error:', errorInfo);
+                console.error('[API Fetch Override] Request error (JSON):', JSON.stringify(errorInfo, null, 2));
+              });
+              return promise;
             }
           }
         }
