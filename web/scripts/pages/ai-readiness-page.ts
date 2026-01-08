@@ -356,9 +356,11 @@ export class AIReadinessPage {
   page.show();
 };
 
-// Export startAIReadiness for global access
-(window as any).startAIReadiness = async () => {
-  const page = new AIReadinessPage();
-  await page.startAnalysis();
-};
+// Export startAIReadiness for global access - only set if not already defined
+if (!(window as any).startAIReadiness) {
+  (window as any).startAIReadiness = async () => {
+    const page = new AIReadinessPage();
+    await page.startAnalysis();
+  };
+}
 
