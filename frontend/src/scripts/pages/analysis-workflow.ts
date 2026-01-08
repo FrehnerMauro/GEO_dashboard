@@ -226,6 +226,9 @@ export class AnalysisWorkflow {
 
       this.workflowData.categories = result.categories;
 
+      // Hide spinner when waiting for user input
+      this.hideLoadingSpinner();
+
       this.updateAnalysisUI(
         3,
         "Categories Generated",
@@ -400,25 +403,46 @@ export class AnalysisWorkflow {
     }
 
     try {
-      this.updateAnalysisUI(4, "Generating Prompts", "Generating questions for selected categories...", 70);
-      this.showLoadingSpinner("Generating questions with GPT...");
+      const categoryCount = this.workflowData.categories.length;
+      const questionsPerCat = this.workflowData.questionsPerCategory;
+      const totalExpected = categoryCount * questionsPerCat;
+      
+      this.updateAnalysisUI(4, "Generating Prompts", `Generating ${questionsPerCat} questions for ${categoryCount} categories...`, 70);
+      this.showLoadingSpinner(`Generating questions with GPT (${categoryCount} categories, ${totalExpected} questions total)...`);
 
-      const result = await workflowService.step4GeneratePrompts(
-        this.workflowData.runId,
-        this.workflowData.categories,
-        {
-          websiteUrl: this.workflowData.websiteUrl,
-          country: this.workflowData.country,
-          language: this.workflowData.language,
-          region: this.workflowData.region,
-        },
-        this.workflowData.content || "",
-        this.workflowData.questionsPerCategory
-      );
+      // Update status as we progress through categories
+      let processedCategories = 0;
+      let statusInterval: NodeJS.Timeout | null = null;
+      try {
+        statusInterval = setInterval(() => {
+          processedCategories++;
+          if (processedCategories <= categoryCount) {
+            this.updateDetailedStatus(
+              `Generating questions for category ${processedCategories}/${categoryCount} (${questionsPerCat} questions per category)...`
+            );
+          }
+        }, 3000); // Update every 3 seconds to show progress
 
-      this.hideLoadingSpinner();
+        const result = await workflowService.step4GeneratePrompts(
+          this.workflowData.runId,
+          this.workflowData.categories,
+          {
+            websiteUrl: this.workflowData.websiteUrl,
+            country: this.workflowData.country,
+            language: this.workflowData.language,
+            region: this.workflowData.region,
+          },
+          this.workflowData.content || "",
+          this.workflowData.questionsPerCategory
+        );
+
+        if (statusInterval) clearInterval(statusInterval);
+        this.hideLoadingSpinner();
 
       if (result.prompts && Array.isArray(result.prompts)) {
+        // Hide spinner when waiting for user input
+        this.hideLoadingSpinner();
+
         // DO NOT save prompts here - they will only be saved after successful execution with responses
         // Store prompts in workflow data for selection
         this.workflowData.prompts = result.prompts;
@@ -646,13 +670,33 @@ export class AnalysisWorkflow {
 
     try {
       const promptsToExecute = selectedPrompts || this.workflowData.selectedPrompts || [];
-      const promptCount = promptsToExecute.length > 0 ? promptsToExecute.length : "alle";
+      const promptCount = promptsToExecute.length;
       
       this.updateAnalysisUI(5, "Fragen an GPT stellen", `Fragen werden mit Web-Suche ausgeführt...`, 85);
-      this.showLoadingSpinner("Fragen werden an GPT mit Web-Suche gestellt...");
+      this.showLoadingSpinner(`Frage 1/${promptCount} wird an GPT mit Web-Suche gestellt...`);
 
-      await workflowService.step5ExecutePrompts(this.workflowData.runId, promptsToExecute);
+      // Update status as prompts are executed
+      let executedCount = 0;
+      let statusInterval: NodeJS.Timeout | null = null;
+      try {
+        statusInterval = setInterval(() => {
+          executedCount++;
+          if (executedCount <= promptCount) {
+            this.updateDetailedStatus(
+              `Frage ${executedCount}/${promptCount} wird an GPT mit Web-Suche gestellt...`
+            );
+          }
+        }, 2000); // Update every 2 seconds
 
+        await workflowService.step5ExecutePrompts(this.workflowData.runId, promptsToExecute);
+
+        if (statusInterval) clearInterval(statusInterval);
+      } catch (error) {
+        if (statusInterval) clearInterval(statusInterval);
+        throw error;
+      }
+
+      // Hide spinner after API call completes
       this.hideLoadingSpinner();
 
       this.updateAnalysisUI(5, "Analyse abgeschlossen", "Alle Fragen wurden ausgeführt. Ergebnisse werden analysiert...", 95);
@@ -663,6 +707,9 @@ export class AnalysisWorkflow {
           if (!this.workflowData?.runId) {
             throw new Error("Run ID is missing");
           }
+          
+          // Hide spinner before loading results
+          this.hideLoadingSpinner();
           
           // Generate summary with mentions, citations, best prompts, and other sources
           await workflowService.generateSummary(this.workflowData.runId);
@@ -740,7 +787,7 @@ export class AnalysisWorkflow {
   }
 
   /**
-   * Show loading spinner during API calls
+   * Show loading spinner during API calls with detailed status
    */
   private showLoadingSpinner(message: string = "Loading..."): void {
     const currentStepDescription = document.getElementById("currentStepDescription");
@@ -756,7 +803,7 @@ export class AnalysisWorkflow {
             animation: spin 1s linear infinite;
             flex-shrink: 0;
           "></div>
-          <span>${message}</span>
+          <span style="flex: 1;">${message}</span>
         </div>
       `;
     }
@@ -776,11 +823,39 @@ export class AnalysisWorkflow {
   }
 
   /**
-   * Hide loading spinner
+   * Hide loading spinner and restore normal text
    */
   private hideLoadingSpinner(): void {
-    // The spinner will be replaced when updateAnalysisUI is called
-    // This method is mainly for cleanup if needed
+    const currentStepDescription = document.getElementById("currentStepDescription");
+    if (currentStepDescription && currentStepDescription.innerHTML.includes('spinner')) {
+      // Extract text from spinner if present, otherwise keep current
+      const span = currentStepDescription.querySelector('span');
+      if (span) {
+        currentStepDescription.textContent = span.textContent || currentStepDescription.textContent;
+      } else {
+        // Remove spinner HTML, keep only text
+        currentStepDescription.textContent = currentStepDescription.textContent || currentStepDescription.innerText;
+      }
+    }
+  }
+
+  /**
+   * Update detailed status message during API calls
+   */
+  private updateDetailedStatus(message: string): void {
+    const currentStepDescription = document.getElementById("currentStepDescription");
+    if (currentStepDescription) {
+      // If spinner is showing, update the message
+      if (currentStepDescription.innerHTML.includes('spinner')) {
+        const span = currentStepDescription.querySelector('span');
+        if (span) {
+          span.textContent = message;
+        }
+      } else {
+        // Show spinner with message
+        this.showLoadingSpinner(message);
+      }
+    }
   }
 
   /**
@@ -831,6 +906,8 @@ export class AnalysisWorkflow {
    * Display final results with mentions, citations, best prompts, and other sources
    */
   private displayFinalResults(data: { prompts: any[]; summary: any }): void {
+    // Hide spinner when showing final results
+    this.hideLoadingSpinner();
     const resultContent = document.getElementById("resultContent");
     const result = document.getElementById("result");
     
@@ -1174,6 +1251,8 @@ export class AnalysisWorkflow {
    * Display simple completion message (fallback)
    */
   private displaySimpleCompletion(): void {
+    // Hide spinner when showing completion
+    this.hideLoadingSpinner();
     const resultContent = document.getElementById("resultContent");
     const result = document.getElementById("result");
     
