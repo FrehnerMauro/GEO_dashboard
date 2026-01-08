@@ -141,6 +141,11 @@ export class Database {
         const duration = Date.now() - startTime;
         console.log(`[D1 DEBUG] ${opName} chunk ${chunkNum}/${totalChunks} (${chunk.length} statements) completed in ${duration}ms`);
       }, 3, 100, `${opName} chunk ${chunkNum}/${totalChunks}`);
+      
+      // Add a small delay between chunks to avoid overwhelming D1
+      if (i + chunkSize < statements.length) {
+        await new Promise(resolve => setTimeout(resolve, 50)); // 50ms delay between chunks
+      }
     }
   }
 
@@ -271,9 +276,10 @@ export class Database {
         )
     );
 
+    // Use smaller chunks for prompts to avoid timeout
     await this.retryD1Operation(async () => {
-      await this.batchInChunks(statements, 50, `savePrompts (${prompts.length} prompts)`);
-    }, 3, 100, "savePrompts");
+      await this.batchInChunks(statements, 30, `savePrompts (${prompts.length} prompts)`);
+    }, 3, 150, "savePrompts");
   }
 
   async saveLLMResponses(responses: LLMResponse[]): Promise<void> {
@@ -281,10 +287,12 @@ export class Database {
       return; // Skip empty batches
     }
 
+    // First, save all responses (without citations) to get response IDs
     const responseStatements = responses.map((response) => {
-      const responseId = `resp_${response.promptId}_${Date.now()}`;
+      const responseId = `resp_${response.promptId}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       return {
-        response: this.db
+        responseId,
+        statement: this.db
           .prepare(
             `INSERT INTO llm_responses (id, prompt_id, output_text, model, timestamp)
              VALUES (?, ?, ?, ?, ?)`
@@ -296,9 +304,26 @@ export class Database {
             response.model,
             response.timestamp
           ),
-        citations: response.citations.map((citation) => {
-          const citationId = `cite_${responseId}_${Date.now()}_${Math.random()}`;
-          return this.db
+        citations: response.citations,
+      };
+    });
+
+    // Save responses first in smaller chunks
+    const responseOnlyStatements = responseStatements.map(rs => rs.statement);
+    if (responseOnlyStatements.length > 0) {
+      console.log(`[D1 DEBUG] Saving ${responseOnlyStatements.length} responses first...`);
+      await this.retryD1Operation(async () => {
+        await this.batchInChunks(responseOnlyStatements, 20, `saveLLMResponses - responses only`);
+      }, 3, 200, "saveLLMResponses - responses");
+    }
+
+    // Then save citations separately in smaller chunks
+    const citationStatements: D1PreparedStatement[] = [];
+    for (const { responseId, citations } of responseStatements) {
+      for (const citation of citations) {
+        const citationId = `cite_${responseId}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        citationStatements.push(
+          this.db
             .prepare(
               `INSERT INTO citations (id, llm_response_id, url, title, snippet)
                VALUES (?, ?, ?, ?, ?)`
@@ -309,22 +334,20 @@ export class Database {
               citation.url,
               citation.title || null,
               citation.snippet || null
-            );
-        }),
-      };
-    });
-
-    const allStatements: D1PreparedStatement[] = [];
-    for (const { response, citations } of responseStatements) {
-      allStatements.push(response);
-      allStatements.push(...citations);
+            )
+        );
+      }
     }
 
-    if (allStatements.length > 0) {
+    if (citationStatements.length > 0) {
+      console.log(`[D1 DEBUG] Saving ${citationStatements.length} citations in separate batches...`);
       await this.retryD1Operation(async () => {
-        await this.batchInChunks(allStatements, 50, `saveLLMResponses (${responses.length} responses, ${allStatements.length} total statements)`);
-      }, 3, 100, "saveLLMResponses");
+        // Use even smaller chunks for citations to avoid timeout
+        await this.batchInChunks(citationStatements, 15, `saveLLMResponses - citations (${citationStatements.length} total)`);
+      }, 3, 200, "saveLLMResponses - citations");
     }
+
+    console.log(`[D1 DEBUG] Completed saving ${responses.length} responses with ${citationStatements.length} citations`);
   }
 
   async savePromptAnalyses(analyses: PromptAnalysis[]): Promise<void> {
@@ -383,7 +406,8 @@ export class Database {
 
     if (allStatements.length > 0) {
       await this.retryD1Operation(async () => {
-        await this.batchInChunks(allStatements, 50, `savePromptAnalyses (${analyses.length} analyses, ${allStatements.length} total statements)`);
+        // Use smaller chunks for analyses to avoid timeout
+      await this.batchInChunks(allStatements, 25, `savePromptAnalyses (${analyses.length} analyses, ${allStatements.length} total statements)`);
       }, 3, 100, "savePromptAnalyses");
     }
   }

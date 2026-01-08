@@ -331,7 +331,7 @@ Return only valid JSON object with categories array, no other text.`;
       }
       
       try {
-        console.log(`[${i + 1}/${categories.length}] Generating prompts for category: ${category.name}`);
+        console.log(`[${i + 1}/${categories.length}] Generating prompts for category: ${category.name} (requesting ${questionsPerCategory} questions)`);
         const categoryPrompts = await this.generateCategoryPromptsWithGPT(
           category,
           userInput,
@@ -339,9 +339,14 @@ Return only valid JSON object with categories array, no other text.`;
           questionsPerCategory,
           runId
         );
-        allPrompts.push(...categoryPrompts);
+        // Ensure we only add exactly questionsPerCategory prompts
+        const promptsToAdd = categoryPrompts.slice(0, questionsPerCategory);
+        if (promptsToAdd.length !== questionsPerCategory) {
+          console.warn(`[${i + 1}/${categories.length}] ⚠️ Category ${category.name}: Got ${categoryPrompts.length} prompts, but expected ${questionsPerCategory}. Using first ${promptsToAdd.length}.`);
+        }
+        allPrompts.push(...promptsToAdd);
         processedCount++;
-        console.log(`[${i + 1}/${categories.length}] ✓ Generated ${categoryPrompts.length} prompts for ${category.name}`);
+        console.log(`[${i + 1}/${categories.length}] ✓ Added ${promptsToAdd.length} prompts for ${category.name} (expected: ${questionsPerCategory})`);
       } catch (error: any) {
         console.error(`[${i + 1}/${categories.length}] ✗ Error generating prompts for category ${category.name}:`, error);
         // Fallback to template-based generation for this category
@@ -350,8 +355,10 @@ Return only valid JSON object with categories array, no other text.`;
           userInput,
           questionsPerCategory
         );
-        allPrompts.push(...fallbackPrompts);
-        console.log(`[${i + 1}/${categories.length}] ✓ Used fallback: Generated ${fallbackPrompts.length} prompts for ${category.name}`);
+        // Ensure we only add exactly questionsPerCategory prompts
+        const promptsToAdd = fallbackPrompts.slice(0, questionsPerCategory);
+        allPrompts.push(...promptsToAdd);
+        console.log(`[${i + 1}/${categories.length}] ✓ Used fallback: Added ${promptsToAdd.length} prompts for ${category.name} (expected: ${questionsPerCategory})`);
       }
     }
     
@@ -369,14 +376,31 @@ Return only valid JSON object with categories array, no other text.`;
       categoryPromptMap.get(prompt.categoryId)!.push(prompt);
     }
     
-    // Keep exactly questionsPerCategory questions from each category
+    // Debug: Log how many prompts per category before filtering
+    console.log(`[step4GeneratePrompts] Before filtering: ${allPrompts.length} total prompts`);
     for (const [categoryId, prompts] of categoryPromptMap.entries()) {
-      // Take up to questionsPerCategory questions from this category
-      const promptsToKeep = prompts.slice(0, questionsPerCategory);
-      filteredPrompts.push(...promptsToKeep);
+      const category = categories.find(c => c.id === categoryId);
+      console.log(`[step4GeneratePrompts] Category ${category?.name || categoryId}: ${prompts.length} prompts generated`);
     }
     
-    console.log(`Filtered to ${filteredPrompts.length} prompts (${questionsPerCategory} per category, ${categories.length} categories selected)`);
+    // Keep exactly questionsPerCategory questions from each category
+    for (const [categoryId, prompts] of categoryPromptMap.entries()) {
+      // Take exactly questionsPerCategory questions from this category
+      const promptsToKeep = prompts.slice(0, questionsPerCategory);
+      if (promptsToKeep.length !== questionsPerCategory) {
+        console.warn(`[step4GeneratePrompts] ⚠️ Category ${categoryId}: Only ${promptsToKeep.length} prompts available, but ${questionsPerCategory} requested`);
+      }
+      filteredPrompts.push(...promptsToKeep);
+      const category = categories.find(c => c.id === categoryId);
+      console.log(`[step4GeneratePrompts] Category ${category?.name || categoryId}: Keeping ${promptsToKeep.length} prompts (requested: ${questionsPerCategory})`);
+    }
+    
+    const expectedTotal = categories.length * questionsPerCategory;
+    if (filteredPrompts.length !== expectedTotal) {
+      console.warn(`[step4GeneratePrompts] ⚠️ Expected ${expectedTotal} prompts (${questionsPerCategory} × ${categories.length} categories), but got ${filteredPrompts.length}`);
+    } else {
+      console.log(`[step4GeneratePrompts] ✓ Filtered to ${filteredPrompts.length} prompts (${questionsPerCategory} per category, ${categories.length} categories = ${expectedTotal} total)`);
+    }
 
     // DO NOT save prompts here - they will only be saved after successful execution with responses
     // This ensures only questions that were actually asked and have answers are stored
@@ -760,7 +784,9 @@ Kein anderer Text, nur gültiges JSON.`;
       }
 
       // Ensure we return exactly 'count' questions (trim if GPT returned more)
-      return prompts.slice(0, count);
+      const finalPrompts = prompts.slice(0, count);
+      console.log(`[generateCategoryPromptsWithGPT] Category ${category.name}: Generated ${prompts.length} prompts, returning exactly ${finalPrompts.length} (requested: ${count})`);
+      return finalPrompts;
     } catch (error: any) {
       console.error(`Error generating prompts for category ${category.name}:`, error);
       console.error("Error details:", error?.message || error, error?.stack);
