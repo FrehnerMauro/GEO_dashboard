@@ -2031,7 +2031,6 @@
           this.dashboardSection.innerHTML = `
             <div class="dashboard-container">
               <div class="dashboard-header">
-                <h2>Dashboard</h2>
                 <div class="view-toggle">
                   <button class="toggle-btn ${this.viewMode === 'local' ? 'active' : ''}" data-mode="local">
                     Lokal
