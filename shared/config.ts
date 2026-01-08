@@ -3,6 +3,9 @@
  */
 
 export interface Config {
+  debug: {
+    enabled: boolean;
+  };
   openai: {
     apiKey: string;
     model: string;
@@ -31,6 +34,9 @@ export interface Config {
 
 export function getConfig(env: Record<string, any>): Config {
   return {
+    debug: {
+      enabled: env.DEBUG_MODE === "true" || env.DEBUG_MODE === "1",
+    },
     openai: {
       apiKey: env.OPENAI_API_KEY || "",
       model: env.OPENAI_MODEL || "gpt-4o", // Use gpt-4o by default, set OPENAI_MODEL=gpt-5 in .dev.vars if available

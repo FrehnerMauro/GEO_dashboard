@@ -42,6 +42,12 @@ export class LLMExecutor {
     outputText: string;
     citations: WebSearchCitation[];
   }> {
+    // Debug mode: Return dummy values without making API calls
+    if (this.config.debug?.enabled) {
+      console.log('🐛 DEBUG MODE: Returning dummy LLM response (no API call)');
+      return this.getDummyResponse(question);
+    }
+
     // According to OpenAI Responses API documentation:
     // https://platform.openai.com/docs/guides/tools-web-search
     // The endpoint is: POST https://api.openai.com/v1/responses
@@ -346,6 +352,41 @@ export class LLMExecutor {
     }
 
     return Array.from(uniqueCitations.values());
+  }
+
+  private getDummyResponse(question: string): {
+    outputText: string;
+    citations: WebSearchCitation[];
+  } {
+    // Generate realistic dummy response based on question
+    const dummyOutputText = `[DEBUG MODE] Dies ist eine Dummy-Antwort für die Frage: "${question}"
+
+In einem echten Szenario würde hier eine detaillierte Antwort von GPT-5 mit Web-Suche stehen. Diese Antwort enthält relevante Informationen, Zitate und Verweise auf externe Quellen.
+
+Die Antwort behandelt verschiedene Aspekte des Themas und bietet umfassende Informationen für den Benutzer.`;
+
+    const dummyCitations: WebSearchCitation[] = [
+      {
+        url: "https://example.com/article1",
+        title: "Beispiel-Artikel 1 - Relevante Informationen",
+        snippet: "Dies ist ein Beispiel-Zitat aus einer externen Quelle, die relevante Informationen zum Thema enthält.",
+      },
+      {
+        url: "https://example.com/article2",
+        title: "Beispiel-Artikel 2 - Weitere Details",
+        snippet: "Ein weiteres Beispiel-Zitat mit zusätzlichen Informationen und Kontext zum Thema.",
+      },
+      {
+        url: "https://example.com/article3",
+        title: "Beispiel-Artikel 3 - Zusätzliche Ressourcen",
+        snippet: "Ein drittes Beispiel-Zitat, das weitere Perspektiven und Ressourcen zum Thema bietet.",
+      },
+    ];
+
+    return {
+      outputText: dummyOutputText,
+      citations: dummyCitations,
+    };
   }
 }
 

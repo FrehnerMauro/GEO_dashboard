@@ -42,7 +42,14 @@ OPENAI_API_KEY=your-openai-api-key-here
 MAX_PAGES=50
 MAX_DEPTH=3
 RE_RUN_SCHEDULE=weekly
+DEBUG_MODE=true
 ```
+
+**Debug Mode**: Set `DEBUG_MODE=true` to use dummy values instead of making API calls. This saves costs during development and testing. In debug mode:
+- No OpenAI API calls are made
+- Dummy LLM responses are returned
+- Dummy prompts are generated
+- All analysis still works with the dummy data
 
 For production, set these in Cloudflare Workers dashboard.
 

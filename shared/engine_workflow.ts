@@ -377,6 +377,12 @@ Return only valid JSON object with categories array, no other text.`;
     count: number,
     runId: string
   ): Promise<Prompt[]> {
+    // Debug mode: Return dummy prompts without making API calls
+    if (this.config.debug?.enabled) {
+      console.log('🐛 DEBUG MODE: Returning dummy prompts (no API call)');
+      return this.getDummyPrompts(category, userInput, count, runId);
+    }
+
     const regionText = userInput.region || userInput.country;
     const prompt = `Du bist ein Experte für Kundenerfahrung. Generiere genau ${count} SEHR REALISTISCHE, DIREKTE Fragen in ${userInput.language}, die echte Kunden wirklich in einer Suchmaschine oder ChatGPT eingeben würden.
 
@@ -516,6 +522,68 @@ Kein anderer Text, nur gültiges JSON.`;
       const fallbackPrompts = this.promptGenerator.generatePrompts([category], userInput, count);
       return fallbackPrompts;
     }
+  }
+
+  private getDummyPrompts(
+    category: Category,
+    userInput: UserInput,
+    count: number,
+    runId: string
+  ): Prompt[] {
+    const regionText = userInput.region || userInput.country;
+    const prompts: Prompt[] = [];
+    
+    // Generate dummy questions based on category and language
+    const questionTemplates: Record<string, string[]> = {
+      de: [
+        `Wer ist in ${regionText} für ${category.name}?`,
+        `Wer bietet ${category.name} in ${regionText}?`,
+        `Gibt es ${category.name} für Unternehmen in ${regionText}?`,
+        `Was kostet ${category.name} in ${regionText}?`,
+        `Wer verkauft ${category.name} in ${regionText}?`,
+        `Welche ${category.name} gibt es in ${regionText}?`,
+        `Wer ist der beste Anbieter für ${category.name} in ${regionText}?`,
+        `Wo finde ich ${category.name} in ${regionText}?`,
+      ],
+      en: [
+        `Who is in ${regionText} for ${category.name}?`,
+        `Who offers ${category.name} in ${regionText}?`,
+        `Are there ${category.name} for businesses in ${regionText}?`,
+        `What does ${category.name} cost in ${regionText}?`,
+        `Who sells ${category.name} in ${regionText}?`,
+        `What ${category.name} are available in ${regionText}?`,
+        `Who is the best provider for ${category.name} in ${regionText}?`,
+        `Where can I find ${category.name} in ${regionText}?`,
+      ],
+      fr: [
+        `Qui est en ${regionText} pour ${category.name}?`,
+        `Qui offre ${category.name} en ${regionText}?`,
+        `Y a-t-il ${category.name} pour entreprises en ${regionText}?`,
+        `Combien coûte ${category.name} en ${regionText}?`,
+        `Qui vend ${category.name} en ${regionText}?`,
+        `Quels ${category.name} sont disponibles en ${regionText}?`,
+        `Qui est le meilleur fournisseur pour ${category.name} en ${regionText}?`,
+        `Où puis-je trouver ${category.name} en ${regionText}?`,
+      ],
+    };
+
+    const templates = questionTemplates[userInput.language] || questionTemplates.de;
+    
+    for (let i = 0; i < count; i++) {
+      const template = templates[i % templates.length];
+      prompts.push({
+        id: `prompt_${runId}_${category.id}_${i}`,
+        categoryId: category.id,
+        question: template,
+        language: userInput.language,
+        country: userInput.country,
+        region: userInput.region,
+        intent: "high",
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    return prompts;
   }
 
   // Save selected prompts
