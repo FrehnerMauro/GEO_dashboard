@@ -1818,7 +1818,7 @@
         const sourceEntries = Object.entries(otherSources);
         if (sourceEntries.length > 0) {
           otherSourcesHtml = '<div style="margin-top: 16px; padding: 16px; background: rgba(255,255,255,0.15); border-radius: 8px; backdrop-filter: blur(10px);">';
-          otherSourcesHtml += '<h4 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 700; color: white;">📚 Andere Quellen:</h4>';
+          otherSourcesHtml += '<h4 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 700; color: white;">🔗 Andere Links (Zitierungen):</h4>';
           otherSourcesHtml += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">';
           sourceEntries.forEach(function([source, count]) {
             otherSourcesHtml += '<div style="padding: 10px; background: rgba(255,255,255,0.1); border-radius: 6px; text-align: center;">';
