@@ -2122,7 +2122,8 @@ Antworte NUR mit dem JSON-Objekt, ohne zusätzlichen Text.`;
   }
 
   // AI Readiness: Process analysis (async)
-  private async processAIReadiness(
+  // Made public so it can be accessed by AIReadinessHandler
+  public async processAIReadiness(
     runId: string,
     websiteUrl: string,
     env: Env

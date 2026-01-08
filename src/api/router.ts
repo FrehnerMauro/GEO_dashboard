@@ -9,6 +9,7 @@ import { WorkflowHandlers } from "./handlers/workflow.js";
 import { AnalysisHandlers } from "./handlers/analysis.js";
 import { CompanyHandler } from "./handlers/company-handler.js";
 import { ScheduleHandler } from "./handlers/schedule-handler.js";
+import { AIReadinessHandler } from "./handlers/ai-readiness-handler.js";
 import { WorkflowEngine } from "../engine_workflow.js";
 import { GEOEngine } from "../engine.js";
 
@@ -17,6 +18,7 @@ export class Router {
   private analysisHandlers: AnalysisHandlers;
   private companyHandler: CompanyHandler;
   private scheduleHandler: ScheduleHandler;
+  private aiReadinessHandler: AIReadinessHandler;
 
   constructor(
     private engine: GEOEngine,
@@ -27,6 +29,7 @@ export class Router {
     this.analysisHandlers = new AnalysisHandlers(engine);
     this.companyHandler = new CompanyHandler(env);
     this.scheduleHandler = new ScheduleHandler(env);
+    this.aiReadinessHandler = new AIReadinessHandler(env);
   }
 
   async route(request: Request, ctx?: ExecutionContext): Promise<Response> {
@@ -202,11 +205,18 @@ export class Router {
     corsHeaders: ReturnType<typeof getCorsHeaders>,
     ctx?: ExecutionContext
   ): Promise<Response> {
-    // These still need to be implemented
-    return new Response(JSON.stringify({ error: "Not implemented" }), {
-      status: 501,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    switch (method) {
+      case "analyze":
+        return await this.aiReadinessHandler.handleAnalyze(request, corsHeaders, ctx);
+      case "getStatus":
+        const runId = params.param0 || "";
+        if (!runId) {
+          return handleNotFound(corsHeaders);
+        }
+        return await this.aiReadinessHandler.handleGetStatus(runId, corsHeaders);
+      default:
+        return handleNotFound(corsHeaders);
+    }
   }
 }
 
