@@ -2,23 +2,16 @@
  * API Types and Interfaces
  */
 
+import { getCorsHeaders as getCorsHeadersFromMiddleware } from "./middleware/cors.js";
+
 export interface Env {
   geo_db: D1Database;
   OPENAI_API_KEY: string;
   [key: string]: any;
 }
 
-export interface CorsHeaders {
-  "Access-Control-Allow-Origin": string;
-  "Access-Control-Allow-Methods": string;
-  "Access-Control-Allow-Headers": string;
-}
+export type CorsHeaders = ReturnType<typeof getCorsHeadersFromMiddleware>;
 
-export function getCorsHeaders(): CorsHeaders {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-  };
-}
+// Re-export for backward compatibility
+export { getCorsHeadersFromMiddleware as getCorsHeaders };
 

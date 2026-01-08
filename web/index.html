@@ -294,6 +294,20 @@
   </div>
 
   <!-- Main JavaScript (loads after DOM) -->
+  <!-- New modular architecture -->
+  <script type="module">
+    import { App } from './scripts/app.ts';
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        const app = new App();
+        app.init();
+      });
+    } else {
+      const app = new App();
+      app.init();
+    }
+  </script>
+  <!-- Legacy support - will be removed after full migration -->
   <script src="/scripts/main.js" defer></script>
 </body>
 </html>
