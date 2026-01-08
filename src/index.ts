@@ -12,7 +12,7 @@ export default {
     const routes = new APIRoutes(engine);
     
     // For async analysis, use waitUntil to allow background processing
-    const response = await routes.handleRequest(request, env);
+    const response = await routes.handleRequest(request, env, ctx);
     
     return response;
   },
