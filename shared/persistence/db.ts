@@ -797,6 +797,7 @@ export class Database {
   // Global view methods
   async getAllGlobalCategories(): Promise<Array<{ name: string; description: string; count: number }>> {
     // Only show categories that have prompts with web search (citations)
+    // Use EXISTS to check if prompt has citations
     const result = await this.db
       .prepare(
         `SELECT 
@@ -804,9 +805,13 @@ export class Database {
           MAX(c.description) as description,
           COUNT(DISTINCT p.id) as count
          FROM categories c
-         JOIN prompts p ON p.category_id = c.id
-         JOIN llm_responses lr ON lr.prompt_id = p.id
-         JOIN citations cit ON cit.llm_response_id = lr.id
+         INNER JOIN prompts p ON p.category_id = c.id
+         WHERE EXISTS (
+           SELECT 1 
+           FROM llm_responses lr
+           INNER JOIN citations cit ON cit.llm_response_id = lr.id
+           WHERE lr.prompt_id = p.id
+         )
          GROUP BY c.name
          HAVING count > 0
          ORDER BY count DESC, c.name ASC`
@@ -836,6 +841,7 @@ export class Database {
     websiteUrl: string;
   }>> {
     // Only return prompts that have been executed with web search (have citations)
+    // Use EXISTS to check if prompt has citations
     const result = await this.db
       .prepare(
         `SELECT DISTINCT
@@ -849,11 +855,15 @@ export class Database {
           p.analysis_run_id,
           ar.website_url
          FROM prompts p
-         JOIN categories c ON p.category_id = c.id
-         JOIN analysis_runs ar ON p.analysis_run_id = ar.id
-         JOIN llm_responses lr ON lr.prompt_id = p.id
-         JOIN citations cit ON cit.llm_response_id = lr.id
+         INNER JOIN categories c ON p.category_id = c.id
+         INNER JOIN analysis_runs ar ON p.analysis_run_id = ar.id
          WHERE c.name = ?
+         AND EXISTS (
+           SELECT 1 
+           FROM llm_responses lr
+           INNER JOIN citations cit ON cit.llm_response_id = lr.id
+           WHERE lr.prompt_id = p.id
+         )
          ORDER BY p.created_at DESC`
       )
       .bind(categoryName)
