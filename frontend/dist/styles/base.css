@@ -965,6 +965,39 @@
       font-weight: 600;
       color: var(--text);
       line-height: 1.6;
+      margin-bottom: 8px;
+    }
+    
+    .prompt-question p {
+      font-size: 15px;
+      color: var(--text);
+      line-height: 1.6;
+      margin: 0;
+    }
+    
+    .prompt-answer {
+      margin-bottom: 16px;
+      padding: 16px;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.05) 0%, rgba(251, 191, 36, 0.05) 100%);
+      border-radius: var(--radius);
+      border: 1px solid var(--border-light);
+    }
+    
+    .prompt-answer h4 {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+    
+    .prompt-answer p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.7;
+      margin: 0;
+      white-space: pre-wrap;
+      word-wrap: break-word;
     }
     
     .prompt-details {
