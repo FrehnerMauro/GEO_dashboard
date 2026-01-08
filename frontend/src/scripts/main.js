@@ -74,6 +74,86 @@
       }
     };
     
+    window.showAIAnalysis = function(event) {
+      if (event) event.preventDefault();
+      // Hide all sections
+      const dashboardSection = document.getElementById('dashboardSection');
+      const aiAnalysisSection = document.getElementById('aiAnalysisSection');
+      const aiReadabilitySection = document.getElementById('aiReadabilitySection');
+      const analysesSection = document.getElementById('analysesSection');
+      const analysisDetailSection = document.getElementById('analysisDetailSection');
+      const analysisSection = document.querySelector('.content-area > .card');
+      
+      if (dashboardSection) dashboardSection.style.display = 'none';
+      if (aiAnalysisSection) aiAnalysisSection.style.display = 'block';
+      if (aiReadabilitySection) aiReadabilitySection.style.display = 'none';
+      if (analysesSection) analysesSection.style.display = 'none';
+      if (analysisDetailSection) analysisDetailSection.style.display = 'none';
+      if (analysisSection) analysisSection.style.display = 'none';
+      
+      // Update header
+      const headerTitle = document.getElementById('headerTitle');
+      if (headerTitle) headerTitle.textContent = 'AI Analyse';
+      
+      // Update navigation
+      const navItems = document.querySelectorAll('.nav-item');
+      navItems.forEach(item => item.classList.remove('active'));
+      if (event && event.target) {
+        event.target.closest('.nav-item')?.classList.add('active');
+      } else {
+        // Set second nav item (AI Analyse) as active
+        const navItemsArray = Array.from(document.querySelectorAll('.nav-item'));
+        if (navItemsArray.length > 1) {
+          navItemsArray[1].classList.add('active');
+        }
+      }
+      
+      // Try to call full implementation if available (after DOMContentLoaded)
+      if (window.showAIAnalysisFull) {
+        window.showAIAnalysisFull(event);
+      }
+    };
+    
+    window.showAIReadability = function(event) {
+      if (event) event.preventDefault();
+      // Hide all sections
+      const dashboardSection = document.getElementById('dashboardSection');
+      const aiAnalysisSection = document.getElementById('aiAnalysisSection');
+      const aiReadabilitySection = document.getElementById('aiReadabilitySection');
+      const analysesSection = document.getElementById('analysesSection');
+      const analysisDetailSection = document.getElementById('analysisDetailSection');
+      const analysisSection = document.querySelector('.content-area > .card');
+      
+      if (dashboardSection) dashboardSection.style.display = 'none';
+      if (aiAnalysisSection) aiAnalysisSection.style.display = 'none';
+      if (aiReadabilitySection) aiReadabilitySection.style.display = 'block';
+      if (analysesSection) analysesSection.style.display = 'none';
+      if (analysisDetailSection) analysisDetailSection.style.display = 'none';
+      if (analysisSection) analysisSection.style.display = 'none';
+      
+      // Update header
+      const headerTitle = document.getElementById('headerTitle');
+      if (headerTitle) headerTitle.textContent = 'AI Readability';
+      
+      // Update navigation
+      const navItems = document.querySelectorAll('.nav-item');
+      navItems.forEach(item => item.classList.remove('active'));
+      if (event && event.target) {
+        event.target.closest('.nav-item')?.classList.add('active');
+      } else {
+        // Set third nav item (AI Readability) as active
+        const navItemsArray = Array.from(document.querySelectorAll('.nav-item'));
+        if (navItemsArray.length > 2) {
+          navItemsArray[2].classList.add('active');
+        }
+      }
+      
+      // Try to call full implementation if available (after DOMContentLoaded)
+      if (window.showAIReadabilityFull) {
+        window.showAIReadabilityFull(event);
+      }
+    };
+    
     // AI Readiness functionality removed
     
     window.viewAnalysisDetails = function(runId) {
