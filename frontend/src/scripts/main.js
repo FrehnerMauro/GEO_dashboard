@@ -2854,32 +2854,21 @@
             insights.detailedData = [];
           }
           
-          // Extract model from responses (use first response's model, or check all if needed)
-          // The API returns: { runId, insights: [...], prompts: [...], responses: [...] }
-          // So 'insights' variable here is the whole response object
-          let modelName = 'Unbekannt';
-          const responses = insights.responses || (insights.insights && insights.insights.responses) || [];
-          if (Array.isArray(responses) && responses.length > 0) {
-            modelName = responses[0].model || 'Unbekannt';
-          }
-          
           console.log('📊 Insights data:', {
             totalBrandMentions: insights.summary.totalBrandMentions,
             totalBrandCitations: insights.summary.totalBrandCitations,
             promptsWithMentions: insights.summary.promptsWithMentions,
-            totalPrompts: insights.summary.totalPrompts,
-            model: modelName
+            totalPrompts: insights.summary.totalPrompts
           });
           
           // Build insights dashboard - Professional design
           let html = '<div style="margin-bottom: 40px; padding-bottom: 24px; border-bottom: 1px solid #e5e7eb;">';
           html += '<h2 style="margin: 0 0 8px 0; color: #111827; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">Analyse-Ergebnisse</h2>';
-          html += '<div style="display: flex; gap: 24px; margin-top: 12px; font-size: 14px; color: #6b7280; flex-wrap: wrap;">';
+          html += '<div style="display: flex; gap: 24px; margin-top: 12px; font-size: 14px; color: #6b7280;">';
           html += '<span style="display: flex; align-items: center; gap: 6px;"><span style="width: 8px; height: 8px; background: #3b82f6; border-radius: 50%;"></span> ' + (insights.websiteUrl || '') + '</span>';
           if (insights.brandName) {
             html += '<span style="display: flex; align-items: center; gap: 6px;"><span style="width: 8px; height: 8px; background: #10b981; border-radius: 50%;"></span> ' + insights.brandName + '</span>';
           }
-          html += '<span style="display: flex; align-items: center; gap: 6px; padding: 4px 12px; background: #f3f4f6; border-radius: 6px; font-weight: 500; color: #111827;"><span style="width: 8px; height: 8px; background: #8b5cf6; border-radius: 50%;"></span> Modell: <strong style="color: #8b5cf6;">' + modelName + '</strong> (Websearch)</span>';
           html += '</div>';
           html += '</div>';
           
