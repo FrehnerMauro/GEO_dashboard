@@ -393,10 +393,8 @@ export class AnalysisWorkflow {
       );
 
       if (result.prompts && Array.isArray(result.prompts)) {
-        // Save prompts first
-        await workflowService.savePrompts(this.workflowData.runId, result.prompts);
-        
-        // Store prompts in workflow data
+        // DO NOT save prompts here - they will only be saved after successful execution with responses
+        // Store prompts in workflow data for selection
         this.workflowData.prompts = result.prompts;
         
         this.updateAnalysisUI(4, "Prompts Generated", `${result.prompts.length} questions created. Please select which ones to execute...`, 75);

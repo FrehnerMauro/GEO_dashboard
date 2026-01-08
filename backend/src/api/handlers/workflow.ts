@@ -513,7 +513,8 @@ export class WorkflowHandlers {
           }
 
           const isOwnCompany = (domain: string) => {
-            return domain.includes(ownCompanyDomain) || domain.includes(summaryBrandLower);
+            const domainLower = domain.toLowerCase();
+            return domainLower.includes(ownCompanyDomain) || domainLower.includes(summaryBrandLower);
           };
 
           const allCitationsResult = await db.db
@@ -589,8 +590,18 @@ export class WorkflowHandlers {
     env: Env,
     corsHeaders: CorsHeaders
   ): Promise<Response> {
-    const body = await request.json();
+    const body = await request.json() as { url?: string };
     const { url } = body;
+
+    if (!url) {
+      return new Response(
+        JSON.stringify({ error: "URL is required" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
     try {
       const response = await fetch(url, {
@@ -632,8 +643,22 @@ export class WorkflowHandlers {
     env: Env,
     corsHeaders: CorsHeaders
   ): Promise<Response> {
-    const body = await request.json();
+    const body = await request.json() as {
+      runId?: string;
+      prompt?: any;
+      userInput?: any;
+    };
     const { runId, prompt, userInput } = body;
+
+    if (!runId || !prompt) {
+      return new Response(
+        JSON.stringify({ error: "runId and prompt are required" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
     try {
       const config = getConfig(env);
@@ -642,11 +667,17 @@ export class WorkflowHandlers {
       // Execute prompt with GPT-5 Web Search
       const response = await executor.executePrompt(prompt);
 
+      // Only save prompt if response is valid and has output text
+      if (!response || !response.outputText || response.outputText.trim().length === 0) {
+        throw new Error("Prompt execution failed: No valid response received");
+      }
+
       // Extract brand name from website URL
       const websiteUrl = userInput?.websiteUrl || '';
       const brandName = extractBrandName(websiteUrl);
 
       // Save prompt, response, and analysis immediately (with timestamps)
+      // Only prompts with successful responses are saved
       const db = new Database(env.geo_db as any);
       
       // Ensure prompt has an ID and required fields
@@ -669,7 +700,7 @@ export class WorkflowHandlers {
         prompt.createdAt = new Date().toISOString();
       }
       
-      // Save prompt using the proper method
+      // Save prompt only after successful execution with valid response
       await db.savePrompts(runId, [prompt]);
       
       // Ensure response has correct promptId
@@ -1159,6 +1190,7 @@ Format: JSON with fields: summary, score, recommendations (Array), issues (Array
             question: analysisPromptText,
             language: 'en',
             intent: 'high',
+            createdAt: new Date().toISOString(),
           };
           const analysisResult = await llmExecutor.executePrompt(prompt);
           

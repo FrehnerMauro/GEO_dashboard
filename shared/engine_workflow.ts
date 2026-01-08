@@ -299,7 +299,7 @@ Return only valid JSON object with categories array, no other text.`;
   }
 
   // Step 4: Generate prompts (questionsPerCategory per category, no brand name) using GPT
-  // Intelligent batching: If total questions > threshold, generate per category, otherwise all at once
+  // Always generates per category with rate limiting to avoid overwhelming the API
   async step4GeneratePrompts(
     runId: string,
     categories: Category[],
@@ -312,79 +312,53 @@ Return only valid JSON object with categories array, no other text.`;
     const db = new Database(env.geo_db as D1Database);
 
     const totalQuestions = categories.length * questionsPerCategory;
-    const MAX_QUESTIONS_FOR_SINGLE_CALL = 30; // Threshold: if more than 30 questions, split by category
+    const API_CALL_DELAY_MS = 2000; // 2 seconds delay between API calls to avoid rate limits
+    const MAX_CONCURRENT_CALLS = 3; // Maximum concurrent API calls
+    
+    console.log(`Generating ${totalQuestions} questions across ${categories.length} categories (per-category mode with rate limiting)`);
     
     const allPrompts: Prompt[] = [];
+    let processedCount = 0;
 
-    if (totalQuestions > MAX_QUESTIONS_FOR_SINGLE_CALL) {
-      // Too many questions: Generate per category to avoid timeouts
-      console.log(`Generating ${totalQuestions} questions across ${categories.length} categories (per-category mode)`);
+    // Process categories with rate limiting
+    for (let i = 0; i < categories.length; i++) {
+      const category = categories[i];
       
-      for (const category of categories) {
-        try {
-          const categoryPrompts = await this.generateCategoryPromptsWithGPT(
-            category,
-            userInput,
-            content,
-            questionsPerCategory,
-            runId
-          );
-          allPrompts.push(...categoryPrompts);
-        } catch (error: any) {
-          console.error(`Error generating prompts for category ${category.name}:`, error);
-          // Fallback to template-based generation for this category
-          const fallbackPrompts = this.promptGenerator.generatePrompts(
-            [category],
-            userInput,
-            questionsPerCategory
-          );
-          allPrompts.push(...fallbackPrompts);
-        }
+      // Add delay between API calls (except for the first one)
+      if (i > 0) {
+        console.log(`Waiting ${API_CALL_DELAY_MS}ms before next API call to avoid rate limits...`);
+        await new Promise(resolve => setTimeout(resolve, API_CALL_DELAY_MS));
       }
-    } else {
-      // Fewer questions: Generate all at once for efficiency
-      console.log(`Generating ${totalQuestions} questions for ${categories.length} categories (single-call mode)`);
       
       try {
-        const allCategoryPrompts = await this.generateAllCategoryPromptsWithGPT(
-          categories,
+        console.log(`[${i + 1}/${categories.length}] Generating prompts for category: ${category.name}`);
+        const categoryPrompts = await this.generateCategoryPromptsWithGPT(
+          category,
           userInput,
           content,
           questionsPerCategory,
           runId
         );
-        allPrompts.push(...allCategoryPrompts);
+        allPrompts.push(...categoryPrompts);
+        processedCount++;
+        console.log(`[${i + 1}/${categories.length}] ✓ Generated ${categoryPrompts.length} prompts for ${category.name}`);
       } catch (error: any) {
-        console.error(`Error generating prompts for all categories:`, error);
-        // Fallback to template-based generation
+        console.error(`[${i + 1}/${categories.length}] ✗ Error generating prompts for category ${category.name}:`, error);
+        // Fallback to template-based generation for this category
         const fallbackPrompts = this.promptGenerator.generatePrompts(
-          categories,
+          [category],
           userInput,
           questionsPerCategory
         );
         allPrompts.push(...fallbackPrompts);
+        console.log(`[${i + 1}/${categories.length}] ✓ Used fallback: Generated ${fallbackPrompts.length} prompts for ${category.name}`);
       }
     }
+    
+    console.log(`Completed: Generated ${allPrompts.length} prompts across ${processedCount}/${categories.length} categories`);
 
-    await db.savePrompts(runId, allPrompts);
-
-    // Save prompts to company_prompts if companyId is provided
-    if (companyId) {
-      for (const prompt of allPrompts) {
-        const category = categories.find(c => c.id === prompt.categoryId);
-        await db.saveCompanyPrompt({
-          companyId: companyId,
-          question: prompt.question,
-          categoryId: prompt.categoryId || null,
-          categoryName: category?.name || null,
-          language: prompt.language,
-          country: prompt.country || null,
-          region: prompt.region || null,
-          isActive: true,
-        });
-      }
-      console.log(`Saved ${allPrompts.length} prompts to company_prompts for company ${companyId}`);
-    }
+    // DO NOT save prompts here - they will only be saved after successful execution with responses
+    // This ensures only questions that were actually asked and have answers are stored
 
     await db.db
       .prepare(
@@ -567,11 +541,12 @@ Kein anderer Text, nur gültiges JSON.`;
           }
         }
 
-        for (let i = 0; i < questions.length && i < questionsPerCategory; i++) {
+        // Process questions, ensuring we get exactly 'questionsPerCategory' questions per category
+        for (let i = 0; i < questions.length && allPrompts.filter(p => p.categoryId === category.id).length < questionsPerCategory; i++) {
           const question = questions[i];
           if (question && typeof question === 'string' && question.trim()) {
             allPrompts.push({
-              id: `prompt_${runId}_${category.id}_${i}_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+              id: `prompt_${runId}_${category.id}_${allPrompts.filter(p => p.categoryId === category.id).length}_${Date.now()}_${Math.random().toString(36).substring(7)}`,
               categoryId: category.id,
               question: question.trim(),
               language: userInput.language,
@@ -581,6 +556,18 @@ Kein anderer Text, nur gültiges JSON.`;
               createdAt: now,
             });
           }
+        }
+        
+        // If we got fewer questions than requested for this category, fill with fallback
+        const categoryPromptCount = allPrompts.filter(p => p.categoryId === category.id).length;
+        if (categoryPromptCount < questionsPerCategory) {
+          console.warn(`Category ${category.name}: Only got ${categoryPromptCount} questions, using fallback for remaining ${questionsPerCategory - categoryPromptCount}`);
+          const fallbackPrompts = this.promptGenerator.generatePrompts(
+            [category],
+            userInput,
+            questionsPerCategory - categoryPromptCount
+          );
+          allPrompts.push(...fallbackPrompts.slice(0, questionsPerCategory - categoryPromptCount));
         }
       }
 
@@ -673,9 +660,9 @@ Gib nur ein JSON-Objekt mit einem "questions" Array zurück, das genau ${count} 
 {"questions": ["Frage 1 in ${userInput.language}", "Frage 2 in ${userInput.language}", ...]}
 Kein anderer Text, nur gültiges JSON.`;
 
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout per category
       
       let response: Response;
       try {
@@ -726,11 +713,12 @@ Kein anderer Text, nur gültiges JSON.`;
       const questions = gptResponse.questions || [];
       const prompts: Prompt[] = [];
 
-      for (let i = 0; i < questions.length && i < count; i++) {
+      // Process questions, ensuring we get exactly 'count' questions
+      for (let i = 0; i < questions.length && prompts.length < count; i++) {
         const question = questions[i];
         if (question && typeof question === 'string' && question.trim().length > 0) {
           prompts.push({
-            id: `prompt_${runId}_${category.id}_${i}`,
+            id: `prompt_${runId}_${category.id}_${prompts.length}_${Date.now()}_${Math.random().toString(36).substring(7)}`,
             categoryId: category.id,
             question: question.trim(),
             language: userInput.language,
@@ -742,14 +730,16 @@ Kein anderer Text, nur gültiges JSON.`;
         }
       }
 
-      // If we got fewer questions than requested, fill with fallback
+      // If we got fewer questions than requested, fill with fallback to ensure exactly 'count' questions
       if (prompts.length < count) {
-        console.warn(`Only got ${prompts.length} questions for category ${category.name}, using fallback for remaining`);
+        console.warn(`Only got ${prompts.length} questions for category ${category.name}, using fallback for remaining ${count - prompts.length}`);
         const fallbackPrompts = this.promptGenerator.generatePrompts([category], userInput, count - prompts.length);
-        prompts.push(...fallbackPrompts.slice(0, count - prompts.length));
+        const needed = count - prompts.length;
+        prompts.push(...fallbackPrompts.slice(0, needed));
       }
 
-      return prompts;
+      // Ensure we return exactly 'count' questions (trim if GPT returned more)
+      return prompts.slice(0, count);
     } catch (error: any) {
       console.error(`Error generating prompts for category ${category.name}:`, error);
       console.error("Error details:", error?.message || error, error?.stack);
@@ -847,6 +837,7 @@ Kein anderer Text, nur gültiges JSON.`;
   }
 
   // Step 5: Execute prompts with GPT-5 Web Search
+  // Only saves prompts that were successfully executed and have responses
   async step5ExecutePrompts(
     runId: string,
     prompts: Prompt[],
@@ -860,6 +851,33 @@ Kein anderer Text, nur gültiges JSON.`;
       .run();
 
     const responses = await this.llmExecutor.executePrompts(prompts);
+    
+    // Only save prompts that have successful responses
+    const promptsWithResponses: Prompt[] = [];
+    const validResponses: any[] = [];
+    
+    for (let i = 0; i < responses.length; i++) {
+      const response = responses[i];
+      // Only include prompts that have a valid response with output text
+      if (response && response.outputText && response.outputText.trim().length > 0) {
+        // Find the corresponding prompt
+        const prompt = prompts.find(p => p.id === response.promptId);
+        if (prompt) {
+          promptsWithResponses.push(prompt);
+          validResponses.push(response);
+        }
+      }
+    }
+    
+    // Save only prompts that have successful responses
+    if (promptsWithResponses.length > 0) {
+      await db.savePrompts(runId, promptsWithResponses);
+      console.log(`Saved ${promptsWithResponses.length} prompts with successful responses (out of ${prompts.length} total)`);
+    } else {
+      console.warn(`No prompts with valid responses to save (${prompts.length} prompts executed, ${responses.length} responses received)`);
+    }
+    
+    // Save all responses (including failed ones for debugging, but only prompts with valid responses are saved)
     await db.saveLLMResponses(responses);
 
     await db.db
@@ -867,7 +885,7 @@ Kein anderer Text, nur gültiges JSON.`;
       .bind("completed", new Date().toISOString(), runId)
       .run();
 
-    return { executed: responses.length };
+    return { executed: validResponses.length };
   }
 
   // Save user-selected categories

@@ -28,10 +28,15 @@ export class LLMExecutor {
     for (const prompt of prompts) {
       try {
         const response = await this.executePrompt(prompt);
-        responses.push(response);
+        // Only include responses that have valid output text
+        if (response && response.outputText && response.outputText.trim().length > 0) {
+          responses.push(response);
+        } else {
+          console.warn(`Prompt ${prompt.id} executed but has no valid output text`);
+        }
       } catch (error) {
         console.error(`Failed to execute prompt ${prompt.id}:`, error);
-        // Continue with other prompts even if one fails
+        // Continue with other prompts even if one fails - failed prompts are not saved
       }
     }
 
