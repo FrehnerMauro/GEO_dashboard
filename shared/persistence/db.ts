@@ -1,0 +1,959 @@
+/**
+ * Database persistence layer for D1
+ */
+
+import type {
+  UserInput,
+  Category,
+  Prompt,
+  LLMResponse,
+  PromptAnalysis,
+  CategoryMetrics,
+  CompetitiveAnalysis,
+  TimeSeriesData,
+  AnalysisResult,
+  Company,
+  CompanyPrompt,
+  ScheduledRun,
+} from "../types.js";
+
+export interface D1Database {
+  prepare(query: string): D1PreparedStatement;
+  batch(statements: D1PreparedStatement[]): Promise<D1Result[]>;
+  exec(query: string): Promise<D1ExecResult>;
+}
+
+export interface D1PreparedStatement {
+  bind(...values: any[]): D1PreparedStatement;
+  first<T = any>(colName?: string): Promise<T | null>;
+  run(): Promise<D1Result>;
+  all<T = any>(): Promise<D1Result<T>>;
+}
+
+export interface D1Result<T = any> {
+  success: boolean;
+  meta: {
+    changes: number;
+    last_row_id: number;
+    duration: number;
+  };
+  results?: T[];
+}
+
+export interface D1ExecResult {
+  count: number;
+  duration: number;
+}
+
+export class Database {
+  public db: D1Database;
+  constructor(db?: D1Database) {
+    // No-op: create a mock db object if none provided
+    this.db = db || {
+      prepare: () => ({
+        bind: () => ({ first: async () => null, run: async () => ({ success: true }), all: async () => ({ success: true, results: [] }) }),
+        first: async () => null,
+        run: async () => ({ success: true }),
+        all: async () => ({ success: true, results: [] })
+      } as any),
+      batch: async () => [],
+      exec: async () => ({ count: 0, duration: 0 })
+    } as D1Database;
+  }
+
+  async saveAnalysisRun(
+    runId: string,
+    userInput: UserInput,
+    status: string = "pending"
+  ): Promise<void> {
+    const now = new Date().toISOString();
+    try {
+      await this.db
+        .prepare(
+          `INSERT INTO analysis_runs (id, website_url, country, region, language, status, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(
+          runId,
+          userInput.websiteUrl,
+          userInput.country,
+          userInput.region || null,
+          userInput.language,
+          status,
+          now,
+          now
+        )
+        .run();
+    } catch (error: any) {
+      if (error.message?.includes("no such table: analysis_runs")) {
+        throw new Error(
+          "Database tables not found. Please run the database setup first: POST /api/setup/database"
+        );
+      }
+      throw error;
+    }
+  }
+
+  async updateAnalysisStatus(
+    runId: string,
+    status: string,
+    progress?: { step: string; progress: number; message?: string }
+  ): Promise<void> {
+    const progressJson = progress ? JSON.stringify(progress) : null;
+    await this.db
+      .prepare(
+        `UPDATE analysis_runs SET status = ?, progress = ?, updated_at = ? WHERE id = ?`
+      )
+      .bind(status, progressJson, new Date().toISOString(), runId)
+      .run();
+  }
+
+  async getAnalysisStatus(runId: string): Promise<{
+    status: string;
+    progress: { step: string; progress: number; message?: string } | null;
+    error?: string;
+    step?: string;
+  } | null> {
+    const run = await this.db
+      .prepare("SELECT status, progress, error_message, step FROM analysis_runs WHERE id = ?")
+      .bind(runId)
+      .first<{
+        status: string;
+        progress: string | null;
+        error_message: string | null;
+        step: string | null;
+      }>();
+
+    if (!run) return null;
+
+    return {
+      status: run.status || "pending",
+      progress: run.progress ? JSON.parse(run.progress) : null,
+      error: run.error_message || undefined,
+      step: run.step || "sitemap",
+    };
+  }
+
+  async saveCategories(
+    runId: string,
+    categories: Category[]
+  ): Promise<void> {
+    if (categories.length === 0) {
+      return; // Skip empty batches
+    }
+
+    const statements = categories.map((cat) =>
+      this.db
+        .prepare(
+          `INSERT INTO categories (id, analysis_run_id, name, description, confidence, source_pages, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(
+          cat.id,
+          runId,
+          cat.name,
+          cat.description,
+          cat.confidence,
+          JSON.stringify(cat.sourcePages),
+          new Date().toISOString()
+        )
+    );
+
+    await this.db.batch(statements);
+  }
+
+  async savePrompts(runId: string, prompts: Prompt[]): Promise<void> {
+    if (prompts.length === 0) {
+      return; // Skip empty batches
+    }
+
+    const statements = prompts.map((prompt) =>
+      this.db
+        .prepare(
+          `INSERT OR REPLACE INTO prompts (id, analysis_run_id, category_id, question, language, country, region, intent, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(
+          prompt.id,
+          runId,
+          prompt.categoryId,
+          prompt.question,
+          prompt.language,
+          prompt.country || null,
+          prompt.region || null,
+          prompt.intent,
+          prompt.createdAt
+        )
+    );
+
+    await this.db.batch(statements);
+  }
+
+  async saveLLMResponses(responses: LLMResponse[]): Promise<void> {
+    if (responses.length === 0) {
+      return; // Skip empty batches
+    }
+
+    const responseStatements = responses.map((response) => {
+      const responseId = `resp_${response.promptId}_${Date.now()}`;
+      return {
+        response: this.db
+          .prepare(
+            `INSERT INTO llm_responses (id, prompt_id, output_text, model, timestamp)
+             VALUES (?, ?, ?, ?, ?)`
+          )
+          .bind(
+            responseId,
+            response.promptId,
+            response.outputText,
+            response.model,
+            response.timestamp
+          ),
+        citations: response.citations.map((citation) => {
+          const citationId = `cite_${responseId}_${Date.now()}_${Math.random()}`;
+          return this.db
+            .prepare(
+              `INSERT INTO citations (id, llm_response_id, url, title, snippet)
+               VALUES (?, ?, ?, ?, ?)`
+            )
+            .bind(
+              citationId,
+              responseId,
+              citation.url,
+              citation.title || null,
+              citation.snippet || null
+            );
+        }),
+      };
+    });
+
+    const allStatements: D1PreparedStatement[] = [];
+    for (const { response, citations } of responseStatements) {
+      allStatements.push(response);
+      allStatements.push(...citations);
+    }
+
+    if (allStatements.length > 0) {
+      await this.db.batch(allStatements);
+    }
+  }
+
+  async savePromptAnalyses(analyses: PromptAnalysis[]): Promise<void> {
+    if (analyses.length === 0) {
+      return; // Skip empty batches
+    }
+
+    const statements = analyses.map((analysis) => {
+      const analysisId = `analysis_${analysis.promptId}_${Date.now()}`;
+      return {
+        analysis: this.db
+          .prepare(
+            `INSERT INTO prompt_analyses 
+             (id, prompt_id, brand_mentions_exact, brand_mentions_fuzzy, brand_mentions_contexts,
+              citation_count, citation_urls, sentiment_tone, sentiment_confidence, sentiment_keywords, timestamp)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          )
+          .bind(
+            analysisId,
+            analysis.promptId,
+            analysis.brandMentions.exact,
+            analysis.brandMentions.fuzzy,
+            JSON.stringify(analysis.brandMentions.contexts),
+            analysis.citationCount,
+            JSON.stringify(analysis.citationUrls),
+            analysis.sentiment.tone,
+            analysis.sentiment.confidence,
+            JSON.stringify(analysis.sentiment.keywords),
+            analysis.timestamp
+          ),
+        competitors: analysis.competitors.map((competitor) => {
+          const competitorId = `comp_${analysisId}_${Date.now()}_${Math.random()}`;
+          return this.db
+            .prepare(
+              `INSERT INTO competitor_mentions 
+               (id, prompt_analysis_id, competitor_name, mention_count, contexts, citation_urls)
+               VALUES (?, ?, ?, ?, ?, ?)`
+            )
+            .bind(
+              competitorId,
+              analysisId,
+              competitor.name,
+              competitor.count,
+              JSON.stringify(competitor.contexts),
+              JSON.stringify(competitor.citations)
+            );
+        }),
+      };
+    });
+
+    const allStatements: D1PreparedStatement[] = [];
+    for (const { analysis, competitors } of statements) {
+      allStatements.push(analysis);
+      allStatements.push(...competitors);
+    }
+
+    if (allStatements.length > 0) {
+      await this.db.batch(allStatements);
+    }
+  }
+
+  async saveCategoryMetrics(
+    runId: string,
+    metrics: CategoryMetrics[]
+  ): Promise<void> {
+    if (metrics.length === 0) {
+      return; // Skip empty batches
+    }
+
+    const statements = metrics.map((metric) => {
+      const metricId = `metric_${metric.categoryId}_${Date.now()}`;
+      return this.db
+        .prepare(
+          `INSERT INTO category_metrics 
+           (id, analysis_run_id, category_id, visibility_score, citation_rate, 
+            brand_mention_rate, competitor_mention_rate, timestamp)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(
+          metricId,
+          runId,
+          metric.categoryId,
+          metric.visibilityScore,
+          metric.citationRate,
+          metric.brandMentionRate,
+          metric.competitorMentionRate,
+          metric.timestamp
+        );
+    });
+
+    await this.db.batch(statements);
+  }
+
+  async saveCompetitiveAnalysis(
+    runId: string,
+    analysis: CompetitiveAnalysis
+  ): Promise<void> {
+    const analysisId = `comp_analysis_${runId}_${Date.now()}`;
+    await this.db
+      .prepare(
+        `INSERT INTO competitive_analyses 
+         (id, analysis_run_id, brand_share, competitor_shares, white_space_topics, 
+          dominated_prompts, missing_brand_prompts, timestamp)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        analysisId,
+        runId,
+        analysis.brandShare,
+        JSON.stringify(analysis.competitorShares),
+        JSON.stringify(analysis.whiteSpaceTopics),
+        JSON.stringify(analysis.dominatedPrompts),
+        JSON.stringify(analysis.missingBrandPrompts),
+        analysis.timestamp
+      )
+      .run();
+  }
+
+  async saveTimeSeriesData(
+    runId: string,
+    data: TimeSeriesData
+  ): Promise<void> {
+    const dataId = `ts_${runId}_${Date.now()}`;
+    await this.db
+      .prepare(
+        `INSERT INTO time_series 
+         (id, analysis_run_id, timestamp, visibility_score, citation_count, 
+          brand_mention_count, competitor_mention_count)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        dataId,
+        runId,
+        data.timestamp,
+        data.visibilityScore,
+        data.citationCount,
+        data.brandMentionCount,
+        data.competitorMentionCount
+      )
+      .run();
+  }
+
+  async getAnalysisRun(runId: string): Promise<AnalysisResult | null> {
+    // This would reconstruct the full analysis result from the database
+    // For brevity, implementing a simplified version
+    const run = await this.db
+      .prepare("SELECT * FROM analysis_runs WHERE id = ?")
+      .bind(runId)
+      .first<{
+        id: string;
+        website_url: string;
+        country: string;
+        region: string | null;
+        language: string;
+        created_at: string;
+        updated_at: string;
+      }>();
+
+    if (!run) return null;
+
+    // Fetch related data (simplified - would need full joins in production)
+    return {
+      websiteUrl: run.website_url,
+      country: run.country,
+      language: run.language,
+      categories: [],
+      prompts: [],
+      analyses: [],
+      categoryMetrics: [],
+      competitiveAnalysis: {
+        brandShare: 0,
+        competitorShares: {},
+        whiteSpaceTopics: [],
+        dominatedPrompts: [],
+        missingBrandPrompts: [],
+        timestamp: run.updated_at,
+      },
+      timeSeries: [],
+      createdAt: run.created_at,
+      updatedAt: run.updated_at,
+    };
+  }
+
+  async getLatestAnalysisRun(
+    websiteUrl: string
+  ): Promise<string | null> {
+    const run = await this.db
+      .prepare(
+        "SELECT id FROM analysis_runs WHERE website_url = ? ORDER BY created_at DESC LIMIT 1"
+      )
+      .bind(websiteUrl)
+      .first<{ id: string }>();
+
+    return run?.id || null;
+  }
+
+  async deleteAnalysis(runId: string): Promise<void> {
+    // Delete in order: child records first, then parent
+    // Get all prompt IDs for this run
+    const prompts = await this.db
+      .prepare("SELECT id FROM prompts WHERE run_id = ?")
+      .bind(runId)
+      .all<{ id: string }>();
+
+    const promptIds = (prompts.results || []).map(p => p.id);
+
+    if (promptIds.length > 0) {
+      // Get all LLM response IDs for these prompts
+      const responses = await this.db
+        .prepare(`SELECT id FROM llm_responses WHERE prompt_id IN (${promptIds.map(() => '?').join(',')})`)
+        .bind(...promptIds)
+        .all<{ id: string }>();
+
+      const responseIds = (responses.results || []).map(r => r.id);
+
+      if (responseIds.length > 0) {
+        // Delete citations
+        await this.db
+          .prepare(`DELETE FROM citations WHERE llm_response_id IN (${responseIds.map(() => '?').join(',')})`)
+          .bind(...responseIds)
+          .run();
+
+        // Delete LLM responses
+        await this.db
+          .prepare(`DELETE FROM llm_responses WHERE id IN (${responseIds.map(() => '?').join(',')})`)
+          .bind(...responseIds)
+          .run();
+      }
+
+      // Get all prompt analysis IDs
+      const analyses = await this.db
+        .prepare(`SELECT id FROM prompt_analyses WHERE prompt_id IN (${promptIds.map(() => '?').join(',')})`)
+        .bind(...promptIds)
+        .all<{ id: string }>();
+
+      const analysisIds = (analyses.results || []).map(a => a.id);
+
+      if (analysisIds.length > 0) {
+        // Delete competitor mentions
+        await this.db
+          .prepare(`DELETE FROM competitor_mentions WHERE prompt_analysis_id IN (${analysisIds.map(() => '?').join(',')})`)
+          .bind(...analysisIds)
+          .run();
+
+        // Delete prompt analyses
+        await this.db
+          .prepare(`DELETE FROM prompt_analyses WHERE id IN (${analysisIds.map(() => '?').join(',')})`)
+          .bind(...analysisIds)
+          .run();
+      }
+
+      // Delete prompts
+      await this.db
+        .prepare(`DELETE FROM prompts WHERE id IN (${promptIds.map(() => '?').join(',')})`)
+        .bind(...promptIds)
+        .run();
+    }
+
+    // Delete category metrics
+    await this.db
+      .prepare("DELETE FROM category_metrics WHERE analysis_run_id = ?")
+      .bind(runId)
+      .run();
+
+    // Delete competitive analyses
+    await this.db
+      .prepare("DELETE FROM competitive_analyses WHERE analysis_run_id = ?")
+      .bind(runId)
+      .run();
+
+    // Delete time series
+    await this.db
+      .prepare("DELETE FROM time_series WHERE analysis_run_id = ?")
+      .bind(runId)
+      .run();
+
+    // Delete categories
+    await this.db
+      .prepare("DELETE FROM categories WHERE analysis_run_id = ?")
+      .bind(runId)
+      .run();
+
+    // Finally, delete the analysis run
+    await this.db
+      .prepare("DELETE FROM analysis_runs WHERE id = ?")
+      .bind(runId)
+      .run();
+  }
+
+  // Company Management
+  async createCompany(company: Omit<Company, "id" | "createdAt" | "updatedAt">): Promise<string> {
+    const id = `company_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const now = new Date().toISOString();
+    await this.db
+      .prepare(
+        `INSERT INTO companies (id, name, website_url, country, language, region, description, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        id,
+        company.name,
+        company.websiteUrl,
+        company.country,
+        company.language,
+        company.region || null,
+        company.description || null,
+        company.isActive ? 1 : 0,
+        now,
+        now
+      )
+      .run();
+    return id;
+  }
+
+  async getCompany(companyId: string): Promise<Company | null> {
+    const company = await this.db
+      .prepare("SELECT * FROM companies WHERE id = ?")
+      .bind(companyId)
+      .first<{
+        id: string;
+        name: string;
+        website_url: string;
+        country: string;
+        language: string;
+        region: string | null;
+        description: string | null;
+        is_active: number;
+        created_at: string;
+        updated_at: string;
+      }>();
+    
+    if (!company) return null;
+    
+    return {
+      id: company.id,
+      name: company.name,
+      websiteUrl: company.website_url,
+      country: company.country,
+      language: company.language,
+      region: company.region || undefined,
+      description: company.description || undefined,
+      isActive: company.is_active === 1,
+      createdAt: company.created_at,
+      updatedAt: company.updated_at,
+    };
+  }
+
+  async getAllCompanies(): Promise<Company[]> {
+    const companies = await this.db
+      .prepare("SELECT * FROM companies WHERE is_active = 1 ORDER BY created_at DESC")
+      .all<{
+        id: string;
+        name: string;
+        website_url: string;
+        country: string;
+        language: string;
+        region: string | null;
+        description: string | null;
+        is_active: number;
+        created_at: string;
+        updated_at: string;
+      }>();
+    
+    return (companies.results || []).map(c => ({
+      id: c.id,
+      name: c.name,
+      websiteUrl: c.website_url,
+      country: c.country,
+      language: c.language,
+      region: c.region || undefined,
+      description: c.description || undefined,
+      isActive: c.is_active === 1,
+      createdAt: c.created_at,
+      updatedAt: c.updated_at,
+    }));
+  }
+
+  async updateCompany(companyId: string, updates: Partial<Company>): Promise<void> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    
+    if (updates.name !== undefined) {
+      fields.push("name = ?");
+      values.push(updates.name);
+    }
+    if (updates.websiteUrl !== undefined) {
+      fields.push("website_url = ?");
+      values.push(updates.websiteUrl);
+    }
+    if (updates.country !== undefined) {
+      fields.push("country = ?");
+      values.push(updates.country);
+    }
+    if (updates.language !== undefined) {
+      fields.push("language = ?");
+      values.push(updates.language);
+    }
+    if (updates.region !== undefined) {
+      fields.push("region = ?");
+      values.push(updates.region || null);
+    }
+    if (updates.description !== undefined) {
+      fields.push("description = ?");
+      values.push(updates.description || null);
+    }
+    if (updates.isActive !== undefined) {
+      fields.push("is_active = ?");
+      values.push(updates.isActive ? 1 : 0);
+    }
+    
+    fields.push("updated_at = ?");
+    values.push(new Date().toISOString());
+    values.push(companyId);
+    
+    await this.db
+      .prepare(`UPDATE companies SET ${fields.join(", ")} WHERE id = ?`)
+      .bind(...values)
+      .run();
+  }
+
+  // Company Prompts (saved questions for re-use)
+  async saveCompanyPrompt(prompt: Omit<CompanyPrompt, "id" | "createdAt" | "updatedAt">): Promise<string> {
+    const id = `prompt_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const now = new Date().toISOString();
+    await this.db
+      .prepare(
+        `INSERT INTO company_prompts (id, company_id, question, category_id, category_name, language, country, region, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        id,
+        prompt.companyId,
+        prompt.question,
+        prompt.categoryId || null,
+        prompt.categoryName || null,
+        prompt.language,
+        prompt.country || null,
+        prompt.region || null,
+        prompt.isActive ? 1 : 0,
+        now,
+        now
+      )
+      .run();
+    return id;
+  }
+
+  async getCompanyPrompts(companyId: string, activeOnly: boolean = true): Promise<CompanyPrompt[]> {
+    const query = activeOnly
+      ? "SELECT * FROM company_prompts WHERE company_id = ? AND is_active = 1 ORDER BY created_at DESC"
+      : "SELECT * FROM company_prompts WHERE company_id = ? ORDER BY created_at DESC";
+    
+    const prompts = await this.db
+      .prepare(query)
+      .bind(companyId)
+      .all<{
+        id: string;
+        company_id: string;
+        question: string;
+        category_id: string | null;
+        category_name: string | null;
+        language: string;
+        country: string | null;
+        region: string | null;
+        is_active: number;
+        created_at: string;
+        updated_at: string;
+      }>();
+    
+    return (prompts.results || []).map(p => ({
+      id: p.id,
+      companyId: p.company_id,
+      question: p.question,
+      categoryId: p.category_id || undefined,
+      categoryName: p.category_name || undefined,
+      language: p.language,
+      country: p.country || undefined,
+      region: p.region || undefined,
+      isActive: p.is_active === 1,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at,
+    }));
+  }
+
+  async getCompanyAnalysisRuns(companyId: string, limit: number = 50): Promise<any[]> {
+    const runs = await this.db
+      .prepare(
+        `SELECT id, website_url, country, language, status, created_at, updated_at 
+         FROM analysis_runs 
+         WHERE company_id = ? 
+         ORDER BY created_at DESC 
+         LIMIT ?`
+      )
+      .bind(companyId, limit)
+      .all<{
+        id: string;
+        website_url: string;
+        country: string;
+        language: string;
+        status: string;
+        created_at: string;
+        updated_at: string;
+      }>();
+    
+    return (runs.results || []).map(r => ({
+      id: r.id,
+      websiteUrl: r.website_url,
+      country: r.country,
+      language: r.language,
+      status: r.status,
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+    }));
+  }
+
+  async getAllAnalysisRuns(limit: number = 100): Promise<any[]> {
+    try {
+    const runs = await this.db
+      .prepare(
+        `SELECT id, website_url, country, language, region, status, created_at, updated_at, company_id
+         FROM analysis_runs 
+         ORDER BY created_at DESC 
+         LIMIT ?`
+      )
+      .bind(limit)
+      .all<{
+        id: string;
+        website_url: string;
+        country: string;
+        language: string;
+        region: string | null;
+        status: string;
+        created_at: string;
+        updated_at: string;
+        company_id: string | null;
+      }>();
+    
+      // Ensure we always return an array
+      if (!runs || !runs.results) {
+        return [];
+      }
+      
+      return runs.results.map(r => ({
+      id: r.id,
+      websiteUrl: r.website_url,
+      country: r.country,
+      language: r.language,
+      region: r.region || undefined,
+        status: r.status || "pending",
+      createdAt: r.created_at,
+      updatedAt: r.updated_at,
+      companyId: r.company_id || undefined,
+    }));
+    } catch (error) {
+      console.error("Error in getAllAnalysisRuns:", error);
+      return []; // Always return an array, even on error
+    }
+  }
+
+  async getCompanyTimeSeries(companyId: string, days: number = 30): Promise<TimeSeriesData[]> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    
+    const timeSeries = await this.db
+      .prepare(
+        `SELECT ts.timestamp, ts.visibility_score, ts.citation_count, 
+                ts.brand_mention_count, ts.competitor_mention_count
+         FROM time_series ts
+         JOIN analysis_runs ar ON ts.analysis_run_id = ar.id
+         WHERE ar.company_id = ? AND ts.timestamp >= ?
+         ORDER BY ts.timestamp ASC`
+      )
+      .bind(companyId, cutoffDate.toISOString())
+      .all<{
+        timestamp: string;
+        visibility_score: number;
+        citation_count: number;
+        brand_mention_count: number;
+        competitor_mention_count: number;
+      }>();
+    
+    return (timeSeries.results || []).map(ts => ({
+      timestamp: ts.timestamp,
+      visibilityScore: ts.visibility_score,
+      citationCount: ts.citation_count,
+      brandMentionCount: ts.brand_mention_count,
+      competitorMentionCount: ts.competitor_mention_count,
+    }));
+  }
+
+  // Scheduled Runs
+  async createScheduledRun(schedule: Omit<ScheduledRun, "id" | "createdAt" | "updatedAt">): Promise<string> {
+    const id = `schedule_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+    const now = new Date().toISOString();
+    await this.db
+      .prepare(
+        `INSERT INTO scheduled_runs (id, company_id, schedule_type, next_run_at, last_run_at, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        id,
+        schedule.companyId,
+        schedule.scheduleType,
+        schedule.nextRunAt,
+        schedule.lastRunAt || null,
+        schedule.isActive ? 1 : 0,
+        now,
+        now
+      )
+      .run();
+    return id;
+  }
+
+  async getScheduledRuns(companyId?: string, activeOnly: boolean = true): Promise<ScheduledRun[]> {
+    let query = "SELECT * FROM scheduled_runs";
+    const conditions: string[] = [];
+    const values: any[] = [];
+    
+    if (companyId) {
+      conditions.push("company_id = ?");
+      values.push(companyId);
+    }
+    if (activeOnly) {
+      conditions.push("is_active = 1");
+    }
+    
+    if (conditions.length > 0) {
+      query += " WHERE " + conditions.join(" AND ");
+    }
+    
+    query += " ORDER BY next_run_at ASC";
+    
+    const schedules = await this.db
+      .prepare(query)
+      .bind(...values)
+      .all<{
+        id: string;
+        company_id: string;
+        schedule_type: string;
+        next_run_at: string;
+        last_run_at: string | null;
+        is_active: number;
+        created_at: string;
+        updated_at: string;
+      }>();
+    
+    return (schedules.results || []).map(s => ({
+      id: s.id,
+      companyId: s.company_id,
+      scheduleType: s.schedule_type as "daily" | "weekly" | "monthly",
+      nextRunAt: s.next_run_at,
+      lastRunAt: s.last_run_at || undefined,
+      isActive: s.is_active === 1,
+      createdAt: s.created_at,
+      updatedAt: s.updated_at,
+    }));
+  }
+
+  async updateScheduledRun(scheduleId: string, updates: Partial<ScheduledRun>): Promise<void> {
+    const fields: string[] = [];
+    const values: any[] = [];
+    
+    if (updates.scheduleType !== undefined) {
+      fields.push("schedule_type = ?");
+      values.push(updates.scheduleType);
+    }
+    if (updates.nextRunAt !== undefined) {
+      fields.push("next_run_at = ?");
+      values.push(updates.nextRunAt);
+    }
+    if (updates.lastRunAt !== undefined) {
+      fields.push("last_run_at = ?");
+      values.push(updates.lastRunAt || null);
+    }
+    if (updates.isActive !== undefined) {
+      fields.push("is_active = ?");
+      values.push(updates.isActive ? 1 : 0);
+    }
+    
+    fields.push("updated_at = ?");
+    values.push(new Date().toISOString());
+    values.push(scheduleId);
+    
+    await this.db
+      .prepare(`UPDATE scheduled_runs SET ${fields.join(", ")} WHERE id = ?`)
+      .bind(...values)
+      .run();
+  }
+
+  async getScheduledRunsDue(): Promise<ScheduledRun[]> {
+    const now = new Date().toISOString();
+    const schedules = await this.db
+      .prepare(
+        `SELECT * FROM scheduled_runs 
+         WHERE is_active = 1 AND next_run_at <= ? 
+         ORDER BY next_run_at ASC`
+      )
+      .bind(now)
+      .all<{
+        id: string;
+        company_id: string;
+        schedule_type: string;
+        next_run_at: string;
+        last_run_at: string | null;
+        is_active: number;
+        created_at: string;
+        updated_at: string;
+      }>();
+    
+    return (schedules.results || []).map(s => ({
+      id: s.id,
+      companyId: s.company_id,
+      scheduleType: s.schedule_type as "daily" | "weekly" | "monthly",
+      nextRunAt: s.next_run_at,
+      lastRunAt: s.last_run_at || undefined,
+      isActive: s.is_active === 1,
+      createdAt: s.created_at,
+      updatedAt: s.updated_at,
+    }));
+  }
+}
+
