@@ -771,6 +771,9 @@ export class WorkflowHandlers {
       const brandInUrl = brandLower.replace(/\s+/g, ""); // Remove spaces for URL matching
 
       // Calculate total mentions (exact + fuzzy)
+      // IMPORTANT: Mentions are already excluded from citations by BrandMentionDetector
+      // (see countExactMentionsExcludingCitations which excludes mentions within citation ranges)
+      // So mentions here are only those that appear in the text but NOT in citations
       const mentionsResult = await db.db
         .prepare(`
           SELECT 
@@ -909,11 +912,15 @@ export class WorkflowHandlers {
       };
 
       const otherSources: Record<string, number> = {};
+      // IMPORTANT: otherSources counts ONLY citations (sources), NOT mentions
+      // This ensures that competitors/other sources are only counted when they appear as citations,
+      // not when they are just mentioned in the text
       // Use a Set to track unique citation URLs per domain to avoid double counting
       // This ensures that [acotec.ch](https://www.acotec.ch/?utm_source=openai) counts as ONE source
       const domainUrlMap = new Map<string, Set<string>>();
       
-      // Use ALL citations, not just brand citations
+      // Use ALL citations (aggregated across all questions), not just brand citations
+      // This counts other sources (competitors) that appear as citations across all questions
       (allCitationsResult.results || []).forEach((citation) => {
         try {
           const urlObj = new URL(citation.url);

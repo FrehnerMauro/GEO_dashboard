@@ -43,10 +43,12 @@ export class BrandMentionDetector {
     }
 
     // Zuerst Citations finden, um deren Positionen zu kennen
-    const citationRanges = this.findCitationRanges(rawText, brandDomain);
+    // Use lowerText for citation ranges to ensure case-insensitive matching
+    const citationRanges = this.findCitationRanges(lowerText, brandDomain);
     const citations = citationRanges.length;
 
     // Exakte Erwähnungen zählen, aber die in Citations ausschließen
+    // Case-insensitive: uses lowerText and brandLower for matching
     const exact = this.countExactMentionsExcludingCitations(
       rawText,
       lowerText,
@@ -75,6 +77,7 @@ export class BrandMentionDetector {
   // --------------------------------------------------
   // Exakte Text-Erwähnungen (kein Fuzzy, kein Ratespiel)
   // Ausschließt Erwähnungen, die bereits in Citations sind
+  // Case-insensitive: brand is already lowercased, lowerText is used for matching
   // --------------------------------------------------
   private countExactMentionsExcludingCitations(
     rawText: string,
@@ -83,6 +86,8 @@ export class BrandMentionDetector {
     citationRanges: Array<{ start: number; end: number }>
   ): number {
     const escapedBrand = this.escapeRegex(brand);
+    // Use case-insensitive flag 'i' (though we're already using lowerText)
+    // This ensures robustness even if called with mixed case
     const regex = new RegExp(`\\b${escapedBrand}\\b`, "gi");
     
     if (this.debug) {
