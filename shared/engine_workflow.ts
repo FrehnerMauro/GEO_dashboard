@@ -315,7 +315,7 @@ Return only valid JSON object with categories array, no other text.`;
     const API_CALL_DELAY_MS = 2000; // 2 seconds delay between API calls to avoid rate limits
     const MAX_CONCURRENT_CALLS = 3; // Maximum concurrent API calls
     
-    console.log(`Generating ${totalQuestions} questions across ${categories.length} categories (per-category mode with rate limiting)`);
+    console.log(`Generating ${questionsPerCategory} questions per category (${categories.length} categories) = ${totalQuestions} total, will keep ${questionsPerCategory} per category (${categories.length * questionsPerCategory} total)`);
     
     const allPrompts: Prompt[] = [];
     let processedCount = 0;
@@ -357,6 +357,27 @@ Return only valid JSON object with categories array, no other text.`;
     
     console.log(`Completed: Generated ${allPrompts.length} prompts across ${processedCount}/${categories.length} categories`);
 
+    // Filter to keep exactly questionsPerCategory questions per selected category
+    const filteredPrompts: Prompt[] = [];
+    const categoryPromptMap = new Map<string, Prompt[]>();
+    
+    // Group prompts by category
+    for (const prompt of allPrompts) {
+      if (!categoryPromptMap.has(prompt.categoryId)) {
+        categoryPromptMap.set(prompt.categoryId, []);
+      }
+      categoryPromptMap.get(prompt.categoryId)!.push(prompt);
+    }
+    
+    // Keep exactly questionsPerCategory questions from each category
+    for (const [categoryId, prompts] of categoryPromptMap.entries()) {
+      // Take up to questionsPerCategory questions from this category
+      const promptsToKeep = prompts.slice(0, questionsPerCategory);
+      filteredPrompts.push(...promptsToKeep);
+    }
+    
+    console.log(`Filtered to ${filteredPrompts.length} prompts (${questionsPerCategory} per category, ${categories.length} categories selected)`);
+
     // DO NOT save prompts here - they will only be saved after successful execution with responses
     // This ensures only questions that were actually asked and have answers are stored
 
@@ -365,14 +386,14 @@ Return only valid JSON object with categories array, no other text.`;
         "UPDATE analysis_runs SET prompts_generated = ?, step = ?, updated_at = ? WHERE id = ?"
       )
       .bind(
-        allPrompts.length,
+        filteredPrompts.length,
         "prompts",
         new Date().toISOString(),
         runId
       )
       .run();
 
-    return allPrompts;
+    return filteredPrompts;
   }
 
   private async generateAllCategoryPromptsWithGPT(

@@ -397,7 +397,7 @@ export class AnalysisWorkflow {
         // Store prompts in workflow data for selection
         this.workflowData.prompts = result.prompts;
         
-        this.updateAnalysisUI(4, "Prompts Generated", `${result.prompts.length} questions created. Please select which ones to execute...`, 75);
+        this.updateAnalysisUI(4, "Prompts Generated", `${result.prompts.length} Fragen erstellt. Bitte wählen Sie aus, welche ausgeführt werden sollen...`, 75);
         
         // Show prompts to user for selection BEFORE execution
         setTimeout(() => this.showPromptSelection(result.prompts), 1000);
