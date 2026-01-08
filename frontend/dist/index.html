@@ -336,7 +336,7 @@
       <div id="aiReadabilitySection" class="dashboard-section" style="display: none;">
         <div class="card">
           <div class="card-header">
-            <h3>AI Readability</h3>
+            <h3>AI Readiness Analyse</h3>
           </div>
           <div class="card-body">
             <form id="readabilityForm">
@@ -346,17 +346,55 @@
                        placeholder="https://example.com" required>
               </div>
               <button type="button" id="fetchContentBtn" class="btn btn-primary btn-block">
-                Inhalt holen
+                AI Readiness Analyse starten
               </button>
             </form>
             
-            <div id="readabilityContent" style="display: none; margin-top: 24px;">
+            <!-- Progress Section -->
+            <div id="readabilityProgress" style="display: none; margin-top: 24px;">
               <div class="card">
                 <div class="card-header">
-                  <h3>Seiteninhalt</h3>
+                  <h3>Fortschritt</h3>
                 </div>
                 <div class="card-body">
-                  <div id="readabilityContentDisplay" style="max-height: 600px; overflow-y: auto; padding: 16px; background: var(--bg-secondary); border-radius: 8px; font-family: monospace; font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word;"></div>
+                  <div id="progressStatus" style="margin-bottom: 16px; font-weight: 500;"></div>
+                  <div class="progress" style="height: 24px; margin-bottom: 16px; border-radius: 8px; overflow: hidden; background: var(--bg-secondary);">
+                    <div id="progressBar" style="height: 100%; background: linear-gradient(90deg, #4CAF50, #45a049); width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-weight: 500; font-size: 12px;"></div>
+                  </div>
+                  <div id="progressDetails" style="font-size: 14px; color: var(--text-secondary); max-height: 200px; overflow-y: auto; padding: 12px; background: var(--bg-secondary); border-radius: 8px; font-family: monospace;"></div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Results Section -->
+            <div id="readabilityContent" style="display: none; margin-top: 24px;">
+              <!-- Protocol Display -->
+              <div class="card" style="margin-bottom: 24px;">
+                <div class="card-header">
+                  <h3>Protokoll</h3>
+                </div>
+                <div class="card-body">
+                  <div id="readabilityProtocolDisplay" style="max-height: 400px; overflow-y: auto; padding: 16px; background: var(--bg-secondary); border-radius: 8px; font-family: monospace; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word;"></div>
+                </div>
+              </div>
+              
+              <!-- GPT Analysis -->
+              <div id="gptAnalysisSection" class="card" style="display: none;">
+                <div class="card-header">
+                  <h3>GPT Analyse & Empfehlungen</h3>
+                </div>
+                <div class="card-body">
+                  <div id="gptAnalysisDisplay"></div>
+                </div>
+              </div>
+              
+              <!-- Pages Summary -->
+              <div class="card" style="margin-top: 24px;">
+                <div class="card-header">
+                  <h3>Seiten Übersicht</h3>
+                </div>
+                <div class="card-body">
+                  <div id="pagesSummaryDisplay"></div>
                 </div>
               </div>
             </div>
