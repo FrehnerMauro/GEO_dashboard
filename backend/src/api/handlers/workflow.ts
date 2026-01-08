@@ -633,16 +633,55 @@ export class WorkflowHandlers {
         .sort((a, b) => (b.mentions + b.citations) - (a.mentions + a.citations))
         .slice(0, 10);
 
-      // Get other sources (only brand citation URLs grouped by domain)
+      // Get other sources (all citation URLs grouped by domain, excluding own company)
+      // Extract own company domain from website URL
+      let ownCompanyDomain = '';
+      let ownCompanyBrandName = brandLower.replace(/\s+/g, ''); // Brand name without spaces for matching
+      try {
+        const websiteUrlObj = new URL(runInfo.website_url);
+        ownCompanyDomain = websiteUrlObj.hostname.replace('www.', '').toLowerCase();
+        // Also extract the base domain name (without TLD) for better matching
+        const domainParts = ownCompanyDomain.split('.');
+        if (domainParts.length > 0) {
+          ownCompanyBrandName = domainParts[0]; // e.g., "frehnertec" from "frehnertec.ch"
+        }
+      } catch {
+        // If URL parsing fails, use brand name
+        ownCompanyDomain = ownCompanyBrandName;
+      }
+
+      // Helper function to check if a domain should be excluded
+      const isOwnCompany = (domain: string): boolean => {
+        const domainLower = domain.toLowerCase();
+        // Exact match
+        if (domainLower === ownCompanyDomain) return true;
+        // Check if domain starts with brand name (e.g., "frehnertec.ch" contains "frehnertec")
+        if (domainLower.startsWith(ownCompanyBrandName + '.') || domainLower === ownCompanyBrandName) {
+          return true;
+        }
+        // Check if domain contains brand name as a significant part
+        const domainWithoutTld = domainLower.split('.')[0];
+        if (domainWithoutTld === ownCompanyBrandName) return true;
+        return false;
+      };
+
       const otherSources: Record<string, number> = {};
-      brandCitations.forEach((citation) => {
+      // Use ALL citations, not just brand citations
+      (allCitationsResult.results || []).forEach((citation) => {
         try {
           const urlObj = new URL(citation.url);
-          const domain = urlObj.hostname.replace('www.', '');
-          otherSources[domain] = (otherSources[domain] || 0) + 1;
+          const domain = urlObj.hostname.replace('www.', '').toLowerCase();
+          
+          // Exclude own company domain
+          if (!isOwnCompany(domain)) {
+            otherSources[domain] = (otherSources[domain] || 0) + 1;
+          }
         } catch {
-          // If URL parsing fails, use the URL as-is
-          otherSources[citation.url] = (otherSources[citation.url] || 0) + 1;
+          // If URL parsing fails, use the URL as-is (but still exclude if it matches own company)
+          const urlLower = citation.url.toLowerCase();
+          if (!isOwnCompany(urlLower)) {
+            otherSources[citation.url] = (otherSources[citation.url] || 0) + 1;
+          }
         }
       });
 

@@ -167,7 +167,7 @@ export class DashboardPage {
             if (sourceEntries.length > 0) {
               otherSourcesHtml = `
                 <div style="margin-top: 16px;">
-                  <h5 style="margin-bottom: 12px; font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.9);">Andere Quellen:</h5>
+                  <h5 style="margin-bottom: 12px; font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.9);">Andere Links (Zitierungen):</h5>
                   <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;">
                     ${sourceEntries.slice(0, 10).map(([source, count]) => `
                       <div style="padding: 10px; background: rgba(255,255,255,0.1); border-radius: 6px; text-align: center;">
