@@ -48,7 +48,7 @@ export function getConfig(env: Record<string, any>): Config {
     },
     openai: {
       apiKey: env.OPENAI_API_KEY || "",
-      model: env.OPENAI_MODEL || "gpt-4o", // Use gpt-4o by default, set OPENAI_MODEL=gpt-5 in .dev.vars if available
+      model: env.OPENAI_MODEL || "gpt-4", // Use gpt-4 by default for websearch, set OPENAI_MODEL=gpt-4o or gpt-5 in .dev.vars if available
       responsesApiUrl: "https://api.openai.com/v1/responses",
     },
     crawling: {
