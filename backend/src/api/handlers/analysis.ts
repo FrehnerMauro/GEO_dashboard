@@ -313,24 +313,75 @@ export class AnalysisHandlers {
       const brandName = extractBrandName(run.website_url);
       
       // Get all prompts and responses for this run
+      console.log(`[D1 DEBUG] Loading prompts and responses for insights, runId: ${runId}`);
+      const startPrompts = Date.now();
       const prompts = await db.db
         .prepare("SELECT * FROM prompts WHERE analysis_run_id = ?")
         .bind(runId)
         .all<any>();
+      console.log(`[D1 DEBUG] Loaded ${prompts.results?.length || 0} prompts in ${Date.now() - startPrompts}ms`);
 
       // Optimized: Use JOIN instead of nested subquery to avoid timeout
-      const responses = await db.db
-        .prepare(`
-          SELECT lr.*, 
-                 GROUP_CONCAT(c.url || '|' || COALESCE(c.title, '') || '|' || COALESCE(c.snippet, ''), '|||') as citations_data
-          FROM llm_responses lr
-          INNER JOIN prompts p ON lr.prompt_id = p.id
-          LEFT JOIN citations c ON c.llm_response_id = lr.id
-          WHERE p.analysis_run_id = ?
-          GROUP BY lr.id
-        `)
-        .bind(runId)
-        .all<any>();
+      const startResponses = Date.now();
+      let responses;
+      try {
+        responses = await db.db
+          .prepare(`
+            SELECT lr.*, 
+                   GROUP_CONCAT(c.url || '|' || COALESCE(c.title, '') || '|' || COALESCE(c.snippet, ''), '|||') as citations_data
+            FROM llm_responses lr
+            INNER JOIN prompts p ON lr.prompt_id = p.id
+            LEFT JOIN citations c ON c.llm_response_id = lr.id
+            WHERE p.analysis_run_id = ?
+            GROUP BY lr.id
+          `)
+          .bind(runId)
+          .all<any>();
+        console.log(`[D1 DEBUG] Loaded ${responses.results?.length || 0} responses in ${Date.now() - startResponses}ms`);
+      } catch (error: any) {
+        console.error(`[D1 ERROR] Failed to load responses with GROUP_CONCAT:`, error.message);
+        // Fallback: Load separately
+        const responsesOnly = await db.db
+          .prepare(`
+            SELECT lr.*
+            FROM llm_responses lr
+            INNER JOIN prompts p ON lr.prompt_id = p.id
+            WHERE p.analysis_run_id = ?
+          `)
+          .bind(runId)
+          .all<any>();
+        
+        const responseIds = (responsesOnly.results || []).map((r: any) => r.id);
+        const citationsMap = new Map<string, any[]>();
+        
+        if (responseIds.length > 0) {
+          const chunkSize = 50;
+          for (let i = 0; i < responseIds.length; i += chunkSize) {
+            const chunk = responseIds.slice(i, i + chunkSize);
+            const citations = await db.db
+              .prepare(`SELECT * FROM citations WHERE llm_response_id IN (${chunk.map(() => '?').join(',')})`)
+              .bind(...chunk)
+              .all<any>();
+            
+            (citations.results || []).forEach((cite: any) => {
+              if (!citationsMap.has(cite.llm_response_id)) {
+                citationsMap.set(cite.llm_response_id, []);
+              }
+              citationsMap.get(cite.llm_response_id)!.push(cite);
+            });
+          }
+        }
+        
+        responses = {
+          results: (responsesOnly.results || []).map((r: any) => ({
+            ...r,
+            citations_data: (citationsMap.get(r.id) || []).map(c => 
+              `${c.url}|${c.title || ''}|${c.snippet || ''}`
+            ).join('|||')
+          }))
+        };
+        console.log(`[D1 DEBUG] Loaded ${responses.results?.length || 0} responses (fallback) in ${Date.now() - startResponses}ms`);
+      }
 
       // Parse citations
       const responsesWithCitations = (responses.results || []).map((r: any) => {

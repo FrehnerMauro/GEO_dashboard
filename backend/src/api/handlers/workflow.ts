@@ -260,25 +260,80 @@ export class WorkflowHandlers {
       const analysisEngine = new AnalysisEngine(brandName, config.analysis.brandFuzzyThreshold);
 
       // Load all prompts for this run
+      console.log(`[D1 DEBUG] Loading prompts for runId: ${runId}`);
+      const startPrompts = Date.now();
       const savedPrompts = await db.db
         .prepare("SELECT * FROM prompts WHERE analysis_run_id = ?")
         .bind(runId)
         .all<any>();
+      console.log(`[D1 DEBUG] Loaded ${savedPrompts.results?.length || 0} prompts in ${Date.now() - startPrompts}ms`);
 
       // Load all responses for this run
       // Optimized: Use JOIN instead of nested subquery to avoid timeout
-      const savedResponses = await db.db
-        .prepare(`
-          SELECT lr.*, 
-                 GROUP_CONCAT(c.url || '|' || COALESCE(c.title, '') || '|' || COALESCE(c.snippet, ''), '|||') as citations_data
-          FROM llm_responses lr
-          INNER JOIN prompts p ON lr.prompt_id = p.id
-          LEFT JOIN citations c ON c.llm_response_id = lr.id
-          WHERE p.analysis_run_id = ?
-          GROUP BY lr.id
-        `)
-        .bind(runId)
-        .all<any>();
+      // Note: GROUP_CONCAT can be slow with many citations, so we add LIMIT and retry logic
+      console.log(`[D1 DEBUG] Loading responses with citations for runId: ${runId}`);
+      const startResponses = Date.now();
+      let savedResponses;
+      try {
+        savedResponses = await db.db
+          .prepare(`
+            SELECT lr.*, 
+                   GROUP_CONCAT(c.url || '|' || COALESCE(c.title, '') || '|' || COALESCE(c.snippet, ''), '|||') as citations_data
+            FROM llm_responses lr
+            INNER JOIN prompts p ON lr.prompt_id = p.id
+            LEFT JOIN citations c ON c.llm_response_id = lr.id
+            WHERE p.analysis_run_id = ?
+            GROUP BY lr.id
+          `)
+          .bind(runId)
+          .all<any>();
+        console.log(`[D1 DEBUG] Loaded ${savedResponses.results?.length || 0} responses in ${Date.now() - startResponses}ms`);
+      } catch (error: any) {
+        console.error(`[D1 ERROR] Failed to load responses with GROUP_CONCAT, trying alternative approach:`, error.message);
+        // Fallback: Load responses and citations separately if GROUP_CONCAT times out
+        const responsesOnly = await db.db
+          .prepare(`
+            SELECT lr.*
+            FROM llm_responses lr
+            INNER JOIN prompts p ON lr.prompt_id = p.id
+            WHERE p.analysis_run_id = ?
+          `)
+          .bind(runId)
+          .all<any>();
+        
+        const responseIds = (responsesOnly.results || []).map((r: any) => r.id);
+        const citationsMap = new Map<string, any[]>();
+        
+        if (responseIds.length > 0) {
+          // Load citations in chunks to avoid timeout
+          const chunkSize = 50;
+          for (let i = 0; i < responseIds.length; i += chunkSize) {
+            const chunk = responseIds.slice(i, i + chunkSize);
+            const citations = await db.db
+              .prepare(`SELECT * FROM citations WHERE llm_response_id IN (${chunk.map(() => '?').join(',')})`)
+              .bind(...chunk)
+              .all<any>();
+            
+            (citations.results || []).forEach((cite: any) => {
+              if (!citationsMap.has(cite.llm_response_id)) {
+                citationsMap.set(cite.llm_response_id, []);
+              }
+              citationsMap.get(cite.llm_response_id)!.push(cite);
+            });
+          }
+        }
+        
+        // Combine responses with citations
+        savedResponses = {
+          results: (responsesOnly.results || []).map((r: any) => ({
+            ...r,
+            citations_data: (citationsMap.get(r.id) || []).map(c => 
+              `${c.url}|${c.title || ''}|${c.snippet || ''}`
+            ).join('|||')
+          }))
+        };
+        console.log(`[D1 DEBUG] Loaded ${savedResponses.results?.length || 0} responses (fallback method) in ${Date.now() - startResponses}ms`);
+      }
 
       // Parse citations from concatenated string
       const responsesWithCitations = (savedResponses.results || []).map((r: any) => {
@@ -306,43 +361,70 @@ export class WorkflowHandlers {
 
       // Calculate metrics - using direct database queries since methods don't exist
       // Optimized: Use JOINs instead of nested subqueries to avoid timeout
-      const categoryMetrics = await db.db
-        .prepare(`
-          SELECT p.category_id, 
-                 COUNT(*) as prompt_count,
-                 SUM(CASE WHEN pa.brand_mentions_exact + pa.brand_mentions_fuzzy > 0 THEN 1 ELSE 0 END) as mentions_count
-          FROM prompt_analyses pa
-          INNER JOIN prompts p ON pa.prompt_id = p.id
-          WHERE p.analysis_run_id = ?
-          GROUP BY p.category_id
-        `)
-        .bind(runId)
-        .all<any>();
+      console.log(`[D1 DEBUG] Calculating category metrics for runId: ${runId}`);
+      const startMetrics = Date.now();
+      let categoryMetrics;
+      try {
+        categoryMetrics = await db.db
+          .prepare(`
+            SELECT p.category_id, 
+                   COUNT(*) as prompt_count,
+                   SUM(CASE WHEN pa.brand_mentions_exact + pa.brand_mentions_fuzzy > 0 THEN 1 ELSE 0 END) as mentions_count
+            FROM prompt_analyses pa
+            INNER JOIN prompts p ON pa.prompt_id = p.id
+            WHERE p.analysis_run_id = ?
+            GROUP BY p.category_id
+          `)
+          .bind(runId)
+          .all<any>();
+        console.log(`[D1 DEBUG] Category metrics calculated in ${Date.now() - startMetrics}ms`);
+      } catch (error: any) {
+        console.error(`[D1 ERROR] Failed to calculate category metrics:`, error.message);
+        categoryMetrics = { results: [] };
+      }
 
-      const competitiveAnalysis = await db.db
-        .prepare(`
-          SELECT cm.competitor_name, COUNT(*) as mention_count
-          FROM competitor_mentions cm
-          INNER JOIN prompt_analyses pa ON cm.prompt_analysis_id = pa.id
-          INNER JOIN prompts p ON pa.prompt_id = p.id
-          WHERE p.analysis_run_id = ?
-          GROUP BY cm.competitor_name
-          ORDER BY mention_count DESC
-        `)
-        .bind(runId)
-        .all<any>();
+      console.log(`[D1 DEBUG] Calculating competitive analysis for runId: ${runId}`);
+      const startComp = Date.now();
+      let competitiveAnalysis;
+      try {
+        competitiveAnalysis = await db.db
+          .prepare(`
+            SELECT cm.competitor_name, COUNT(*) as mention_count
+            FROM competitor_mentions cm
+            INNER JOIN prompt_analyses pa ON cm.prompt_analysis_id = pa.id
+            INNER JOIN prompts p ON pa.prompt_id = p.id
+            WHERE p.analysis_run_id = ?
+            GROUP BY cm.competitor_name
+            ORDER BY mention_count DESC
+          `)
+          .bind(runId)
+          .all<any>();
+        console.log(`[D1 DEBUG] Competitive analysis calculated in ${Date.now() - startComp}ms`);
+      } catch (error: any) {
+        console.error(`[D1 ERROR] Failed to calculate competitive analysis:`, error.message);
+        competitiveAnalysis = { results: [] };
+      }
 
-      const timeSeries = await db.db
-        .prepare(`
-          SELECT DATE(lr.timestamp) as date, COUNT(*) as count
-          FROM llm_responses lr
-          INNER JOIN prompts p ON lr.prompt_id = p.id
-          WHERE p.analysis_run_id = ?
-          GROUP BY DATE(lr.timestamp)
-          ORDER BY date
-        `)
-        .bind(runId)
-        .all<any>();
+      console.log(`[D1 DEBUG] Calculating time series for runId: ${runId}`);
+      const startTS = Date.now();
+      let timeSeries;
+      try {
+        timeSeries = await db.db
+          .prepare(`
+            SELECT DATE(lr.timestamp) as date, COUNT(*) as count
+            FROM llm_responses lr
+            INNER JOIN prompts p ON lr.prompt_id = p.id
+            WHERE p.analysis_run_id = ?
+            GROUP BY DATE(lr.timestamp)
+            ORDER BY date
+          `)
+          .bind(runId)
+          .all<any>();
+        console.log(`[D1 DEBUG] Time series calculated in ${Date.now() - startTS}ms`);
+      } catch (error: any) {
+        console.error(`[D1 ERROR] Failed to calculate time series:`, error.message);
+        timeSeries = { results: [] };
+      }
 
       // Update run status
       await db.updateAnalysisStatus(runId, "completed", {

@@ -69,13 +69,23 @@ export class Database {
   private async retryD1Operation<T>(
     operation: () => Promise<T>,
     maxRetries: number = 3,
-    baseDelay: number = 100
+    baseDelay: number = 100,
+    operationName?: string
   ): Promise<T> {
     let lastError: any;
+    const opName = operationName || "D1 operation";
     
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
-        return await operation();
+        const startTime = Date.now();
+        const result = await operation();
+        const duration = Date.now() - startTime;
+        
+        if (duration > 1000) {
+          console.log(`[D1 DEBUG] ${opName} completed in ${duration}ms`);
+        }
+        
+        return result;
       } catch (error: any) {
         lastError = error;
         const errorMessage = error?.message || String(error);
@@ -89,12 +99,13 @@ export class Database {
           errorMessage.includes("storage operation exceeded timeout");
         
         if (!isRetryable || attempt === maxRetries - 1) {
+          console.error(`[D1 ERROR] ${opName} failed after ${attempt + 1} attempts:`, errorMessage);
           throw error;
         }
         
         // Exponential backoff: 100ms, 200ms, 400ms
         const delay = baseDelay * Math.pow(2, attempt);
-        console.warn(`D1 operation failed (attempt ${attempt + 1}/${maxRetries}), retrying in ${delay}ms:`, errorMessage);
+        console.warn(`[D1 RETRY] ${opName} failed (attempt ${attempt + 1}/${maxRetries}), retrying in ${delay}ms:`, errorMessage);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
@@ -108,18 +119,28 @@ export class Database {
    */
   private async batchInChunks(
     statements: D1PreparedStatement[],
-    chunkSize: number = 50
+    chunkSize: number = 50,
+    operationName?: string
   ): Promise<void> {
     if (statements.length === 0) {
       return;
     }
 
+    const opName = operationName || `batch operation (${statements.length} statements)`;
+    console.log(`[D1 DEBUG] Executing ${opName} in chunks of ${chunkSize}`);
+
     // Process in chunks to avoid timeout
     for (let i = 0; i < statements.length; i += chunkSize) {
       const chunk = statements.slice(i, i + chunkSize);
+      const chunkNum = Math.floor(i / chunkSize) + 1;
+      const totalChunks = Math.ceil(statements.length / chunkSize);
+      
       await this.retryD1Operation(async () => {
+        const startTime = Date.now();
         await this.db.batch(chunk);
-      });
+        const duration = Date.now() - startTime;
+        console.log(`[D1 DEBUG] ${opName} chunk ${chunkNum}/${totalChunks} (${chunk.length} statements) completed in ${duration}ms`);
+      }, 3, 100, `${opName} chunk ${chunkNum}/${totalChunks}`);
     }
   }
 
@@ -222,8 +243,8 @@ export class Database {
     );
 
     await this.retryD1Operation(async () => {
-      await this.batchInChunks(statements);
-    });
+      await this.batchInChunks(statements, 50, `saveCategories (${categories.length} categories)`);
+    }, 3, 100, "saveCategories");
   }
 
   async savePrompts(runId: string, prompts: Prompt[]): Promise<void> {
@@ -251,8 +272,8 @@ export class Database {
     );
 
     await this.retryD1Operation(async () => {
-      await this.batchInChunks(statements);
-    });
+      await this.batchInChunks(statements, 50, `savePrompts (${prompts.length} prompts)`);
+    }, 3, 100, "savePrompts");
   }
 
   async saveLLMResponses(responses: LLMResponse[]): Promise<void> {
@@ -301,8 +322,8 @@ export class Database {
 
     if (allStatements.length > 0) {
       await this.retryD1Operation(async () => {
-        await this.batchInChunks(allStatements);
-      });
+        await this.batchInChunks(allStatements, 50, `saveLLMResponses (${responses.length} responses, ${allStatements.length} total statements)`);
+      }, 3, 100, "saveLLMResponses");
     }
   }
 
@@ -362,8 +383,8 @@ export class Database {
 
     if (allStatements.length > 0) {
       await this.retryD1Operation(async () => {
-        await this.batchInChunks(allStatements);
-      });
+        await this.batchInChunks(allStatements, 50, `savePromptAnalyses (${analyses.length} analyses, ${allStatements.length} total statements)`);
+      }, 3, 100, "savePromptAnalyses");
     }
   }
 
@@ -397,8 +418,8 @@ export class Database {
     });
 
     await this.retryD1Operation(async () => {
-      await this.batchInChunks(statements);
-    });
+      await this.batchInChunks(statements, 50, `saveCategoryMetrics (${metrics.length} metrics)`);
+    }, 3, 100, "saveCategoryMetrics");
   }
 
   async saveCompetitiveAnalysis(
