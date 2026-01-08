@@ -98,29 +98,6 @@
         window.showAIAnalysisFull(event);
       }
     };
-      const dashboardSection = document.getElementById('dashboardSection');
-      const aiAnalysisSection = document.getElementById('aiAnalysisSection');
-      const aiReadinessSection = document.getElementById('aiReadinessSection');
-      const analysesSection = document.getElementById('analysesSection');
-      const analysisDetailSection = document.getElementById('analysisDetailSection');
-      
-      if (dashboardSection) dashboardSection.style.display = 'none';
-      if (aiAnalysisSection) aiAnalysisSection.style.display = 'block';
-      if (aiReadinessSection) aiReadinessSection.style.display = 'none';
-      if (analysesSection) analysesSection.style.display = 'none';
-      if (analysisDetailSection) analysisDetailSection.style.display = 'none';
-      
-      // Update header
-      const headerTitle = document.getElementById('headerTitle');
-      if (headerTitle) headerTitle.textContent = 'AI Analyse';
-      
-      // Update navigation
-      const navItems = document.querySelectorAll('.nav-item');
-      navItems.forEach(item => item.classList.remove('active'));
-      if (event && event.target) {
-        event.target.closest('.nav-item')?.classList.add('active');
-      }
-    };
     
     window.showAIReadability = function(event) {
       if (event) event.preventDefault();
