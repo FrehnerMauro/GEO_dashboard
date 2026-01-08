@@ -28,6 +28,12 @@ export const ROUTES: RouteDefinition[] = [
   { method: "GET", path: /^\/api\/analysis\/([^\/]+)\/metrics$/, handler: "analysis.getMetrics" },
   { method: "DELETE", path: /^\/api\/analysis\/([^\/]+)$/, handler: "analysis.delete" },
   
+  // Dashboard routes
+  { method: "GET", path: "/api/companies", handler: "analysis.getAllCompanies" },
+  { method: "GET", path: /^\/api\/companies\/([^\/]+)\/analyses$/, handler: "analysis.getCompanyAnalyses" },
+  { method: "GET", path: "/api/global/categories", handler: "analysis.getGlobalCategories" },
+  { method: "GET", path: /^\/api\/global\/categories\/([^\/]+)\/prompts$/, handler: "analysis.getGlobalPromptsByCategory" },
+  
   // Health check (for monitoring)
   { method: "GET", path: "/api/health", handler: "health.check" },
 ];

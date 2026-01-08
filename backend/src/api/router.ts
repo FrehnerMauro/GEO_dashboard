@@ -113,6 +113,8 @@ export class Router {
     corsHeaders: ReturnType<typeof getCorsHeaders>
   ): Promise<Response> {
     const runId = params.param0 || "";
+    const companyId = params.param0 || "";
+    const categoryName = params.param0 || "";
     
     switch (method) {
       case "analyze":
@@ -127,6 +129,14 @@ export class Router {
         return await this.analysisHandlers.handleGetMetrics(runId, this.env, corsHeaders);
       case "delete":
         return await this.analysisHandlers.handleDeleteAnalysis(runId, this.env, corsHeaders);
+      case "getAllCompanies":
+        return await this.analysisHandlers.handleGetAllCompanies(request, this.env, corsHeaders);
+      case "getCompanyAnalyses":
+        return await this.analysisHandlers.handleGetCompanyAnalyses(companyId, this.env, corsHeaders);
+      case "getGlobalCategories":
+        return await this.analysisHandlers.handleGetGlobalCategories(request, this.env, corsHeaders);
+      case "getGlobalPromptsByCategory":
+        return await this.analysisHandlers.handleGetGlobalPromptsByCategory(categoryName, this.env, corsHeaders);
       default:
         return handleNotFound(corsHeaders);
     }

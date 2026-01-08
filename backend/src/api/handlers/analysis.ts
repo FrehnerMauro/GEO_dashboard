@@ -86,6 +86,114 @@ export class AnalysisHandlers {
     }
   }
 
+  async handleGetAllCompanies(
+    request: Request,
+    env: Env,
+    corsHeaders: CorsHeaders
+  ): Promise<Response> {
+    try {
+      const { Database } = await import("../../../shared/persistence/index.js");
+      const db = new Database(env.geo_db as any);
+      const companies = await db.getAllCompanies();
+      
+      return new Response(JSON.stringify(companies), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } catch (error) {
+      console.error("Error getting all companies:", error);
+      return new Response(
+        JSON.stringify({
+          error: error instanceof Error ? error.message : "Unknown error",
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+  }
+
+  async handleGetCompanyAnalyses(
+    companyId: string,
+    env: Env,
+    corsHeaders: CorsHeaders
+  ): Promise<Response> {
+    try {
+      const { Database } = await import("../../../shared/persistence/index.js");
+      const db = new Database(env.geo_db as any);
+      const analyses = await db.getCompanyAnalysisRuns(companyId, 100);
+      
+      return new Response(JSON.stringify(analyses), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } catch (error) {
+      console.error("Error getting company analyses:", error);
+      return new Response(
+        JSON.stringify({
+          error: error instanceof Error ? error.message : "Unknown error",
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+  }
+
+  async handleGetGlobalCategories(
+    request: Request,
+    env: Env,
+    corsHeaders: CorsHeaders
+  ): Promise<Response> {
+    try {
+      const { Database } = await import("../../../shared/persistence/index.js");
+      const db = new Database(env.geo_db as any);
+      const categories = await db.getAllGlobalCategories();
+      
+      return new Response(JSON.stringify(categories), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } catch (error) {
+      console.error("Error getting global categories:", error);
+      return new Response(
+        JSON.stringify({
+          error: error instanceof Error ? error.message : "Unknown error",
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+  }
+
+  async handleGetGlobalPromptsByCategory(
+    categoryName: string,
+    env: Env,
+    corsHeaders: CorsHeaders
+  ): Promise<Response> {
+    try {
+      const { Database } = await import("../../../shared/persistence/index.js");
+      const db = new Database(env.geo_db as any);
+      const prompts = await db.getGlobalPromptsByCategory(categoryName);
+      
+      return new Response(JSON.stringify(prompts), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    } catch (error) {
+      console.error("Error getting global prompts by category:", error);
+      return new Response(
+        JSON.stringify({
+          error: error instanceof Error ? error.message : "Unknown error",
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
+  }
+
   async handleGetAnalysis(
     runId: string,
     env: Env,

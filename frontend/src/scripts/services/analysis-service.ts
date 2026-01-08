@@ -42,6 +42,22 @@ export class AnalysisService {
   async deleteAnalysis(runId: string): Promise<void> {
     await apiClient.delete(`/api/analysis/${runId}`);
   }
+
+  async getAllCompanies(): Promise<any[]> {
+    return await apiClient.get<any[]>("/api/companies");
+  }
+
+  async getCompanyAnalyses(companyId: string): Promise<any[]> {
+    return await apiClient.get<any[]>(`/api/companies/${companyId}/analyses`);
+  }
+
+  async getGlobalCategories(): Promise<any[]> {
+    return await apiClient.get<any[]>("/api/global/categories");
+  }
+
+  async getGlobalPromptsByCategory(categoryName: string): Promise<any[]> {
+    return await apiClient.get<any[]>(`/api/global/categories/${encodeURIComponent(categoryName)}/prompts`);
+  }
 }
 
 export const analysisService = new AnalysisService();

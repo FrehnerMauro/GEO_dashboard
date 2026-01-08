@@ -794,6 +794,86 @@ export class Database {
     }
   }
 
+  // Global view methods
+  async getAllGlobalCategories(): Promise<Array<{ name: string; description: string; count: number }>> {
+    const result = await this.db
+      .prepare(
+        `SELECT 
+          c.name,
+          MAX(c.description) as description,
+          COUNT(DISTINCT c.id) as count
+         FROM categories c
+         GROUP BY c.name
+         ORDER BY count DESC, c.name ASC`
+      )
+      .all<{
+        name: string;
+        description: string;
+        count: number;
+      }>();
+    
+    return (result.results || []).map(r => ({
+      name: r.name,
+      description: r.description || "",
+      count: r.count,
+    }));
+  }
+
+  async getGlobalPromptsByCategory(categoryName: string): Promise<Array<{
+    id: string;
+    question: string;
+    language: string;
+    country: string | null;
+    region: string | null;
+    intent: string;
+    createdAt: string;
+    analysisRunId: string;
+    websiteUrl: string;
+  }>> {
+    const result = await this.db
+      .prepare(
+        `SELECT 
+          p.id,
+          p.question,
+          p.language,
+          p.country,
+          p.region,
+          p.intent,
+          p.created_at,
+          p.analysis_run_id,
+          ar.website_url
+         FROM prompts p
+         JOIN categories c ON p.category_id = c.id
+         JOIN analysis_runs ar ON p.analysis_run_id = ar.id
+         WHERE c.name = ?
+         ORDER BY p.created_at DESC`
+      )
+      .bind(categoryName)
+      .all<{
+        id: string;
+        question: string;
+        language: string;
+        country: string | null;
+        region: string | null;
+        intent: string;
+        created_at: string;
+        analysis_run_id: string;
+        website_url: string;
+      }>();
+    
+    return (result.results || []).map(r => ({
+      id: r.id,
+      question: r.question,
+      language: r.language,
+      country: r.country || undefined,
+      region: r.region || undefined,
+      intent: r.intent,
+      createdAt: r.created_at,
+      analysisRunId: r.analysis_run_id,
+      websiteUrl: r.website_url,
+    }));
+  }
+
   async getCompanyTimeSeries(companyId: string, days: number = 30): Promise<TimeSeriesData[]> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
