@@ -909,23 +909,52 @@ export class WorkflowHandlers {
       };
 
       const otherSources: Record<string, number> = {};
+      // Use a Set to track unique citation URLs per domain to avoid double counting
+      // This ensures that [acotec.ch](https://www.acotec.ch/?utm_source=openai) counts as ONE source
+      const domainUrlMap = new Map<string, Set<string>>();
+      
       // Use ALL citations, not just brand citations
       (allCitationsResult.results || []).forEach((citation) => {
         try {
           const urlObj = new URL(citation.url);
-          const domain = urlObj.hostname.replace('www.', '').toLowerCase();
+          // Normalize domain: remove www., convert to lowercase, remove trailing dots
+          let domain = urlObj.hostname.replace(/^www\./, '').toLowerCase().replace(/\.$/, '');
           
           // Exclude own company domain
           if (!isOwnCompany(domain)) {
-            otherSources[domain] = (otherSources[domain] || 0) + 1;
+            // Track unique URLs per domain to avoid counting the same URL multiple times
+            if (!domainUrlMap.has(domain)) {
+              domainUrlMap.set(domain, new Set<string>());
+            }
+            // Normalize URL by removing query parameters and fragments for comparison
+            // This ensures https://www.acotec.ch/?utm_source=openai and https://www.acotec.ch/ count as the same
+            const normalizedUrl = urlObj.origin + urlObj.pathname;
+            domainUrlMap.get(domain)!.add(normalizedUrl);
           }
         } catch {
-          // If URL parsing fails, use the URL as-is (but still exclude if it matches own company)
-          const urlLower = citation.url.toLowerCase();
-          if (!isOwnCompany(urlLower)) {
-            otherSources[citation.url] = (otherSources[citation.url] || 0) + 1;
+          // If URL parsing fails, try to extract domain from the URL string
+          try {
+            // Try to extract domain using regex as fallback
+            const domainMatch = citation.url.match(/https?:\/\/(?:www\.)?([^\/\?]+)/i);
+            if (domainMatch && domainMatch[1]) {
+              let domain = domainMatch[1].replace(/^www\./, '').toLowerCase().replace(/\.$/, '');
+              if (!isOwnCompany(domain)) {
+                if (!domainUrlMap.has(domain)) {
+                  domainUrlMap.set(domain, new Set<string>());
+                }
+                // Use the original URL as fallback
+                domainUrlMap.get(domain)!.add(citation.url);
+              }
+            }
+          } catch {
+            // If all parsing fails, skip this citation
           }
         }
+      });
+      
+      // Count unique URLs per domain (each unique URL counts as 1, not multiple times)
+      domainUrlMap.forEach((urlSet, domain) => {
+        otherSources[domain] = urlSet.size;
       });
 
       // Create summary object
