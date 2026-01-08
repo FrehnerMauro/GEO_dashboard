@@ -308,13 +308,13 @@ export class WorkflowHandlers {
       // Optimized: Use JOINs instead of nested subqueries to avoid timeout
       const categoryMetrics = await db.db
         .prepare(`
-          SELECT pa.category_id, 
+          SELECT p.category_id, 
                  COUNT(*) as prompt_count,
                  SUM(CASE WHEN pa.brand_mentions_exact + pa.brand_mentions_fuzzy > 0 THEN 1 ELSE 0 END) as mentions_count
           FROM prompt_analyses pa
           INNER JOIN prompts p ON pa.prompt_id = p.id
           WHERE p.analysis_run_id = ?
-          GROUP BY pa.category_id
+          GROUP BY p.category_id
         `)
         .bind(runId)
         .all<any>();
