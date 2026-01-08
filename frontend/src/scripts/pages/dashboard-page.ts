@@ -146,18 +146,29 @@ export class DashboardPage {
             let bestPromptsHtml = '';
             if (bestPrompts.length > 0) {
               bestPromptsHtml = `
-                <div style="margin-top: 16px;">
-                  <h5 style="margin-bottom: 12px; font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.9);">Beste Prompts:</h5>
-                  <ul style="list-style: none; padding: 0; margin: 0;">
-                    ${bestPrompts.slice(0, 5).map((p: any) => `
-                      <li style="padding: 8px 12px; margin-bottom: 8px; background: rgba(255,255,255,0.1); border-radius: 6px; border-left: 3px solid white;">
-                        <div style="font-size: 13px; color: white;">${p.question}</div>
-                        <div style="margin-top: 4px; font-size: 11px; opacity: 0.9;">
-                          Erwähnungen: ${p.mentions}, Zitierungen: ${p.citations}
+                <div style="margin-top: 32px; padding: 28px; background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%); border-radius: 16px; backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
+                  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+                    <span style="font-size: 28px;">🏆</span>
+                    <h5 style="margin: 0; font-size: 20px; font-weight: 700; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.2);">Beste Prompts</h5>
+                  </div>
+                  <div style="display: flex; flex-direction: column; gap: 16px;">
+                    ${bestPrompts.slice(0, 5).map((p: any, idx: number) => `
+                      <div style="padding: 20px; background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.08) 100%); border-radius: 12px; border-left: 4px solid rgba(255,255,255,0.8); box-shadow: 0 4px 16px rgba(0,0,0,0.1); transition: transform 0.2s ease;">
+                        <div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;">
+                          <div style="width: 32px; height: 32px; background: linear-gradient(135deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; color: white; font-size: 16px; flex-shrink: 0;">${idx + 1}</div>
+                          <div style="flex: 1; color: white; font-size: 15px; line-height: 1.6; font-weight: 500;">${p.question}</div>
                         </div>
-                      </li>
+                        <div style="display: flex; gap: 20px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">
+                          <div style="display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 600;">
+                            <span>📌</span><span>Erwähnungen: <strong style="color: white;">${p.mentions}</strong></span>
+                          </div>
+                          <div style="display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 600;">
+                            <span>🔗</span><span>Zitierungen: <strong style="color: white;">${p.citations}</strong></span>
+                          </div>
+                        </div>
+                      </div>
                     `).join("")}
-                  </ul>
+                  </div>
                 </div>
               `;
             }
@@ -166,13 +177,16 @@ export class DashboardPage {
             const sourceEntries = Object.entries(otherSources);
             if (sourceEntries.length > 0) {
               otherSourcesHtml = `
-                <div style="margin-top: 16px;">
-                  <h5 style="margin-bottom: 12px; font-size: 14px; font-weight: 600; color: rgba(255,255,255,0.9);">Andere Links (Zitierungen):</h5>
-                  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;">
+                <div style="margin-top: 32px; padding: 28px; background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%); border-radius: 16px; backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
+                  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+                    <span style="font-size: 28px;">🔗</span>
+                    <h5 style="margin: 0; font-size: 20px; font-weight: 700; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.2);">Andere Links (Zitierungen)</h5>
+                  </div>
+                  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
                     ${sourceEntries.slice(0, 10).map(([source, count]) => `
-                      <div style="padding: 10px; background: rgba(255,255,255,0.1); border-radius: 6px; text-align: center;">
-                        <div style="font-size: 20px; font-weight: 700; color: white;">${count}</div>
-                        <div style="font-size: 11px; opacity: 0.9; word-break: break-word; margin-top: 4px;">${source}</div>
+                      <div style="padding: 20px; background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.08) 100%); border-radius: 12px; text-align: center; box-shadow: 0 4px 16px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s ease;">
+                        <div style="font-size: 36px; font-weight: 800; margin-bottom: 8px; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.2); font-family: 'Space Grotesk', sans-serif;">${count}</div>
+                        <div style="font-size: 12px; color: rgba(255,255,255,0.9); word-break: break-word; line-height: 1.5; font-weight: 500;">${source}</div>
                       </div>
                     `).join("")}
                   </div>
@@ -181,20 +195,37 @@ export class DashboardPage {
             }
             
             summaryHtml = `
-              <div class="summary-section" style="padding: 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; color: white; margin-bottom: 32px;">
-                <h4 style="margin: 0 0 20px 0; font-size: 24px; font-weight: 700; color: white;">📊 Fazit</h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 20px;">
-                  <div style="padding: 16px; background: rgba(255,255,255,0.15); border-radius: 8px; backdrop-filter: blur(10px); text-align: center;">
-                    <div style="font-size: 32px; font-weight: 700; margin-bottom: 8px;">${summary.totalMentions || 0}</div>
-                    <div style="font-size: 14px; opacity: 0.9;">Anzahl Erwähnungen</div>
-                  </div>
-                  <div style="padding: 16px; background: rgba(255,255,255,0.15); border-radius: 8px; backdrop-filter: blur(10px); text-align: center;">
-                    <div style="font-size: 32px; font-weight: 700; margin-bottom: 8px;">${summary.totalCitations || 0}</div>
-                    <div style="font-size: 14px; opacity: 0.9;">Anzahl Zitierungen</div>
+              <div class="summary-section" style="padding: 0; background: transparent; border-radius: 20px; margin-bottom: 32px; overflow: hidden; position: relative;">
+                <div style="padding: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%); border-radius: 20px; box-shadow: 0 20px 60px rgba(102, 126, 234, 0.4); position: relative; overflow: hidden; color: white;">
+                  <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 20% 30%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(255,255,255,0.08) 0%, transparent 50%); pointer-events: none;"></div>
+                  <div style="position: relative; z-index: 1;">
+                    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 2px solid rgba(255,255,255,0.2);">
+                      <div style="width: 64px; height: 64px; background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 36px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);">📊</div>
+                      <div>
+                        <h4 style="margin: 0; font-size: 32px; font-weight: 800; color: white; text-shadow: 0 2px 20px rgba(0,0,0,0.3); font-family: 'Space Grotesk', sans-serif; letter-spacing: -1px;">Fazit</h4>
+                        <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 15px; font-weight: 500;">Zusammenfassung der Analyse</p>
+                      </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 32px;">
+                      <div style="padding: 28px; background: linear-gradient(135deg, rgba(99, 102, 241, 0.95) 0%, rgba(139, 92, 246, 0.95) 100%); border-radius: 16px; backdrop-filter: blur(20px); text-align: center; box-shadow: 0 8px 32px rgba(99, 102, 241, 0.3); border: 1px solid rgba(255,255,255,0.2); position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: -50%; right: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);"></div>
+                        <div style="position: relative; z-index: 1;">
+                          <div style="font-size: 48px; font-weight: 800; margin-bottom: 12px; color: white; text-shadow: 0 2px 20px rgba(0,0,0,0.2); font-family: 'Space Grotesk', sans-serif;">${summary.totalMentions || 0}</div>
+                          <div style="font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.95); text-transform: uppercase; letter-spacing: 0.5px;">Anzahl Erwähnungen</div>
+                        </div>
+                      </div>
+                      <div style="padding: 28px; background: linear-gradient(135deg, rgba(236, 72, 153, 0.95) 0%, rgba(219, 39, 119, 0.95) 100%); border-radius: 16px; backdrop-filter: blur(20px); text-align: center; box-shadow: 0 8px 32px rgba(236, 72, 153, 0.3); border: 1px solid rgba(255,255,255,0.2); position: relative; overflow: hidden;">
+                        <div style="position: absolute; top: -50%; right: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);"></div>
+                        <div style="position: relative; z-index: 1;">
+                          <div style="font-size: 48px; font-weight: 800; margin-bottom: 12px; color: white; text-shadow: 0 2px 20px rgba(0,0,0,0.2); font-family: 'Space Grotesk', sans-serif;">${summary.totalCitations || 0}</div>
+                          <div style="font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.95); text-transform: uppercase; letter-spacing: 0.5px;">Anzahl Zitierungen</div>
+                        </div>
+                      </div>
+                    </div>
+                    ${bestPromptsHtml}
+                    ${otherSourcesHtml}
                   </div>
                 </div>
-                ${bestPromptsHtml}
-                ${otherSourcesHtml}
               </div>
             `;
           } else {

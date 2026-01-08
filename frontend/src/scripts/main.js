@@ -1755,14 +1755,33 @@
           throw new Error('Responses list element not found');
         }
         
-        // Show loading indicator
+        // Show enhanced loading indicator with progress animation
         const summaryLoadingDiv = document.createElement('div');
         summaryLoadingDiv.id = 'summaryLoading';
-        summaryLoadingDiv.style.cssText = 'padding: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; text-align: center; margin-top: 24px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
+        summaryLoadingDiv.style.cssText = 'padding: 40px 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 16px; text-align: center; margin-top: 24px; box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3); position: relative; overflow: hidden;';
+        
+        // Add animated background
         summaryLoadingDiv.innerHTML = 
-          '<div style="display: inline-block; width: 32px; height: 32px; border: 4px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 12px;"></div>' +
-          '<p style="color: white; font-weight: 600; margin: 0; font-size: 16px;">Fazit wird generiert...</p>' +
-          '<p style="color: rgba(255,255,255,0.9); font-size: 14px; margin: 8px 0 0 0;">GPT analysiert alle Fragen und Antworten</p>';
+          '<style>' +
+          '@keyframes spin { to { transform: rotate(360deg); } }' +
+          '@keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.05); } }' +
+          '@keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }' +
+          '@keyframes dots { 0%, 20% { content: "."; } 40% { content: ".."; } 60%, 100% { content: "..."; } }' +
+          '@keyframes progress { 0% { width: 0%; } 50% { width: 70%; } 100% { width: 100%; } }' +
+          '.loading-dots::after { content: "..."; animation: dots 1.5s steps(4, end) infinite; }' +
+          '</style>' +
+          '<div style="position: relative; z-index: 2;">' +
+          '<div style="display: inline-flex; align-items: center; justify-content: center; width: 80px; height: 80px; border-radius: 50%; background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); margin-bottom: 24px; animation: pulse 2s ease-in-out infinite; box-shadow: 0 0 30px rgba(255,255,255,0.3);">' +
+          '<div style="width: 60px; height: 60px; border: 5px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 1s linear infinite;"></div>' +
+          '</div>' +
+          '<h3 style="color: white; font-weight: 700; font-size: 24px; margin: 0 0 12px 0; text-shadow: 0 2px 10px rgba(0,0,0,0.2);">📊 Fazit wird generiert<span class="loading-dots"></span></h3>' +
+          '<p style="color: rgba(255,255,255,0.95); font-size: 16px; margin: 0 0 24px 0; font-weight: 500;">GPT analysiert alle Fragen und Antworten</p>' +
+          '<div style="width: 100%; height: 8px; background: rgba(255,255,255,0.2); border-radius: 4px; overflow: hidden; position: relative;">' +
+          '<div style="width: 0%; height: 100%; background: linear-gradient(90deg, rgba(255,255,255,0.8), white); border-radius: 4px; animation: progress 3s ease-in-out infinite; box-shadow: 0 0 10px rgba(255,255,255,0.5);"></div>' +
+          '</div>' +
+          '<p style="color: rgba(255,255,255,0.85); font-size: 13px; margin: 16px 0 0 0; font-style: italic;">Bitte warten, dies kann einige Sekunden dauern...</p>' +
+          '</div>' +
+          '<div style="position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent); animation: shimmer 3s infinite;"></div>';
         responsesList.appendChild(summaryLoadingDiv);
         summaryLoadingDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         
@@ -1789,63 +1808,103 @@
         const loadingEl = document.getElementById('summaryLoading');
         if (loadingEl) loadingEl.remove();
         
-        // Display summary
+        // Display enhanced summary with modern design
         const summaryDiv = document.createElement('div');
         summaryDiv.id = 'summary';
-        summaryDiv.style.cssText = 'padding: 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; margin-top: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); color: white;';
+        summaryDiv.style.cssText = 'padding: 0; background: transparent; border-radius: 20px; margin-top: 32px; overflow: hidden; position: relative;';
+        summaryDiv.style.animation = 'fadeInUp 0.6s ease-out';
+        
+        // Add fade-in animation
+        if (!document.getElementById('fazitAnimations')) {
+          const style = document.createElement('style');
+          style.id = 'fazitAnimations';
+          style.textContent = '@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } } @keyframes cardPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.02); } }';
+          document.head.appendChild(style);
+        }
         
         const totalMentions = summaryData.totalMentions || 0;
         const totalCitations = summaryData.totalCitations || 0;
         const bestPrompts = summaryData.bestPrompts || [];
         const otherSources = summaryData.otherSources || {};
         
+        // Enhanced metrics cards
+        const metricsHtml = 
+          '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 32px;">' +
+          '<div style="padding: 28px; background: linear-gradient(135deg, rgba(99, 102, 241, 0.95) 0%, rgba(139, 92, 246, 0.95) 100%); border-radius: 16px; backdrop-filter: blur(20px); text-align: center; box-shadow: 0 8px 32px rgba(99, 102, 241, 0.3); border: 1px solid rgba(255,255,255,0.2); transition: transform 0.3s ease; position: relative; overflow: hidden;">' +
+          '<div style="position: absolute; top: -50%; right: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);"></div>' +
+          '<div style="position: relative; z-index: 1;">' +
+          '<div style="font-size: 48px; font-weight: 800; margin-bottom: 12px; color: white; text-shadow: 0 2px 20px rgba(0,0,0,0.2); font-family: \'Space Grotesk\', sans-serif;">' + totalMentions + '</div>' +
+          '<div style="font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.95); text-transform: uppercase; letter-spacing: 0.5px;">Anzahl Erwähnungen</div>' +
+          '</div></div>' +
+          '<div style="padding: 28px; background: linear-gradient(135deg, rgba(236, 72, 153, 0.95) 0%, rgba(219, 39, 119, 0.95) 100%); border-radius: 16px; backdrop-filter: blur(20px); text-align: center; box-shadow: 0 8px 32px rgba(236, 72, 153, 0.3); border: 1px solid rgba(255,255,255,0.2); transition: transform 0.3s ease; position: relative; overflow: hidden;">' +
+          '<div style="position: absolute; top: -50%; right: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);"></div>' +
+          '<div style="position: relative; z-index: 1;">' +
+          '<div style="font-size: 48px; font-weight: 800; margin-bottom: 12px; color: white; text-shadow: 0 2px 20px rgba(0,0,0,0.2); font-family: \'Space Grotesk\', sans-serif;">' + totalCitations + '</div>' +
+          '<div style="font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.95); text-transform: uppercase; letter-spacing: 0.5px;">Anzahl Zitierungen</div>' +
+          '</div></div>' +
+          '</div>';
+        
         let bestPromptsHtml = '';
         if (bestPrompts.length > 0) {
-          bestPromptsHtml = '<div style="margin-top: 16px; padding: 16px; background: rgba(255,255,255,0.15); border-radius: 8px; backdrop-filter: blur(10px);">';
-          bestPromptsHtml += '<h4 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 700; color: white;">🏆 Beste Prompts:</h4>';
-          bestPromptsHtml += '<ul style="margin: 0; padding-left: 20px; list-style: none;">';
+          bestPromptsHtml = '<div style="margin-top: 32px; padding: 28px; background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%); border-radius: 16px; backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 8px 32px rgba(0,0,0,0.1);">';
+          bestPromptsHtml += '<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">';
+          bestPromptsHtml += '<span style="font-size: 28px;">🏆</span>';
+          bestPromptsHtml += '<h4 style="margin: 0; font-size: 20px; font-weight: 700; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.2);">Beste Prompts</h4>';
+          bestPromptsHtml += '</div>';
+          bestPromptsHtml += '<div style="display: flex; flex-direction: column; gap: 16px;">';
           bestPrompts.forEach(function(prompt, idx) {
-            bestPromptsHtml += '<li style="margin-bottom: 8px; padding: 8px 12px; background: rgba(255,255,255,0.1); border-radius: 6px; border-left: 3px solid white;">';
-            bestPromptsHtml += '<span style="font-weight: 600; margin-right: 8px;">' + (idx + 1) + '.</span>';
-            bestPromptsHtml += '<span>' + prompt.question.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</span>';
-            bestPromptsHtml += '<div style="margin-top: 4px; font-size: 12px; opacity: 0.9;">Erwähnungen: ' + prompt.mentions + ', Zitierungen: ' + prompt.citations + '</div>';
-            bestPromptsHtml += '</li>';
+            bestPromptsHtml += '<div style="padding: 20px; background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.08) 100%); border-radius: 12px; border-left: 4px solid rgba(255,255,255,0.8); box-shadow: 0 4px 16px rgba(0,0,0,0.1); transition: transform 0.2s ease;">';
+            bestPromptsHtml += '<div style="display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px;">';
+            bestPromptsHtml += '<div style="width: 32px; height: 32px; background: linear-gradient(135deg, rgba(255,255,255,0.3), rgba(255,255,255,0.1)); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: 800; color: white; font-size: 16px; flex-shrink: 0;">' + (idx + 1) + '</div>';
+            bestPromptsHtml += '<div style="flex: 1; color: white; font-size: 15px; line-height: 1.6; font-weight: 500;">' + prompt.question.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+            bestPromptsHtml += '</div>';
+            bestPromptsHtml += '<div style="display: flex; gap: 20px; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.1);">';
+            bestPromptsHtml += '<div style="display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 600;">';
+            bestPromptsHtml += '<span>📌</span><span>Erwähnungen: <strong style="color: white;">' + prompt.mentions + '</strong></span>';
+            bestPromptsHtml += '</div>';
+            bestPromptsHtml += '<div style="display: flex; align-items: center; gap: 8px; color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 600;">';
+            bestPromptsHtml += '<span>🔗</span><span>Zitierungen: <strong style="color: white;">' + prompt.citations + '</strong></span>';
+            bestPromptsHtml += '</div>';
+            bestPromptsHtml += '</div>';
+            bestPromptsHtml += '</div>';
           });
-          bestPromptsHtml += '</ul></div>';
+          bestPromptsHtml += '</div></div>';
         }
         
         let otherSourcesHtml = '';
         const sourceEntries = Object.entries(otherSources);
         if (sourceEntries.length > 0) {
-          otherSourcesHtml = '<div style="margin-top: 16px; padding: 16px; background: rgba(255,255,255,0.15); border-radius: 8px; backdrop-filter: blur(10px);">';
-          otherSourcesHtml += '<h4 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 700; color: white;">🔗 Andere Links (Zitierungen):</h4>';
-          otherSourcesHtml += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;">';
+          otherSourcesHtml = '<div style="margin-top: 32px; padding: 28px; background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%); border-radius: 16px; backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 8px 32px rgba(0,0,0,0.1);">';
+          otherSourcesHtml += '<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">';
+          otherSourcesHtml += '<span style="font-size: 28px;">🔗</span>';
+          otherSourcesHtml += '<h4 style="margin: 0; font-size: 20px; font-weight: 700; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.2);">Andere Links (Zitierungen)</h4>';
+          otherSourcesHtml += '</div>';
+          otherSourcesHtml += '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">';
           sourceEntries.forEach(function([source, count]) {
-            otherSourcesHtml += '<div style="padding: 10px; background: rgba(255,255,255,0.1); border-radius: 6px; text-align: center;">';
-            otherSourcesHtml += '<div style="font-size: 24px; font-weight: 700; margin-bottom: 4px;">' + count + '</div>';
-            otherSourcesHtml += '<div style="font-size: 12px; opacity: 0.9; word-break: break-word;">' + source.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
+            otherSourcesHtml += '<div style="padding: 20px; background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0.08) 100%); border-radius: 12px; text-align: center; box-shadow: 0 4px 16px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.1); transition: transform 0.2s ease;">';
+            otherSourcesHtml += '<div style="font-size: 36px; font-weight: 800; margin-bottom: 8px; color: white; text-shadow: 0 2px 10px rgba(0,0,0,0.2); font-family: \'Space Grotesk\', sans-serif;">' + count + '</div>';
+            otherSourcesHtml += '<div style="font-size: 12px; color: rgba(255,255,255,0.9); word-break: break-word; line-height: 1.5; font-weight: 500;">' + source.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>';
             otherSourcesHtml += '</div>';
           });
           otherSourcesHtml += '</div></div>';
         }
         
+        // Main container with gradient background
         summaryDiv.innerHTML = 
-          '<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">' +
-          '<span style="font-size: 32px;">📊</span>' +
-          '<h3 style="margin: 0; font-size: 24px; font-weight: 700; color: white;">Fazit</h3>' +
-          '</div>' +
-          '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">' +
-          '<div style="padding: 16px; background: rgba(255,255,255,0.15); border-radius: 8px; backdrop-filter: blur(10px); text-align: center;">' +
-          '<div style="font-size: 32px; font-weight: 700; margin-bottom: 8px;">' + totalMentions + '</div>' +
-          '<div style="font-size: 14px; opacity: 0.9;">Anzahl Erwähnungen</div>' +
-          '</div>' +
-          '<div style="padding: 16px; background: rgba(255,255,255,0.15); border-radius: 8px; backdrop-filter: blur(10px); text-align: center;">' +
-          '<div style="font-size: 32px; font-weight: 700; margin-bottom: 8px;">' + totalCitations + '</div>' +
-          '<div style="font-size: 14px; opacity: 0.9;">Anzahl Zitierungen</div>' +
+          '<div style="padding: 40px; background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%); border-radius: 20px; box-shadow: 0 20px 60px rgba(102, 126, 234, 0.4); position: relative; overflow: hidden; color: white;">' +
+          '<div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at 20% 30%, rgba(255,255,255,0.1) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(255,255,255,0.08) 0%, transparent 50%); pointer-events: none;"></div>' +
+          '<div style="position: relative; z-index: 1;">' +
+          '<div style="display: flex; align-items: center; gap: 16px; margin-bottom: 32px; padding-bottom: 24px; border-bottom: 2px solid rgba(255,255,255,0.2);">' +
+          '<div style="width: 64px; height: 64px; background: rgba(255,255,255,0.2); backdrop-filter: blur(10px); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 36px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);">📊</div>' +
+          '<div>' +
+          '<h3 style="margin: 0; font-size: 32px; font-weight: 800; color: white; text-shadow: 0 2px 20px rgba(0,0,0,0.3); font-family: \'Space Grotesk\', sans-serif; letter-spacing: -1px;">Fazit</h3>' +
+          '<p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 15px; font-weight: 500;">Zusammenfassung der Analyse</p>' +
           '</div>' +
           '</div>' +
+          metricsHtml +
           bestPromptsHtml +
-          otherSourcesHtml;
+          otherSourcesHtml +
+          '</div></div>';
         
         // Check if responsesList still exists before appending
         if (responsesList) {
