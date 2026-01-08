@@ -14,6 +14,8 @@ interface WorkflowData {
   urls?: string[];
   content?: string;
   categories?: any[];
+  prompts?: any[];
+  selectedPrompts?: any[];
   foundSitemap?: boolean;
 }
 
@@ -391,9 +393,16 @@ export class AnalysisWorkflow {
       );
 
       if (result.prompts && Array.isArray(result.prompts)) {
+        // Save prompts first
         await workflowService.savePrompts(this.workflowData.runId, result.prompts);
-        this.updateAnalysisUI(4, "Prompts Generated", `${result.prompts.length} prompts created. Executing...`, 80);
-        setTimeout(() => this.executeStep5(), 1000);
+        
+        // Store prompts in workflow data
+        this.workflowData.prompts = result.prompts;
+        
+        this.updateAnalysisUI(4, "Prompts Generated", `${result.prompts.length} questions created. Please select which ones to execute...`, 75);
+        
+        // Show prompts to user for selection BEFORE execution
+        setTimeout(() => this.showPromptSelection(result.prompts), 1000);
       } else {
         throw new Error("No prompts received from server");
       }
@@ -405,34 +414,241 @@ export class AnalysisWorkflow {
   }
 
   /**
+   * Show prompt selection UI
+   */
+  private showPromptSelection(prompts: any[]): void {
+    const result = document.getElementById("result");
+    const resultContent = document.getElementById("resultContent");
+
+    if (!result || !resultContent) {
+      console.error("Result elements not found!");
+      return;
+    }
+
+    result.style.display = "block";
+    result.classList.add("show");
+
+    let html = '<div style="margin-bottom: 20px;">';
+    html += `<h3 style="margin-bottom: 16px; color: var(--gray-900); font-size: 20px;">❓ Fragen auswählen (${prompts.length} generiert):</h3>`;
+    html +=
+      '<p style="color: var(--gray-600); font-size: 14px; margin-bottom: 20px;">Wählen Sie die Fragen aus, die an GPT mit Web-Suche gestellt werden sollen.</p>';
+    html += "</div>";
+
+    html += '<form id="promptForm" style="margin-top: 20px;">';
+
+    if (prompts.length === 0) {
+      html +=
+        '<div style="padding: 20px; background: var(--gray-100); border-radius: 8px; color: var(--gray-600);">';
+      html += "Keine Fragen generiert. Bitte versuchen Sie es erneut.";
+      html += "</div>";
+    } else {
+      // Group prompts by category
+      const promptsByCategory = new Map<string, any[]>();
+      prompts.forEach((prompt) => {
+        const categoryName = prompt.categoryName || prompt.category_id || "Unbekannt";
+        if (!promptsByCategory.has(categoryName)) {
+          promptsByCategory.set(categoryName, []);
+        }
+        promptsByCategory.get(categoryName)!.push(prompt);
+      });
+
+      // Display prompts grouped by category
+      promptsByCategory.forEach((categoryPrompts, categoryName) => {
+        html += `<div style="margin-bottom: 24px;">`;
+        html += `<h4 style="color: var(--gray-800); font-size: 16px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid var(--gray-200);">📁 ${categoryName} (${categoryPrompts.length})</h4>`;
+        html += '<div style="display: flex; flex-direction: column; gap: 8px;">';
+        
+        categoryPrompts.forEach((prompt, index) => {
+          const promptId = prompt.id || `prompt_${index}`;
+          const question = (prompt.question || prompt.text || "Keine Frage")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+          
+          html += `<div class="prompt-item-selection" data-prompt-id="${promptId}" style="padding: 12px; background: white; border: 2px solid var(--gray-200); border-radius: 6px; transition: all 0.2s; cursor: pointer;">`;
+          html += '<label style="display: flex; align-items: start; cursor: pointer; gap: 10px; margin: 0;">';
+          html += `<input type="checkbox" name="prompt" value="${promptId}" checked style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; margin-top: 2px;">`;
+          html += '<div style="flex: 1; min-width: 0;">';
+          html += `<div style="color: var(--gray-900); font-size: 14px; line-height: 1.5;">${question}</div>`;
+          html += "</div>";
+          html += "</label>";
+          html += "</div>";
+        });
+        
+        html += "</div>";
+        html += "</div>";
+      });
+    }
+
+    html += '<div style="margin-top: 24px; display: flex; gap: 12px;">';
+    html +=
+      '<button type="button" id="selectAllPromptsBtn" class="btn" style="flex: 0 0 auto; padding: 14px 24px; font-size: 16px; background: var(--gray-100); color: var(--gray-700);">Alle auswählen</button>';
+    html +=
+      '<button type="submit" class="btn btn-primary" style="flex: 1; padding: 14px 24px; font-size: 16px;">✅ Ausgewählte Fragen ausführen</button>';
+    html += "</div>";
+    html += "</form>";
+
+    resultContent.innerHTML = html;
+
+    // Handle form submission
+    const promptForm = document.getElementById("promptForm") as HTMLFormElement;
+    if (promptForm) {
+      promptForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        this.handlePromptSelection();
+      });
+    }
+
+    // Handle select all button
+    const selectAllBtn = document.getElementById("selectAllPromptsBtn");
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener("click", () => {
+        const checkboxes = promptForm.querySelectorAll('input[name="prompt"]') as NodeListOf<HTMLInputElement>;
+        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+        checkboxes.forEach(cb => {
+          cb.checked = !allChecked;
+          const item = cb.closest('.prompt-item-selection') as HTMLElement;
+          if (item) {
+            this.updatePromptSelectionStyle(item, cb.checked);
+          }
+        });
+        selectAllBtn.textContent = allChecked ? "Alle auswählen" : "Alle abwählen";
+      });
+    }
+
+    // Add click handlers for prompt items
+    const promptItems = resultContent.querySelectorAll(".prompt-item-selection");
+    promptItems.forEach((item) => {
+      item.addEventListener("click", (e) => {
+        const target = e.target as HTMLElement;
+        if (
+          target.tagName !== "INPUT" &&
+          target.tagName !== "LABEL"
+        ) {
+          const checkbox = item.querySelector('input[type="checkbox"]') as HTMLInputElement;
+          if (checkbox) {
+            checkbox.checked = !checkbox.checked;
+            this.updatePromptSelectionStyle(item as HTMLElement, checkbox.checked);
+          }
+        }
+      });
+    });
+
+    // Add change handlers for checkboxes
+    const checkboxes = resultContent.querySelectorAll('input[name="prompt"]');
+    checkboxes.forEach((checkbox) => {
+      checkbox.addEventListener("change", (e) => {
+        const item = (e.target as HTMLElement).closest('.prompt-item-selection') as HTMLElement;
+        if (item) {
+          this.updatePromptSelectionStyle(item, (e.target as HTMLInputElement).checked);
+        }
+      });
+    });
+  }
+
+  /**
+   * Update prompt selection item style
+   */
+  private updatePromptSelectionStyle(item: HTMLElement, selected: boolean): void {
+    if (selected) {
+      item.style.borderColor = "var(--primary)";
+      item.style.background = "#E3F2FD";
+    } else {
+      item.style.borderColor = "var(--gray-200)";
+      item.style.background = "white";
+    }
+  }
+
+  /**
+   * Handle prompt selection and proceed to step 5
+   */
+  private async handlePromptSelection(): Promise<void> {
+    if (!this.workflowData || !this.workflowData.runId || !this.workflowData.prompts) {
+      throw new Error("Missing workflow data");
+    }
+
+    const form = document.getElementById("promptForm") as HTMLFormElement;
+    if (!form) return;
+
+    // Disable/hide the button immediately to prevent spamming
+    const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.textContent = "Fragen werden ausgeführt...";
+      submitButton.style.opacity = "0.6";
+      submitButton.style.cursor = "not-allowed";
+    }
+
+    const selectedCheckboxes = form.querySelectorAll('input[name="prompt"]:checked');
+    const selectedPromptIds: string[] = [];
+    selectedCheckboxes.forEach((cb) => {
+      const value = (cb as HTMLInputElement).value;
+      if (value) {
+        selectedPromptIds.push(value);
+      }
+    });
+
+    if (selectedPromptIds.length === 0) {
+      alert("Bitte wählen Sie mindestens eine Frage aus!");
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = "✅ Ausgewählte Fragen ausführen";
+        submitButton.style.opacity = "1";
+        submitButton.style.cursor = "pointer";
+      }
+      return;
+    }
+
+    // Filter prompts to only include selected ones
+    const selectedPrompts = this.workflowData.prompts.filter((p) =>
+      selectedPromptIds.includes(p.id)
+    );
+
+    // Update workflow data with selected prompts
+    this.workflowData.selectedPrompts = selectedPrompts;
+
+    // Proceed to step 5 with selected prompts
+    await this.executeStep5(selectedPrompts);
+  }
+
+  /**
    * Step 5: Execute Prompts
    */
-  private async executeStep5(): Promise<void> {
+  private async executeStep5(selectedPrompts?: any[]): Promise<void> {
     if (!this.workflowData || !this.workflowData.runId) {
       throw new Error("Missing workflow data for step 5");
     }
 
     try {
-      this.updateAnalysisUI(5, "Executing Prompts", "Running prompts and collecting results...", 90);
+      const promptsToExecute = selectedPrompts || this.workflowData.selectedPrompts || [];
+      const promptCount = promptsToExecute.length > 0 ? promptsToExecute.length : "alle";
+      
+      this.updateAnalysisUI(5, "Fragen an GPT stellen", `Fragen werden mit Web-Suche ausgeführt...`, 85);
 
-      await workflowService.step5ExecutePrompts(this.workflowData.runId);
+      await workflowService.step5ExecutePrompts(this.workflowData.runId, promptsToExecute);
 
-      this.updateAnalysisUI(5, "Analysis Complete", "All prompts executed successfully!", 100);
+      this.updateAnalysisUI(5, "Analyse abgeschlossen", "Alle Fragen wurden ausgeführt. Ergebnisse werden analysiert...", 95);
 
-      // Load prompts and summary to display
+      // Wait a bit for analysis to complete, then load and display results
       setTimeout(async () => {
         try {
           if (!this.workflowData?.runId) {
             throw new Error("Run ID is missing");
           }
+          
+          // Generate summary with mentions, citations, best prompts, and other sources
+          await workflowService.generateSummary(this.workflowData.runId);
+          
+          // Load prompts and summary to display
           const promptsAndSummary = await workflowService.getPromptsAndSummary(this.workflowData.runId);
-          this.displayResults(promptsAndSummary);
+          this.displayFinalResults(promptsAndSummary);
         } catch (error) {
           console.error("Error loading prompts and summary:", error);
           // Fallback to simple message
           this.displaySimpleCompletion();
         }
-      }, 1000);
+      }, 2000);
     } catch (error) {
       console.error("Error in executeStep5:", error);
       this.showError(error instanceof Error ? error.message : "Failed to execute prompts");
@@ -531,7 +747,128 @@ export class AnalysisWorkflow {
   }
 
   /**
-   * Display results with prompts and summary
+   * Display final results with mentions, citations, best prompts, and other sources
+   */
+  private displayFinalResults(data: { prompts: any[]; summary: any }): void {
+    const resultContent = document.getElementById("resultContent");
+    const result = document.getElementById("result");
+    
+    if (!resultContent || !result) return;
+
+    const { prompts = [], summary } = data;
+    
+    this.updateAnalysisUI(5, "Analyse abgeschlossen", "Ergebnisse werden angezeigt...", 100);
+    
+    let html = `
+      <div style="color: green; padding: 20px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4caf50; margin-bottom: 20px;">
+        <h3>✅ Analyse erfolgreich abgeschlossen!</h3>
+        <p><strong>Run ID:</strong> ${this.workflowData?.runId}</p>
+        <p>Alle Fragen wurden ausgeführt und analysiert. Die Ergebnisse wurden gespeichert.</p>
+      </div>
+    `;
+
+    // Display Summary with mentions and citations
+    if (summary) {
+      html += `
+        <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <h3 style="margin-top: 0; color: #333;">📊 Zusammenfassung</h3>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
+            <div style="padding: 15px; background: #f5f5f5; border-radius: 6px;">
+              <div style="font-size: 24px; font-weight: bold; color: #2196F3;">${summary.totalMentions || 0}</div>
+              <div style="color: #666; font-size: 14px;">Erwähnungen (außerhalb von markierten Quellen)</div>
+            </div>
+            <div style="padding: 15px; background: #f5f5f5; border-radius: 6px;">
+              <div style="font-size: 24px; font-weight: bold; color: #4CAF50;">${summary.totalCitations || 0}</div>
+              <div style="color: #666; font-size: 14px;">Zitierungen (Firmenlink als Quelle)</div>
+            </div>
+          </div>
+          
+          ${summary.bestPrompts && summary.bestPrompts.length > 0 ? `
+            <h4 style="color: #333; margin-top: 20px;">🏆 Beste Prompts (Top ${Math.min(summary.bestPrompts.length, 10)})</h4>
+            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">Die besten Fragen basierend auf Erwähnungen und Zitierungen:</p>
+            <ul style="list-style: none; padding: 0;">
+              ${summary.bestPrompts.slice(0, 10).map((p: any, idx: number) => `
+                <li style="padding: 12px; margin: 8px 0; background: #f9f9f9; border-left: 4px solid #4CAF50; border-radius: 4px;">
+                  <div style="font-weight: 500; color: #333; margin-bottom: 5px;">
+                    ${idx + 1}. ${p.question}
+                  </div>
+                  <div style="font-size: 12px; color: #666; margin-top: 5px; display: flex; gap: 15px;">
+                    <span>📌 Erwähnungen: <strong>${p.mentions || 0}</strong></span>
+                    <span>🔗 Zitierungen: <strong>${p.citations || 0}</strong></span>
+                  </div>
+                </li>
+              `).join('')}
+            </ul>
+          ` : ''}
+          
+          ${summary.otherSources && Object.keys(summary.otherSources).length > 0 ? `
+            <h4 style="color: #333; margin-top: 30px;">🔗 Andere Quellen (außer eigener Firma)</h4>
+            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">Häufigkeit der Quellen in den Antworten:</p>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              ${Object.entries(summary.otherSources)
+                .sort(([, a]: [string, any], [, b]: [string, any]) => b - a)
+                .slice(0, 20)
+                .map(([domain, count]: [string, any]) => `
+                  <div style="padding: 10px; background: #f5f5f5; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: #333; font-size: 14px; word-break: break-all;">${domain}</span>
+                    <span style="color: #2196F3; font-weight: bold; font-size: 14px; margin-left: 10px;">${count}x</span>
+                  </div>
+                `).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    // Display all questions with answers
+    if (prompts && prompts.length > 0) {
+      html += `
+        <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+          <h3 style="margin-top: 0; color: #333;">❓ Fragen und Antworten</h3>
+          <p style="color: #666; margin-bottom: 15px;">Alle gestellten Fragen mit ihren Antworten (gespeichert für späteren Abruf):</p>
+          <div style="max-height: 600px; overflow-y: auto;">
+            <div id="promptsList" style="display: flex; flex-direction: column; gap: 15px;">
+              ${prompts.map((prompt: any, index: number) => `
+                <div style="padding: 15px; border: 2px solid #e0e0e0; border-radius: 8px; background: #fafafa;">
+                  <div style="margin-bottom: 10px;">
+                    <div style="font-weight: 600; color: #333; font-size: 15px; margin-bottom: 8px;">
+                      ${index + 1}. ${prompt.question || 'Keine Frage'}
+                    </div>
+                    ${prompt.categoryName ? `
+                      <div style="font-size: 12px; color: #666; margin-bottom: 8px;">
+                        Kategorie: <span style="background: #e3f2fd; padding: 3px 8px; border-radius: 3px;">${prompt.categoryName}</span>
+                      </div>
+                    ` : ''}
+                  </div>
+                  ${prompt.answer ? `
+                    <details style="margin-top: 10px;" open>
+                      <summary style="cursor: pointer; color: #2196F3; font-size: 14px; font-weight: 500; margin-bottom: 10px;">Antwort anzeigen</summary>
+                      <div style="margin-top: 10px; padding: 15px; background: white; border-radius: 4px; border-left: 3px solid #2196F3; font-size: 14px; color: #555; line-height: 1.6; white-space: pre-wrap;">
+                        ${prompt.answer}
+                      </div>
+                    </details>
+                  ` : '<div style="color: #999; font-size: 12px; margin-top: 5px;">Noch keine Antwort</div>'}
+                  ${prompt.mentions !== undefined || prompt.citations !== undefined ? `
+                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #666;">
+                      <span style="margin-right: 15px;">📌 Erwähnungen: <strong>${prompt.mentions || 0}</strong></span>
+                      <span>🔗 Zitierungen: <strong>${prompt.citations || 0}</strong></span>
+                    </div>
+                  ` : ''}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    resultContent.innerHTML = html;
+    result.style.display = "block";
+    result.classList.add("show");
+  }
+
+  /**
+   * Display results with prompts and summary (legacy method, kept for compatibility)
    */
   private displayResults(data: { prompts: any[]; summary: any }): void {
     const resultContent = document.getElementById("resultContent");
