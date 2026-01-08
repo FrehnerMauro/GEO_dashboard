@@ -80,16 +80,22 @@ export function extractTextStats(
     };
   }
 
+  // Performance-Optimierung: Begrenze Text-Länge für sehr lange Texte
+  const MAX_TEXT_LENGTH = 50000; // Max 50KB Text verarbeiten
+  const processedText = text.length > MAX_TEXT_LENGTH 
+    ? text.substring(0, MAX_TEXT_LENGTH) 
+    : text;
+
   const brandLower = brandName.toLowerCase();
   const brandDomain = brandLower.replace(/\s+/g, ""); // "frehnertec" aus "FrehnerTec"
-  const escapedDomain = brandDomain.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
   // 1. Finde alle Markdown-Links: [text](url)
+  // Performance: Verwende eine optimierte Regex und sammle alle Matches auf einmal
   const markdownLinkRegex = /\[([^\]]*)\]\(([^)]+)\)/g;
   const allLinks: Array<{ text: string; url: string; index: number; length: number }> = [];
   let match;
 
-  while ((match = markdownLinkRegex.exec(text)) !== null) {
+  while ((match = markdownLinkRegex.exec(processedText)) !== null) {
     allLinks.push({
       text: match[1],
       url: match[2],
@@ -98,10 +104,10 @@ export function extractTextStats(
     });
   }
 
-  // 2. Finde Zitierungen (Links zur eigenen Marke)
+  // 2. Finde Zitierungen (Links zur eigenen Marke) und andere Links in einem Durchlauf
   const citationRanges: Array<{ start: number; end: number }> = [];
-  const citationUrls: string[] = [];
-  const lowerText = text.toLowerCase();
+  const citationUrlsSet = new Set<string>();
+  const otherLinkUrlsSet = new Set<string>();
 
   for (const link of allLinks) {
     const urlLower = link.url.toLowerCase();
@@ -111,32 +117,29 @@ export function extractTextStats(
         start: link.index,
         end: link.index + link.length,
       });
-      citationUrls.push(link.url);
+      citationUrlsSet.add(link.url);
+    } else {
+      otherLinkUrlsSet.add(link.url);
     }
   }
 
-  // 3. Finde andere Links (nicht zur eigenen Marke)
-  const otherLinkUrls: string[] = [];
-  for (const link of allLinks) {
-    const urlLower = link.url.toLowerCase();
-    if (!urlLower.includes(brandDomain)) {
-      otherLinkUrls.push(link.url);
-    }
-  }
-
-  // 4. Zähle Erwähnungen (Text-Erwähnungen der Marke, außerhalb von Citations)
+  // 3. Zähle Erwähnungen (Text-Erwähnungen der Marke, außerhalb von Citations)
+  // Performance: Sortiere citationRanges für effizientere Suche
+  const sortedRanges = citationRanges.sort((a, b) => a.start - b.start);
+  
   const escapedBrand = brandLower.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const mentionRegex = new RegExp(`\\b${escapedBrand}\\b`, "gi");
   
   let mentions = 0;
   let mentionMatch;
   
-  while ((mentionMatch = mentionRegex.exec(text)) !== null) {
+  while ((mentionMatch = mentionRegex.exec(processedText)) !== null) {
     const mentionIndex = mentionMatch.index;
     const mentionEnd = mentionIndex + mentionMatch[0].length;
     
     // Prüfe, ob diese Erwähnung in einem Citation-Bereich liegt
-    const isInCitation = citationRanges.some(
+    // Optimiert: Binäre Suche wäre besser, aber für kleine Arrays ist linear search OK
+    const isInCitation = sortedRanges.some(
       (range) => mentionIndex >= range.start && mentionEnd <= range.end
     );
     
@@ -148,8 +151,8 @@ export function extractTextStats(
   return {
     citations: citationRanges.length,
     mentions,
-    otherLinks: otherLinkUrls.length,
-    citationUrls: Array.from(new Set(citationUrls)), // Deduplizieren
-    otherLinkUrls: Array.from(new Set(otherLinkUrls)), // Deduplizieren
+    otherLinks: otherLinkUrlsSet.size,
+    citationUrls: Array.from(citationUrlsSet), // Bereits dedupliziert durch Set
+    otherLinkUrls: Array.from(otherLinkUrlsSet), // Bereits dedupliziert durch Set
   };
 }

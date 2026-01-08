@@ -571,76 +571,129 @@ export class Database {
     citationUrls?: string[];
     otherLinkUrls?: string[];
   }>> {
-    const { extractConclusion, extractTextStats } = await import("../utils/text-extraction.js");
-    
-    // Hole die website_url, um den Brand-Namen zu extrahieren
-    const runInfo = await this.db
-      .prepare("SELECT website_url FROM analysis_runs WHERE id = ?")
-      .bind(runId)
-      .first<{ website_url: string }>();
-    
-    // Extrahiere Brand-Namen aus URL
-    let brandName = "the brand";
-    if (runInfo?.website_url) {
-      try {
-        const domain = new URL(runInfo.website_url).hostname;
-        const parts = domain.split(".");
-        brandName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
-      } catch {
-        // Fallback: verwende "the brand"
+    return this.retryD1Operation(async () => {
+      const { extractConclusion, extractTextStats } = await import("../utils/text-extraction.js");
+      
+      // Hole die website_url, um den Brand-Namen zu extrahieren
+      const runInfo = await this.db
+        .prepare("SELECT website_url FROM analysis_runs WHERE id = ?")
+        .bind(runId)
+        .first<{ website_url: string }>();
+      
+      // Extrahiere Brand-Namen aus URL
+      let brandName = "the brand";
+      if (runInfo?.website_url) {
+        try {
+          const domain = new URL(runInfo.website_url).hostname;
+          const parts = domain.split(".");
+          brandName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+        } catch {
+          // Fallback: verwende "the brand"
+        }
       }
-    }
-    
-    const result = await this.db
-      .prepare(
-        `SELECT 
-          p.id,
-          p.question,
-          p.category_id,
-          c.name as category_name,
-          p.created_at,
-          (SELECT lr.output_text 
-           FROM llm_responses lr 
-           WHERE lr.prompt_id = p.id 
-           ORDER BY lr.timestamp DESC 
-           LIMIT 1) as answer
-         FROM prompts p
-         LEFT JOIN categories c ON p.category_id = c.id
-         WHERE p.analysis_run_id = ?
-         ORDER BY p.created_at ASC`
-      )
-      .bind(runId)
-      .all<{
+      
+      const result = await this.db
+        .prepare(
+          `SELECT 
+            p.id,
+            p.question,
+            p.category_id,
+            c.name as category_name,
+            p.created_at,
+            (SELECT lr.output_text 
+             FROM llm_responses lr 
+             WHERE lr.prompt_id = p.id 
+             ORDER BY lr.timestamp DESC 
+             LIMIT 1) as answer
+           FROM prompts p
+           LEFT JOIN categories c ON p.category_id = c.id
+           WHERE p.analysis_run_id = ?
+           ORDER BY p.created_at ASC`
+        )
+        .bind(runId)
+        .all<{
+          id: string;
+          question: string;
+          answer: string | null;
+          category_id: string;
+          category_name: string | null;
+          created_at: string;
+        }>();
+
+      // Verarbeite Prompts in kleineren Batches, um Timeouts zu vermeiden
+      const prompts = result.results || [];
+      const batchSize = 10; // Verarbeite 10 Prompts auf einmal
+      const processedPrompts: Array<{
         id: string;
         question: string;
         answer: string | null;
-        category_id: string;
-        category_name: string | null;
-        created_at: string;
-      }>();
+        categoryId: string;
+        categoryName: string | null;
+        createdAt: string;
+        citations?: number;
+        mentions?: number;
+        otherLinks?: number;
+        citationUrls?: string[];
+        otherLinkUrls?: string[];
+      }> = [];
 
-    return (result.results || []).map(r => {
-      // Extrahiere das Fazit
-      const conclusion = extractConclusion(r.answer);
-      
-      // Berechne Statistiken aus dem ORIGINALEN Text (vor Fazit-Extraktion)
-      const stats = r.answer ? extractTextStats(r.answer, brandName) : null;
-      
-      return {
-        id: r.id,
-        question: r.question,
-        answer: conclusion, // Das extrahierte Fazit
-        categoryId: r.category_id,
-        categoryName: r.category_name,
-        createdAt: r.created_at,
-        // Statistiken aus dem originalen Text
-        citations: stats?.citations ?? 0,
-        mentions: stats?.mentions ?? 0,
-        otherLinks: stats?.otherLinks ?? 0,
-        citationUrls: stats?.citationUrls ?? [],
-        otherLinkUrls: stats?.otherLinkUrls ?? [],
-      };
-    });
+      for (let i = 0; i < prompts.length; i += batchSize) {
+        const batch = prompts.slice(i, i + batchSize);
+        
+        const batchResults = batch.map(r => {
+          try {
+            // Extrahiere das Fazit
+            const conclusion = extractConclusion(r.answer);
+            
+            // Berechne Statistiken aus dem ORIGINALEN Text (vor Fazit-Extraktion)
+            // Nur wenn answer vorhanden ist, um Performance zu verbessern
+            const stats = r.answer && r.answer.trim().length > 0 
+              ? extractTextStats(r.answer, brandName) 
+              : null;
+            
+            return {
+              id: r.id,
+              question: r.question,
+              answer: conclusion, // Das extrahierte Fazit
+              categoryId: r.category_id,
+              categoryName: r.category_name,
+              createdAt: r.created_at,
+              // Statistiken aus dem originalen Text
+              citations: stats?.citations ?? 0,
+              mentions: stats?.mentions ?? 0,
+              otherLinks: stats?.otherLinks ?? 0,
+              citationUrls: stats?.citationUrls ?? [],
+              otherLinkUrls: stats?.otherLinkUrls ?? [],
+            };
+          } catch (error) {
+            // Fallback bei Fehler: gib zumindest die Basis-Daten zurück
+            console.error(`Error processing prompt ${r.id}:`, error);
+            return {
+              id: r.id,
+              question: r.question,
+              answer: extractConclusion(r.answer),
+              categoryId: r.category_id,
+              categoryName: r.category_name,
+              createdAt: r.created_at,
+              citations: 0,
+              mentions: 0,
+              otherLinks: 0,
+              citationUrls: [],
+              otherLinkUrls: [],
+            };
+          }
+        });
+        
+        processedPrompts.push(...batchResults);
+        
+        // Kleine Pause zwischen Batches, um D1 nicht zu überlasten
+        if (i + batchSize < prompts.length) {
+          await new Promise(resolve => setTimeout(resolve, 10)); // 10ms delay
+        }
+      }
+
+      return processedPrompts;
+    }, 3, 200, `getPromptsForAnalysis (${runId})`);
   }
 
   async getAnalysisRun(runId: string): Promise<AnalysisResult | null> {
