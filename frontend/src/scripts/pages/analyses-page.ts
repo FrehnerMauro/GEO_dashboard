@@ -163,13 +163,13 @@ export class AnalysesPage {
     let html = `
       <div style="padding: 20px;">
         <button class="btn" onclick="window.analysesPage?.goBackToList()" style="margin-bottom: 20px; background: var(--gray-100); color: var(--gray-700);">
-          ← Zurück zur Liste
+          ← Back to List
         </button>
         
         <div style="color: green; padding: 20px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4caf50; margin-bottom: 20px;">
-          <h3>📊 Gespeicherte Analyse</h3>
+          <h3>📊 Saved Analysis</h3>
           <p><strong>Run ID:</strong> ${runId}</p>
-          <p>Diese Analyse wurde gespeichert und kann jederzeit abgerufen werden.</p>
+          <p>This analysis has been saved and can be retrieved at any time.</p>
         </div>
     `;
 
@@ -177,21 +177,21 @@ export class AnalysesPage {
     if (summary) {
       html += `
         <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="margin-top: 0; color: #333;">📊 Zusammenfassung (Fazit)</h3>
+          <h3 style="margin-top: 0; color: #333;">📊 Summary</h3>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
             <div style="padding: 15px; background: #f5f5f5; border-radius: 6px;">
               <div style="font-size: 24px; font-weight: bold; color: #2196F3;">${summary.totalMentions || 0}</div>
-              <div style="color: #666; font-size: 14px;">Erwähnungen (außerhalb von markierten Quellen)</div>
+              <div style="color: #666; font-size: 14px;">Mentions (outside of marked sources)</div>
             </div>
             <div style="padding: 15px; background: #f5f5f5; border-radius: 6px;">
               <div style="font-size: 24px; font-weight: bold; color: #4CAF50;">${summary.totalCitations || 0}</div>
-              <div style="color: #666; font-size: 14px;">Zitierungen (Firmenlink als Quelle)</div>
+              <div style="color: #666; font-size: 14px;">Citations (company link as source)</div>
             </div>
           </div>
           
           ${summary.bestPrompts && summary.bestPrompts.length > 0 ? `
-            <h4 style="color: #333; margin-top: 20px;">🏆 Beste Prompts (Top ${Math.min(summary.bestPrompts.length, 10)})</h4>
-            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">Die besten Fragen basierend auf Erwähnungen und Zitierungen:</p>
+            <h4 style="color: #333; margin-top: 20px;">🏆 Best Prompts (Top ${Math.min(summary.bestPrompts.length, 10)})</h4>
+            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">The best questions based on mentions and citations:</p>
             <ul style="list-style: none; padding: 0;">
               ${summary.bestPrompts.slice(0, 10).map((p: any, idx: number) => `
                 <li style="padding: 12px; margin: 8px 0; background: #f9f9f9; border-left: 4px solid #4CAF50; border-radius: 4px;">
@@ -199,8 +199,8 @@ export class AnalysesPage {
                     ${idx + 1}. ${p.question}
                   </div>
                   <div style="font-size: 12px; color: #666; margin-top: 5px; display: flex; gap: 15px;">
-                    <span>📌 Erwähnungen: <strong>${p.mentions || 0}</strong></span>
-                    <span>🔗 Zitierungen: <strong>${p.citations || 0}</strong></span>
+                    <span>📌 Mentions: <strong>${p.mentions || 0}</strong></span>
+                    <span>🔗 Citations: <strong>${p.citations || 0}</strong></span>
                   </div>
                 </li>
               `).join('')}
@@ -208,8 +208,8 @@ export class AnalysesPage {
           ` : ''}
           
           ${summary.otherSources && Object.keys(summary.otherSources).length > 0 ? `
-            <h4 style="color: #333; margin-top: 30px;">🔗 Andere Quellen (außer eigener Firma)</h4>
-            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">Häufigkeit der Quellen in den Antworten:</p>
+            <h4 style="color: #333; margin-top: 30px;">🔗 Other Sources (excluding own company)</h4>
+            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">Frequency of sources in the answers:</p>
             <div style="display: flex; flex-direction: column; gap: 8px;">
               ${Object.entries(summary.otherSources)
                 .sort(([, a]: [string, any], [, b]: [string, any]) => b - a)
@@ -230,34 +230,34 @@ export class AnalysesPage {
     if (prompts && prompts.length > 0) {
       html += `
         <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="margin-top: 0; color: #333;">❓ Fragen und Antworten</h3>
-          <p style="color: #666; margin-bottom: 15px;">Alle gestellten Fragen mit ihren Antworten:</p>
+          <h3 style="margin-top: 0; color: #333;">❓ Questions and Answers</h3>
+          <p style="color: #666; margin-bottom: 15px;">All questions asked with their answers:</p>
           <div style="max-height: 600px; overflow-y: auto;">
             <div style="display: flex; flex-direction: column; gap: 15px;">
               ${prompts.map((prompt: any, index: number) => `
                 <div style="padding: 15px; border: 2px solid #e0e0e0; border-radius: 8px; background: #fafafa;">
                   <div style="margin-bottom: 10px;">
                     <div style="font-weight: 600; color: #333; font-size: 15px; margin-bottom: 8px;">
-                      ${index + 1}. ${prompt.question || 'Keine Frage'}
+                      ${index + 1}. ${prompt.question || 'No question'}
                     </div>
                     ${prompt.categoryName ? `
                       <div style="font-size: 12px; color: #666; margin-bottom: 8px;">
-                        Kategorie: <span style="background: #e3f2fd; padding: 3px 8px; border-radius: 3px;">${prompt.categoryName}</span>
+                        Category: <span style="background: #e3f2fd; padding: 3px 8px; border-radius: 3px;">${prompt.categoryName}</span>
                       </div>
                     ` : ''}
                   </div>
                   ${prompt.answer ? `
                     <details style="margin-top: 10px;" open>
-                      <summary style="cursor: pointer; color: #2196F3; font-size: 14px; font-weight: 500; margin-bottom: 10px;">Antwort anzeigen</summary>
+                      <summary style="cursor: pointer; color: #2196F3; font-size: 14px; font-weight: 500; margin-bottom: 10px;">Show Answer</summary>
                       <div style="margin-top: 10px; padding: 15px; background: white; border-radius: 4px; border-left: 3px solid #2196F3; font-size: 14px; color: #555; line-height: 1.6; white-space: pre-wrap;">
                         ${prompt.answer}
                       </div>
                     </details>
-                  ` : '<div style="color: #999; font-size: 12px; margin-top: 5px;">Noch keine Antwort</div>'}
+                  ` : '<div style="color: #999; font-size: 12px; margin-top: 5px;">No answer yet</div>'}
                   ${prompt.mentions !== undefined || prompt.citations !== undefined ? `
                     <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #666;">
-                      <span style="margin-right: 15px;">📌 Erwähnungen: <strong>${prompt.mentions || 0}</strong></span>
-                      <span>🔗 Zitierungen: <strong>${prompt.citations || 0}</strong></span>
+                      <span style="margin-right: 15px;">📌 Mentions: <strong>${prompt.mentions || 0}</strong></span>
+                      <span>🔗 Citations: <strong>${prompt.citations || 0}</strong></span>
                     </div>
                   ` : ''}
                 </div>
@@ -269,7 +269,7 @@ export class AnalysesPage {
     } else {
       html += `
         <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <p style="color: #666;">Keine Fragen gefunden für diese Analyse.</p>
+          <p style="color: #666;">No questions found for this analysis.</p>
         </div>
       `;
     }
@@ -345,7 +345,7 @@ export class AnalysesPage {
 
     // Update header
     const headerTitle = document.getElementById("headerTitle");
-    if (headerTitle) headerTitle.textContent = "Analysen";
+    if (headerTitle) headerTitle.textContent = "Analyses";
 
     navigation.setActiveNavItem(1);
     this.loadAnalyses();

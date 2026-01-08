@@ -65,8 +65,12 @@ export class App {
 
   /**
    * Hide all sections and reset state - prevents chaos when switching menus
+   * IMPORTANT: This should NOT hide analysis progress if analysis is running
    */
   private hideAllSections(): void {
+    // Check if analysis is running - if so, don't hide progress section
+    const isAnalysisRunning = (this.analysisWorkflow as any)?.isRunning === true;
+    
     // Hide all main sections
     const sections = [
       "dashboardSection",
@@ -85,10 +89,12 @@ export class App {
       }
     });
 
-    // Hide/Reset analysis progress
-    const analysisProgress = document.getElementById("analysisProgress");
-    if (analysisProgress) {
-      analysisProgress.style.display = "none";
+    // Hide/Reset analysis progress ONLY if analysis is not running
+    if (!isAnalysisRunning) {
+      const analysisProgress = document.getElementById("analysisProgress");
+      if (analysisProgress) {
+        analysisProgress.style.display = "none";
+      }
     }
 
     // Hide/Reset loading states
@@ -98,36 +104,17 @@ export class App {
       loading.classList.remove("show");
     }
 
-    // Hide/Reset result sections
-    const result = document.getElementById("result");
-    if (result) {
-      result.style.display = "none";
-      result.classList.remove("show");
+    // Hide/Reset result sections ONLY if analysis is not running
+    if (!isAnalysisRunning) {
+      const result = document.getElementById("result");
+      if (result) {
+        result.style.display = "none";
+        result.classList.remove("show");
+      }
     }
 
-    // Reset configuration card visibility
-    const configurationCard = document.getElementById("configurationCard");
-    if (configurationCard) {
-      configurationCard.style.display = "block";
-      configurationCard.classList.remove("hidden");
-    }
-
-    // Clear any running workflows
-    if (this.analysisWorkflow) {
-      // Reset workflow state if needed
-      (this.analysisWorkflow as any).workflowData = null;
-    }
-  }
-
-  private showAIAnalysisSection(): void {
-    // First, hide all sections to prevent chaos
-    this.hideAllSections();
-
-    // Now show the AI Analysis section
-    const aiAnalysisSection = document.getElementById("aiAnalysisSection");
-    if (aiAnalysisSection) {
-      aiAnalysisSection.style.display = "flex"; // Use flex to match CSS
-      // Make sure the configuration card is visible
+    // Reset configuration card visibility ONLY if analysis is not running
+    if (!isAnalysisRunning) {
       const configurationCard = document.getElementById("configurationCard");
       if (configurationCard) {
         configurationCard.style.display = "block";
@@ -135,9 +122,49 @@ export class App {
       }
     }
 
+    // Don't clear workflow state if analysis is running
+    if (this.analysisWorkflow && !isAnalysisRunning) {
+      // Reset workflow state if needed
+      (this.analysisWorkflow as any).workflowData = null;
+    }
+  }
+
+  private showAIAnalysisSection(): void {
+    // Check if analysis is running
+    const isAnalysisRunning = (this.analysisWorkflow as any)?.isRunning === true;
+    
+    // First, hide all sections to prevent chaos
+    this.hideAllSections();
+
+    // Now show the AI Analysis section
+    const aiAnalysisSection = document.getElementById("aiAnalysisSection");
+    if (aiAnalysisSection) {
+      aiAnalysisSection.style.display = "flex"; // Use flex to match CSS
+      // Make sure the configuration card is visible ONLY if analysis is not running
+      if (!isAnalysisRunning) {
+        const configurationCard = document.getElementById("configurationCard");
+        if (configurationCard) {
+          configurationCard.style.display = "block";
+          configurationCard.classList.remove("hidden");
+        }
+      }
+      // If analysis is running, make sure progress is visible
+      if (isAnalysisRunning) {
+        const analysisProgress = document.getElementById("analysisProgress");
+        if (analysisProgress) {
+          analysisProgress.style.display = "block";
+        }
+        const result = document.getElementById("result");
+        if (result) {
+          result.style.display = "block";
+          result.classList.add("show");
+        }
+      }
+    }
+
     // Update header
     const headerTitle = document.getElementById("headerTitle");
-    if (headerTitle) headerTitle.textContent = "Prompt Analyse";
+    if (headerTitle) headerTitle.textContent = "Prompt Analysis";
 
     // Update navigation
     navigation.setActiveNavItem(1);
@@ -289,6 +316,12 @@ export class App {
   }
 
   private async handleAnalysisStart(): Promise<void> {
+    // Check if analysis is already running
+    if ((this.analysisWorkflow as any)?.isRunning === true) {
+      alert("Analysis is already running. Please wait for it to complete.");
+      return;
+    }
+
     const startBtn = document.getElementById("startAnalysisBtn") as HTMLButtonElement;
     const websiteUrlEl = document.getElementById("websiteUrl") as HTMLInputElement;
     const countryEl = document.getElementById("country") as HTMLInputElement;
@@ -321,8 +354,8 @@ export class App {
 
           await this.analysisWorkflow.startAnalysis(formData);
         } finally {
-          // Re-enable button
-          if (startBtn) {
+          // Re-enable button only if analysis is not running
+          if (startBtn && !(this.analysisWorkflow as any)?.isRunning) {
             startBtn.disabled = false;
             startBtn.textContent = originalText || "Start Analysis";
           }
@@ -330,6 +363,12 @@ export class App {
       }
     } catch (error) {
       console.error("Error starting analysis:", error);
+      // Re-enable button on error
+      const startBtn = document.getElementById("startAnalysisBtn") as HTMLButtonElement;
+      if (startBtn) {
+        startBtn.disabled = false;
+        startBtn.textContent = "Start Analysis";
+      }
       alert(error instanceof Error ? error.message : "Failed to start analysis");
     }
   }

@@ -21,6 +21,7 @@ interface WorkflowData {
 
 export class AnalysisWorkflow {
   private workflowData: WorkflowData | null = null;
+  private isRunning: boolean = false;
 
   /**
    * Start the analysis workflow
@@ -32,7 +33,13 @@ export class AnalysisWorkflow {
     region?: string;
     questionsPerCategory: number;
   }): Promise<void> {
+    // Prevent starting a new analysis if one is already running
+    if (this.isRunning) {
+      throw new Error("Analysis is already running. Please wait for it to complete.");
+    }
+
     try {
+      this.isRunning = true;
       // Validate form data
       let websiteUrl = formData.websiteUrl.trim();
       if (!websiteUrl.match(/^https?:\/\//i)) {
@@ -63,6 +70,7 @@ export class AnalysisWorkflow {
       await this.executeStep1();
     } catch (error) {
       console.error("Error starting analysis:", error);
+      this.isRunning = false;
       this.showError(error instanceof Error ? error.message : "Unknown error");
       throw error;
     }
@@ -369,7 +377,7 @@ export class AnalysisWorkflow {
     });
 
     if (selectedCategoryIds.length === 0) {
-      alert("Bitte wählen Sie mindestens eine Kategorie aus!");
+      alert("Please select at least one category!");
       if (submitButton) {
         submitButton.disabled = false;
         submitButton.textContent = "✅ Continue to Generate Questions";
@@ -448,7 +456,7 @@ export class AnalysisWorkflow {
         // Store prompts in workflow data for selection
         this.workflowData.prompts = result.prompts;
         
-        this.updateAnalysisUI(4, "Prompts Generated", `${result.prompts.length} Fragen erstellt. Bitte wählen Sie aus, welche ausgeführt werden sollen...`, 75);
+        this.updateAnalysisUI(4, "Prompts Generated", `${result.prompts.length} questions created. Please select which ones to execute...`, 75);
         
         // Show prompts to user for selection BEFORE execution
         setTimeout(() => this.showPromptSelection(result.prompts), 1000);
@@ -480,9 +488,9 @@ export class AnalysisWorkflow {
     result.classList.add("show");
 
     let html = '<div style="margin-bottom: 20px;">';
-    html += `<h3 style="margin-bottom: 16px; color: var(--gray-900); font-size: 20px;">❓ Fragen auswählen (${prompts.length} generiert):</h3>`;
+    html += `<h3 style="margin-bottom: 16px; color: var(--gray-900); font-size: 20px;">❓ Select Questions (${prompts.length} generated):</h3>`;
     html +=
-      '<p style="color: var(--gray-600); font-size: 14px; margin-bottom: 20px;">Wählen Sie die Fragen aus, die an GPT mit Web-Suche gestellt werden sollen.</p>';
+      '<p style="color: var(--gray-600); font-size: 14px; margin-bottom: 20px;">Select the questions that should be sent to GPT with web search.</p>';
     html += "</div>";
 
     html += '<form id="promptForm" style="margin-top: 20px;">';
@@ -490,13 +498,13 @@ export class AnalysisWorkflow {
     if (prompts.length === 0) {
       html +=
         '<div style="padding: 20px; background: var(--gray-100); border-radius: 8px; color: var(--gray-600);">';
-      html += "Keine Fragen generiert. Bitte versuchen Sie es erneut.";
+      html += "No questions generated. Please try again.";
       html += "</div>";
     } else {
       // Group prompts by category
       const promptsByCategory = new Map<string, any[]>();
       prompts.forEach((prompt) => {
-        const categoryName = prompt.categoryName || prompt.category_id || "Unbekannt";
+        const categoryName = prompt.categoryName || prompt.category_id || "Unknown";
         if (!promptsByCategory.has(categoryName)) {
           promptsByCategory.set(categoryName, []);
         }
@@ -511,7 +519,7 @@ export class AnalysisWorkflow {
         
         categoryPrompts.forEach((prompt, index) => {
           const promptId = prompt.id || `prompt_${index}`;
-          const question = (prompt.question || prompt.text || "Keine Frage")
+          const question = (prompt.question || prompt.text || "No question")
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
@@ -534,9 +542,9 @@ export class AnalysisWorkflow {
 
     html += '<div style="margin-top: 24px; display: flex; gap: 12px;">';
     html +=
-      '<button type="button" id="selectAllPromptsBtn" class="btn" style="flex: 0 0 auto; padding: 14px 24px; font-size: 16px; background: var(--gray-100); color: var(--gray-700);">Alle auswählen</button>';
+      '<button type="button" id="selectAllPromptsBtn" class="btn" style="flex: 0 0 auto; padding: 14px 24px; font-size: 16px; background: var(--gray-100); color: var(--gray-700);">Select All</button>';
     html +=
-      '<button type="submit" class="btn btn-primary" style="flex: 1; padding: 14px 24px; font-size: 16px;">✅ Ausgewählte Fragen ausführen</button>';
+      '<button type="submit" class="btn btn-primary" style="flex: 1; padding: 14px 24px; font-size: 16px;">✅ Execute Selected Questions</button>';
     html += "</div>";
     html += "</form>";
 
@@ -564,7 +572,7 @@ export class AnalysisWorkflow {
             this.updatePromptSelectionStyle(item, cb.checked);
           }
         });
-        selectAllBtn.textContent = allChecked ? "Alle auswählen" : "Alle abwählen";
+        selectAllBtn.textContent = allChecked ? "Select All" : "Deselect All";
       });
     }
 
@@ -626,7 +634,7 @@ export class AnalysisWorkflow {
     const submitButton = form.querySelector('button[type="submit"]') as HTMLButtonElement;
     if (submitButton) {
       submitButton.disabled = true;
-      submitButton.textContent = "Fragen werden ausgeführt...";
+      submitButton.textContent = "Executing questions...";
       submitButton.style.opacity = "0.6";
       submitButton.style.cursor = "not-allowed";
     }
@@ -641,10 +649,10 @@ export class AnalysisWorkflow {
     });
 
     if (selectedPromptIds.length === 0) {
-      alert("Bitte wählen Sie mindestens eine Frage aus!");
+      alert("Please select at least one question!");
       if (submitButton) {
         submitButton.disabled = false;
-        submitButton.textContent = "✅ Ausgewählte Fragen ausführen";
+        submitButton.textContent = "✅ Execute Selected Questions";
         submitButton.style.opacity = "1";
         submitButton.style.cursor = "pointer";
       }
@@ -678,8 +686,8 @@ export class AnalysisWorkflow {
       const promptsToExecute = selectedPrompts || this.workflowData.selectedPrompts || [];
       const promptCount = promptsToExecute.length;
       
-      this.updateAnalysisUI(5, "Fragen an GPT stellen", `Fragen werden mit Web-Suche ausgeführt...`, 85);
-      this.showLoadingSpinner(`Frage 1/${promptCount} wird an GPT mit Web-Suche gestellt...`);
+      this.updateAnalysisUI(5, "Executing Questions", `Questions are being executed with web search...`, 85);
+      this.showLoadingSpinner(`Question 1/${promptCount} is being sent to GPT with web search...`);
 
       // Update status as prompts are executed
       let executedCount = 0;
@@ -687,7 +695,7 @@ export class AnalysisWorkflow {
         executedCount++;
         if (executedCount <= promptCount) {
           this.updateDetailedStatus(
-            `Frage ${executedCount}/${promptCount} wird an GPT mit Web-Suche gestellt...`
+            `Question ${executedCount}/${promptCount} is being sent to GPT with web search...`
           );
         }
       }, 2000); // Update every 2 seconds
@@ -700,7 +708,7 @@ export class AnalysisWorkflow {
       if (statusInterval) clearInterval(statusInterval);
       this.hideLoadingSpinner();
 
-      this.updateAnalysisUI(5, "Analyse abgeschlossen", "Alle Fragen wurden ausgeführt. Ergebnisse werden analysiert...", 95);
+      this.updateAnalysisUI(5, "Analysis Completed", "All questions have been executed. Analyzing results...", 95);
 
       // Wait a bit for analysis to complete, then load and display results
       setTimeout(async () => {
@@ -718,8 +726,10 @@ export class AnalysisWorkflow {
           // Load prompts and summary to display
           const promptsAndSummary = await workflowService.getPromptsAndSummary(this.workflowData.runId);
           this.displayFinalResults(promptsAndSummary);
+          this.isRunning = false;
         } catch (error) {
           console.error("Error loading prompts and summary:", error);
+          this.isRunning = false;
           // Fallback to simple message
           this.displaySimpleCompletion();
         }
@@ -727,6 +737,7 @@ export class AnalysisWorkflow {
     } catch (error) {
       if (statusInterval) clearInterval(statusInterval);
       this.hideLoadingSpinner();
+      this.isRunning = false;
       console.error("Error in executeStep5:", error);
       this.showError(error instanceof Error ? error.message : "Failed to execute prompts");
       throw error;
@@ -897,6 +908,7 @@ export class AnalysisWorkflow {
       analysisProgress.style.display = "none";
     }
 
+    this.isRunning = false;
     const startBtn = document.getElementById("startAnalysisBtn") as HTMLButtonElement;
     if (startBtn) {
       startBtn.disabled = false;
@@ -917,13 +929,13 @@ export class AnalysisWorkflow {
 
     const { prompts = [], summary } = data;
     
-    this.updateAnalysisUI(5, "Analyse abgeschlossen", "Ergebnisse werden angezeigt...", 100);
+      this.updateAnalysisUI(5, "Analysis Completed", "Displaying results...", 100);
     
     let html = `
       <div style="color: green; padding: 20px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4caf50; margin-bottom: 20px;">
-        <h3>✅ Analyse erfolgreich abgeschlossen!</h3>
+        <h3>✅ Analysis Successfully Completed!</h3>
         <p><strong>Run ID:</strong> ${this.workflowData?.runId}</p>
-        <p>Alle Fragen wurden ausgeführt und analysiert. Die Ergebnisse wurden gespeichert.</p>
+        <p>All questions have been executed and analyzed. The results have been saved.</p>
       </div>
     `;
 
@@ -931,21 +943,21 @@ export class AnalysisWorkflow {
     if (summary) {
       html += `
         <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="margin-top: 0; color: #333;">📊 Zusammenfassung</h3>
+          <h3 style="margin-top: 0; color: #333;">📊 Summary</h3>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
             <div style="padding: 15px; background: #f5f5f5; border-radius: 6px;">
               <div style="font-size: 24px; font-weight: bold; color: #2196F3;">${summary.totalMentions || 0}</div>
-              <div style="color: #666; font-size: 14px;">Erwähnungen (außerhalb von markierten Quellen)</div>
+              <div style="color: #666; font-size: 14px;">Mentions (outside of marked sources)</div>
             </div>
             <div style="padding: 15px; background: #f5f5f5; border-radius: 6px;">
               <div style="font-size: 24px; font-weight: bold; color: #4CAF50;">${summary.totalCitations || 0}</div>
-              <div style="color: #666; font-size: 14px;">Zitierungen (Firmenlink als Quelle)</div>
+              <div style="color: #666; font-size: 14px;">Citations (company link as source)</div>
             </div>
           </div>
           
           ${summary.bestPrompts && summary.bestPrompts.length > 0 ? `
-            <h4 style="color: #333; margin-top: 20px;">🏆 Beste Prompts (Top ${Math.min(summary.bestPrompts.length, 10)})</h4>
-            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">Die besten Fragen basierend auf Erwähnungen und Zitierungen:</p>
+            <h4 style="color: #333; margin-top: 20px;">🏆 Best Prompts (Top ${Math.min(summary.bestPrompts.length, 10)})</h4>
+            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">The best questions based on mentions and citations:</p>
             <ul style="list-style: none; padding: 0;">
               ${summary.bestPrompts.slice(0, 10).map((p: any, idx: number) => `
                 <li style="padding: 12px; margin: 8px 0; background: #f9f9f9; border-left: 4px solid #4CAF50; border-radius: 4px;">
@@ -953,8 +965,8 @@ export class AnalysisWorkflow {
                     ${idx + 1}. ${p.question}
                   </div>
                   <div style="font-size: 12px; color: #666; margin-top: 5px; display: flex; gap: 15px;">
-                    <span>📌 Erwähnungen: <strong>${p.mentions || 0}</strong></span>
-                    <span>🔗 Zitierungen: <strong>${p.citations || 0}</strong></span>
+                    <span>📌 Mentions: <strong>${p.mentions || 0}</strong></span>
+                    <span>🔗 Citations: <strong>${p.citations || 0}</strong></span>
                   </div>
                 </li>
               `).join('')}
@@ -962,8 +974,8 @@ export class AnalysisWorkflow {
           ` : ''}
           
           ${summary.otherSources && Object.keys(summary.otherSources).length > 0 ? `
-            <h4 style="color: #333; margin-top: 30px;">🔗 Andere Quellen (außer eigener Firma)</h4>
-            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">Häufigkeit der Quellen in den Antworten:</p>
+            <h4 style="color: #333; margin-top: 30px;">🔗 Other Sources (excluding own company)</h4>
+            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">Frequency of sources in the answers:</p>
             <div style="display: flex; flex-direction: column; gap: 8px;">
               ${Object.entries(summary.otherSources)
                 .sort(([, a]: [string, any], [, b]: [string, any]) => b - a)
@@ -984,34 +996,34 @@ export class AnalysisWorkflow {
     if (prompts && prompts.length > 0) {
       html += `
         <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="margin-top: 0; color: #333;">❓ Fragen und Antworten</h3>
-          <p style="color: #666; margin-bottom: 15px;">Alle gestellten Fragen mit ihren Antworten (gespeichert für späteren Abruf):</p>
+          <h3 style="margin-top: 0; color: #333;">❓ Questions and Answers</h3>
+          <p style="color: #666; margin-bottom: 15px;">All questions asked with their answers (saved for later retrieval):</p>
           <div style="max-height: 600px; overflow-y: auto;">
             <div id="promptsList" style="display: flex; flex-direction: column; gap: 15px;">
               ${prompts.map((prompt: any, index: number) => `
                 <div style="padding: 15px; border: 2px solid #e0e0e0; border-radius: 8px; background: #fafafa;">
                   <div style="margin-bottom: 10px;">
                     <div style="font-weight: 600; color: #333; font-size: 15px; margin-bottom: 8px;">
-                      ${index + 1}. ${prompt.question || 'Keine Frage'}
+                      ${index + 1}. ${prompt.question || 'No question'}
                     </div>
                     ${prompt.categoryName ? `
                       <div style="font-size: 12px; color: #666; margin-bottom: 8px;">
-                        Kategorie: <span style="background: #e3f2fd; padding: 3px 8px; border-radius: 3px;">${prompt.categoryName}</span>
+                        Category: <span style="background: #e3f2fd; padding: 3px 8px; border-radius: 3px;">${prompt.categoryName}</span>
                       </div>
                     ` : ''}
                   </div>
                   ${prompt.answer ? `
                     <details style="margin-top: 10px;" open>
-                      <summary style="cursor: pointer; color: #2196F3; font-size: 14px; font-weight: 500; margin-bottom: 10px;">Antwort anzeigen</summary>
+                      <summary style="cursor: pointer; color: #2196F3; font-size: 14px; font-weight: 500; margin-bottom: 10px;">Show Answer</summary>
                       <div style="margin-top: 10px; padding: 15px; background: white; border-radius: 4px; border-left: 3px solid #2196F3; font-size: 14px; color: #555; line-height: 1.6; white-space: pre-wrap;">
                         ${prompt.answer}
                       </div>
                     </details>
-                  ` : '<div style="color: #999; font-size: 12px; margin-top: 5px;">Noch keine Antwort</div>'}
+                  ` : '<div style="color: #999; font-size: 12px; margin-top: 5px;">No answer yet</div>'}
                   ${prompt.mentions !== undefined || prompt.citations !== undefined ? `
                     <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0e0e0; font-size: 12px; color: #666;">
-                      <span style="margin-right: 15px;">📌 Erwähnungen: <strong>${prompt.mentions || 0}</strong></span>
-                      <span>🔗 Zitierungen: <strong>${prompt.citations || 0}</strong></span>
+                      <span style="margin-right: 15px;">📌 Mentions: <strong>${prompt.mentions || 0}</strong></span>
+                      <span>🔗 Citations: <strong>${prompt.citations || 0}</strong></span>
                     </div>
                   ` : ''}
                 </div>
@@ -1050,7 +1062,7 @@ export class AnalysisWorkflow {
     if (summary) {
       html += `
         <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="margin-top: 0; color: #333;">📊 Zusammenfassung (Summary)</h3>
+          <h3 style="margin-top: 0; color: #333;">📊 Summary</h3>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
             <div style="padding: 15px; background: #f5f5f5; border-radius: 6px;">
               <div style="font-size: 24px; font-weight: bold; color: #2196F3;">${summary.totalMentions || 0}</div>
@@ -1083,8 +1095,8 @@ export class AnalysisWorkflow {
     if (prompts && prompts.length > 0) {
       html += `
         <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-          <h3 style="margin-top: 0; color: #333;">❓ Generierte Fragen (Generated Prompts)</h3>
-          <p style="color: #666; margin-bottom: 15px;">Sie können Fragen auswählen, die Sie erneut ausführen möchten.</p>
+          <h3 style="margin-top: 0; color: #333;">❓ Generated Questions</h3>
+          <p style="color: #666; margin-bottom: 15px;">You can select questions that you want to re-execute.</p>
           <div style="max-height: 500px; overflow-y: auto;">
             <div id="promptsList" style="display: flex; flex-direction: column; gap: 10px;">
               ${prompts.map((prompt: any, index: number) => `
@@ -1102,17 +1114,17 @@ export class AnalysisWorkflow {
                       </div>
                       ${prompt.categoryName ? `
                         <div style="font-size: 12px; color: #666; margin-bottom: 5px;">
-                          Kategorie: <span style="background: #e3f2fd; padding: 2px 6px; border-radius: 3px;">${prompt.categoryName}</span>
+                          Category: <span style="background: #e3f2fd; padding: 2px 6px; border-radius: 3px;">${prompt.categoryName}</span>
                         </div>
                       ` : ''}
                       ${prompt.answer ? `
                         <details style="margin-top: 10px;">
-                          <summary style="cursor: pointer; color: #2196F3; font-size: 14px;">Antwort anzeigen</summary>
+                          <summary style="cursor: pointer; color: #2196F3; font-size: 14px;">Show Answer</summary>
                           <div style="margin-top: 10px; padding: 10px; background: white; border-radius: 4px; border-left: 3px solid #2196F3; font-size: 14px; color: #555;">
                             ${prompt.answer.substring(0, 500)}${prompt.answer.length > 500 ? '...' : ''}
                           </div>
                         </details>
-                      ` : '<div style="color: #999; font-size: 12px; margin-top: 5px;">Noch keine Antwort</div>'}
+                      ` : '<div style="color: #999; font-size: 12px; margin-top: 5px;">No answer yet</div>'}
                     </div>
                   </div>
                 </div>
@@ -1123,12 +1135,12 @@ export class AnalysisWorkflow {
             <button id="executeSelectedPrompts" 
                     style="padding: 12px 24px; background: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 500;"
                     onclick="window.analysisWorkflow?.executeSelectedPrompts()">
-              Ausgewählte Fragen erneut ausführen
+              Re-execute Selected Questions
             </button>
             <button id="selectAllPrompts" 
                     style="padding: 12px 24px; background: #f5f5f5; color: #333; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; margin-left: 10px;"
                     onclick="window.analysisWorkflow?.selectAllPrompts()">
-              Alle auswählen
+              Select All
             </button>
           </div>
         </div>
@@ -1203,7 +1215,7 @@ export class AnalysisWorkflow {
   async executeSelectedPrompts(): Promise<void> {
     const resultContent = document.getElementById("resultContent");
     if (!resultContent || !this.workflowData?.runId) {
-      alert('Fehler: Run ID fehlt.');
+      alert('Error: Run ID is missing.');
       return;
     }
 
@@ -1215,7 +1227,7 @@ export class AnalysisWorkflow {
     }).filter(id => id) as string[];
 
     if (selectedPromptIds.length === 0) {
-      alert('Bitte wählen Sie mindestens eine Frage aus.');
+      alert('Please select at least one question.');
       return;
     }
 
@@ -1227,24 +1239,24 @@ export class AnalysisWorkflow {
       const executeBtn = document.getElementById("executeSelectedPrompts") as HTMLButtonElement;
       if (executeBtn) {
         executeBtn.disabled = true;
-        executeBtn.textContent = 'Wird ausgeführt...';
+        executeBtn.textContent = 'Executing...';
       }
 
       await workflowService.step5ExecutePrompts(runId, selectedPrompts);
 
-      alert(`✅ ${selectedPrompts.length} Fragen wurden erfolgreich erneut ausgeführt!`);
+      alert(`✅ ${selectedPrompts.length} questions were successfully re-executed!`);
       
       // Reload results
       const updatedData = await workflowService.getPromptsAndSummary(runId);
       this.displayResults(updatedData);
     } catch (error) {
       console.error("Error executing selected prompts:", error);
-      alert('Fehler beim Ausführen der Fragen: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      alert('Error executing questions: ' + (error instanceof Error ? error.message : 'Unknown error'));
     } finally {
       const executeBtn = document.getElementById("executeSelectedPrompts") as HTMLButtonElement;
       if (executeBtn) {
         executeBtn.disabled = false;
-        executeBtn.textContent = 'Ausgewählte Fragen erneut ausführen';
+        executeBtn.textContent = 'Re-execute Selected Questions';
       }
     }
   }
