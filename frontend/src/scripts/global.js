@@ -11,10 +11,6 @@
         
         if (!sidebar) return;
         
-        // #region agent log
-        fetch('http://127.0.0.1:7243/ingest/8d5e705c-16ea-4080-9518-73d11ec7dac4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'landing-page.ts:1195',message:'toggleSidebar called',data:{sidebarExists:!!sidebar,isCollapsed:sidebar.classList.contains('collapsed'),sidebarWidth:sidebar.offsetWidth,mainContentWidth:mainContent?.offsetWidth,mainContentMarginLeft:mainContent?window.getComputedStyle(mainContent).marginLeft:null,contentAreaWidth:document.querySelector('.content-area')?.offsetWidth},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'D'})}).catch(()=>{});
-        // #endregion
-        
         const isCollapsed = sidebar.classList.contains('collapsed');
         
         if (isCollapsed) {
@@ -28,13 +24,6 @@
           if (toggleBtn) toggleBtn.textContent = '▶';
           if (toggleBtn) toggleBtn.title = 'Menü einblenden';
         }
-        
-        // #region agent log
-        setTimeout(() => {
-          const contentArea = document.querySelector('.content-area');
-          fetch('http://127.0.0.1:7243/ingest/8d5e705c-16ea-4080-9518-73d11ec7dac4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'landing-page.ts:1215',message:'After toggleSidebar',data:{isCollapsed:sidebar.classList.contains('collapsed'),sidebarWidth:sidebar.offsetWidth,mainContentWidth:mainContent?.offsetWidth,mainContentMarginLeft:mainContent?window.getComputedStyle(mainContent).marginLeft:null,contentAreaWidth:contentArea?.offsetWidth,contentAreaLeft:contentArea?contentArea.getBoundingClientRect().left:null,windowWidth:window.innerWidth},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'D'})}).catch(()=>{});
-        }, 350);
-        // #endregion
       };
       
     window.showDashboard = function(event) {

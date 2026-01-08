@@ -2541,10 +2541,6 @@
         analysesList.classList.add('dashboard-grid-2');
       }
       
-      // #region agent log
-      fetch('http://127.0.0.1:7243/ingest/8d5e705c-16ea-4080-9518-73d11ec7dac4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'landing-page.ts:4218',message:'loadAnalyses called',data:{analysesListExists:!!analysesList,analysesListComputedStyle:analysesList?window.getComputedStyle(analysesList).display:null,analysesListGridTemplate:analysesList?window.getComputedStyle(analysesList).gridTemplateColumns:null},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'A'})}).catch(()=>{});
-      // #endregion
-      
       analysesList.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary); grid-column: 1 / -1;">Lade Analysen...</div>';
       
       fetch('/api/analyses')
@@ -2554,10 +2550,6 @@
             analysesList.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-secondary); grid-column: 1 / -1;">Keine Analysen vorhanden. Starte eine neue Analyse.</div>';
             return;
           }
-          
-          // #region agent log
-          fetch('http://127.0.0.1:7243/ingest/8d5e705c-16ea-4080-9518-73d11ec7dac4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'landing-page.ts:4226',message:'Before rendering analyses',data:{analysesCount:analyses.length,analysesListWidth:analysesList.offsetWidth,analysesListHeight:analysesList.offsetHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'A'})}).catch(()=>{});
-          // #endregion
           
           analysesList.innerHTML = analyses.map(function(analysis) {
             const createdAt = new Date(analysis.createdAt);
@@ -2601,20 +2593,6 @@
               '</div>' +
             '</div>';
           }).join('');
-          
-          // #region agent log
-          setTimeout(() => {
-            const cards = analysesList.querySelectorAll('.analysis-card');
-            const cardSizes = Array.from(cards).map((card, idx) => ({
-              index: idx,
-              width: card.offsetWidth,
-              height: card.offsetHeight,
-              computedDisplay: window.getComputedStyle(card).display,
-              computedGridTemplate: window.getComputedStyle(analysesList).gridTemplateColumns
-            }));
-            fetch('http://127.0.0.1:7243/ingest/8d5e705c-16ea-4080-9518-73d11ec7dac4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'landing-page.ts:4273',message:'After rendering analyses',data:{cardCount:cards.length,cardSizes:cardSizes,analysesListWidth:analysesList.offsetWidth,analysesListGridTemplate:window.getComputedStyle(analysesList).gridTemplateColumns},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'A'})}).catch(()=>{});
-          }, 100);
-          // #endregion
         })
         .catch(err => {
           console.error('Error loading analyses:', err);
@@ -2786,17 +2764,6 @@
           analysisDetailContent.innerHTML = html;
           console.log('✅ Analysis details rendered successfully');
           
-          // #region agent log
-          setTimeout(() => {
-            const metricsGrid = analysisDetailContent.querySelector('.dashboard-metrics-grid');
-            const promptsGrid = analysisDetailContent.querySelector('.prompts-grid');
-            const detailedGrid = analysisDetailContent.querySelector('.detailed-data-grid');
-            const metricsCards = metricsGrid ? Array.from(metricsGrid.children) : [];
-            const promptsCards = promptsGrid ? Array.from(promptsGrid.children) : [];
-            const detailedCards = detailedGrid ? Array.from(detailedGrid.children) : [];
-            fetch('http://127.0.0.1:7243/ingest/8d5e705c-16ea-4080-9518-73d11ec7dac4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'landing-page.ts:4442',message:'After rendering dashboard',data:{metricsGridExists:!!metricsGrid,metricsGridTemplate:metricsGrid?window.getComputedStyle(metricsGrid).gridTemplateColumns:null,metricsCardCount:metricsCards.length,metricsCardSizes:metricsCards.map((c,i)=>({i,width:c.offsetWidth,height:c.offsetHeight})),promptsGridExists:!!promptsGrid,promptsGridTemplate:promptsGrid?window.getComputedStyle(promptsGrid).gridTemplateColumns:null,promptsCardCount:promptsCards.length,detailedGridExists:!!detailedGrid,detailedGridTemplate:detailedGrid?window.getComputedStyle(detailedGrid).gridTemplateColumns:null,detailedCardCount:detailedCards.length},timestamp:Date.now(),sessionId:'debug-session',runId:'pre-fix',hypothesisId:'B'})}).catch(()=>{});
-          }, 100);
-          // #endregion
         })
         .catch(err => {
           clearTimeout(timeoutId);
