@@ -327,7 +327,7 @@
                     const responseTimeHtml = responseTimeText ? '<span>•</span><span>' + responseTimeText.replace(' • ', '') + '</span>' : '';
                     const responseTimeDetailHtml = log.responseTime ? '<span><strong>Response Time:</strong> ' + log.responseTime + 'ms</span>' : '';
                     stepsHtml += '<div class="' + stepClass + '">' +
-                      '<div class="ai-readiness-step-header" onclick="const detail = document.getElementById(\\'' + detailId + '\\'); detail.style.display = detail.style.display === \\'none\\' ? \\'block\\' : \\'none\\';">' +
+                      '<div class="ai-readiness-step-header" onclick="const detail = document.getElementById(\'' + detailId + '\'); detail.style.display = detail.style.display === \'none\' ? \'block\' : \'none\';">' +
                         '<div class="ai-readiness-step-number">' + stepNum + '</div>' +
                         '<div class="ai-readiness-step-content">' +
                           '<div class="ai-readiness-step-title">' + (log.stepName || '').replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' +

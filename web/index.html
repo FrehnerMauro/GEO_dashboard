@@ -295,7 +295,7 @@
   <!-- Main JavaScript (loads after DOM) -->
   <!-- New modular architecture -->
   <script type="module">
-    import { App } from './scripts/app.ts';
+    import { App } from './scripts/app.js';
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => {
         const app = new App();
