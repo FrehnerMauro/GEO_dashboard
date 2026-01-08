@@ -401,46 +401,52 @@ export class WorkflowHandlers {
       const { extractBrandName } = await import("../../utils.js");
       const brandName = extractBrandName(websiteUrl);
 
-      // Perform analysis: Brand mentions, Citations, Competitors, Sentiment
-      const { AnalysisEngine } = await import("../../../shared/analysis/index.js");
-      const analysisEngine = new AnalysisEngine(brandName, 0.7);
-      const analysis = analysisEngine.analyzeResponses([prompt], [response])[0];
-
       // Save prompt, response, and analysis immediately (with timestamps)
       const { Database } = await import("../../../shared/persistence/index.js");
       const db = new Database(env.geo_db as any);
       
-      // Save prompt if not already saved
-      let promptId = prompt.id;
-      if (!promptId) {
-        const savedPrompt = await db.db
-          .prepare("INSERT INTO prompts (run_id, category_id, question, created_at) VALUES (?, ?, ?, ?) RETURNING id")
-          .bind(runId, prompt.categoryId || null, prompt.question || "", new Date().toISOString())
-          .first<{ id: string }>();
-        promptId = savedPrompt?.id || "";
+      // Ensure prompt has an ID and required fields
+      if (!prompt.id) {
+        prompt.id = `prompt_${runId}_${Date.now()}`;
       }
-
-      // Save response
-      const responseId = await db.db
-        .prepare("INSERT INTO llm_responses (prompt_id, response_text, created_at) VALUES (?, ?, ?) RETURNING id")
-        .bind(promptId, response.response || "", new Date().toISOString())
-        .first<{ id: string }>();
-
-      // Save citations
-      if (response.citations && Array.isArray(response.citations)) {
-        for (const citation of response.citations) {
-          await db.db
-            .prepare("INSERT INTO citations (llm_response_id, url, title, snippet) VALUES (?, ?, ?, ?)")
-            .bind(responseId?.id || "", citation.url || "", citation.title || "", citation.snippet || "")
-            .run();
-        }
+      if (!prompt.language) {
+        prompt.language = userInput?.language || 'de';
       }
+      if (!prompt.country) {
+        prompt.country = userInput?.country || '';
+      }
+      if (!prompt.region) {
+        prompt.region = userInput?.region || null;
+      }
+      if (!prompt.intent) {
+        prompt.intent = 'high';
+      }
+      if (!prompt.createdAt) {
+        prompt.createdAt = new Date().toISOString();
+      }
+      
+      // Save prompt using the proper method
+      await db.savePrompts(runId, [prompt]);
+      
+      // Ensure response has correct promptId
+      response.promptId = prompt.id;
 
-      // Save analysis
-      await db.db
-        .prepare("INSERT INTO prompt_analyses (prompt_id, brand_mentions, citations_count, sentiment_score) VALUES (?, ?, ?, ?)")
-        .bind(promptId, analysis.brandMentions || 0, analysis.citations?.length || 0, analysis.sentiment?.score || 0)
-        .run();
+      // Save response and citations using the proper method
+      await db.saveLLMResponses([response]);
+
+      // Perform analysis: Brand mentions, Citations, Competitors, Sentiment
+      const { AnalysisEngine } = await import("../../../shared/analysis/index.js");
+      const analysisEngine = new AnalysisEngine(brandName, 0.7);
+      const analyses = analysisEngine.analyzeResponses([prompt], [response]);
+      
+      if (!analyses || analyses.length === 0) {
+        throw new Error("Analysis failed: No analysis result returned");
+      }
+      
+      const analysis = analyses[0];
+
+      // Save analysis using the proper method
+      await db.savePromptAnalyses([analysis]);
 
       return new Response(JSON.stringify({
         success: true,
