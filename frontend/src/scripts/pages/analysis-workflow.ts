@@ -210,12 +210,15 @@ export class AnalysisWorkflow {
 
     try {
       this.updateAnalysisUI(3, "Generating Categories", "Analyzing content and generating categories...", 50);
+      this.showLoadingSpinner("Generating categories with GPT...");
 
       const result = await workflowService.step3GenerateCategories(
         this.workflowData.runId,
         this.workflowData.content,
         this.workflowData.language
       );
+
+      this.hideLoadingSpinner();
 
       if (!result.categories || !Array.isArray(result.categories)) {
         throw new Error("No categories received from server");
@@ -232,6 +235,7 @@ export class AnalysisWorkflow {
 
       this.showCategorySelection(result.categories);
     } catch (error) {
+      this.hideLoadingSpinner();
       console.error("Error in executeStep3:", error);
       this.showError(error instanceof Error ? error.message : "Failed to generate categories");
       throw error;
@@ -336,7 +340,7 @@ export class AnalysisWorkflow {
    * Handle category selection and proceed to step 4
    */
   private async handleCategorySelection(): Promise<void> {
-    if (!this.workflowData || !this.workflowData.runId) {
+    if (!this.workflowData || !this.workflowData.runId || !this.workflowData.categories) {
       throw new Error("Missing workflow data");
     }
 
@@ -361,10 +365,29 @@ export class AnalysisWorkflow {
       }
     });
 
+    if (selectedCategoryIds.length === 0) {
+      alert("Bitte wählen Sie mindestens eine Kategorie aus!");
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent = "✅ Continue to Generate Questions";
+        submitButton.style.opacity = "1";
+        submitButton.style.cursor = "pointer";
+      }
+      return;
+    }
+
+    // Filter categories to only include selected ones
+    const selectedCategories = this.workflowData.categories.filter((cat) =>
+      selectedCategoryIds.includes(cat.id)
+    );
+
+    // Update workflow data with selected categories only
+    this.workflowData.categories = selectedCategories;
+
     // Save selected categories
     await workflowService.saveCategories(this.workflowData.runId, selectedCategoryIds, []);
 
-    // Proceed to step 4
+    // Proceed to step 4 with only selected categories
     await this.executeStep4();
   }
 
@@ -378,6 +401,7 @@ export class AnalysisWorkflow {
 
     try {
       this.updateAnalysisUI(4, "Generating Prompts", "Generating questions for selected categories...", 70);
+      this.showLoadingSpinner("Generating questions with GPT...");
 
       const result = await workflowService.step4GeneratePrompts(
         this.workflowData.runId,
@@ -391,6 +415,8 @@ export class AnalysisWorkflow {
         this.workflowData.content || "",
         this.workflowData.questionsPerCategory
       );
+
+      this.hideLoadingSpinner();
 
       if (result.prompts && Array.isArray(result.prompts)) {
         // DO NOT save prompts here - they will only be saved after successful execution with responses
@@ -623,8 +649,11 @@ export class AnalysisWorkflow {
       const promptCount = promptsToExecute.length > 0 ? promptsToExecute.length : "alle";
       
       this.updateAnalysisUI(5, "Fragen an GPT stellen", `Fragen werden mit Web-Suche ausgeführt...`, 85);
+      this.showLoadingSpinner("Fragen werden an GPT mit Web-Suche gestellt...");
 
       await workflowService.step5ExecutePrompts(this.workflowData.runId, promptsToExecute);
+
+      this.hideLoadingSpinner();
 
       this.updateAnalysisUI(5, "Analyse abgeschlossen", "Alle Fragen wurden ausgeführt. Ergebnisse werden analysiert...", 95);
 
@@ -648,6 +677,7 @@ export class AnalysisWorkflow {
         }
       }, 2000);
     } catch (error) {
+      this.hideLoadingSpinner();
       console.error("Error in executeStep5:", error);
       this.showError(error instanceof Error ? error.message : "Failed to execute prompts");
       throw error;
@@ -695,9 +725,62 @@ export class AnalysisWorkflow {
 
     if (stepNumber) stepNumber.textContent = step.toString();
     if (currentStepTitle) currentStepTitle.textContent = title;
-    if (currentStepDescription) currentStepDescription.textContent = description;
+    if (currentStepDescription) {
+      // Check if description contains HTML (spinner), if not, set as text
+      if (currentStepDescription.innerHTML.includes('spinner')) {
+        // Keep spinner, just update the text part
+        const span = currentStepDescription.querySelector('span');
+        if (span) span.textContent = description;
+      } else {
+        currentStepDescription.textContent = description;
+      }
+    }
     if (progressPercentage) progressPercentage.textContent = `${percentage}%`;
     if (progressFill) progressFill.style.width = `${percentage}%`;
+  }
+
+  /**
+   * Show loading spinner during API calls
+   */
+  private showLoadingSpinner(message: string = "Loading..."): void {
+    const currentStepDescription = document.getElementById("currentStepDescription");
+    if (currentStepDescription) {
+      currentStepDescription.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div class="spinner" style="
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+            flex-shrink: 0;
+          "></div>
+          <span>${message}</span>
+        </div>
+      `;
+    }
+
+    // Add spinner CSS animation if not already present
+    if (!document.getElementById('spinner-style')) {
+      const style = document.createElement('style');
+      style.id = 'spinner-style';
+      style.textContent = `
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }
+
+  /**
+   * Hide loading spinner
+   */
+  private hideLoadingSpinner(): void {
+    // The spinner will be replaced when updateAnalysisUI is called
+    // This method is mainly for cleanup if needed
   }
 
   /**
