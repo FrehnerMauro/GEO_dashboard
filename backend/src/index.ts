@@ -10,7 +10,7 @@
  */
 
 import { Router } from "./api/router.js";
-import { GEOEngine } from "../shared/engine.js";
+import { GEOEngine } from "../../shared/engine.js";
 import type { Env } from "./api/types.js";
 
 export default {

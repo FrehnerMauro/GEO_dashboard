@@ -9,8 +9,8 @@ import { handleCors, getCorsHeaders, handleError, handleNotFound } from "./middl
 import { WorkflowHandlers } from "./handlers/workflow.js";
 import { AnalysisHandlers } from "./handlers/analysis.js";
 import { AIReadinessHandler } from "./handlers/ai-readiness-handler.js";
-import { WorkflowEngine } from "../../shared/engine_workflow.js";
-import { GEOEngine } from "../../shared/engine.js";
+import { WorkflowEngine } from "../../../shared/engine_workflow.js";
+import { GEOEngine } from "../../../shared/engine.js";
 
 export class Router {
   private workflowHandlers: WorkflowHandlers;

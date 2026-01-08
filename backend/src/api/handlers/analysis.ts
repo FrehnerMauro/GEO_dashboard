@@ -110,7 +110,7 @@ export class AnalysisHandlers {
     env: Env,
     corsHeaders: CorsHeaders
   ): Promise<Response> {
-    const { Database } = await import("../../persistence/index.js");
+    const { Database } = await import("../../../shared/persistence/index.js");
     const db = new Database(env.geo_db as any);
     const status = await db.getAnalysisStatus(runId);
 
