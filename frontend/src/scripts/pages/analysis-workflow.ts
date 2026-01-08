@@ -422,7 +422,10 @@ export class AnalysisWorkflow {
       // Load prompts and summary to display
       setTimeout(async () => {
         try {
-          const promptsAndSummary = await workflowService.getPromptsAndSummary(this.workflowData!.runId);
+          if (!this.workflowData?.runId) {
+            throw new Error("Run ID is missing");
+          }
+          const promptsAndSummary = await workflowService.getPromptsAndSummary(this.workflowData.runId);
           this.displayResults(promptsAndSummary);
         } catch (error) {
           console.error("Error loading prompts and summary:", error);
@@ -702,8 +705,12 @@ export class AnalysisWorkflow {
    */
   async executeSelectedPrompts(): Promise<void> {
     const resultContent = document.getElementById("resultContent");
-    if (!resultContent || !this.workflowData?.runId) return;
+    if (!resultContent || !this.workflowData?.runId) {
+      alert('Fehler: Run ID fehlt.');
+      return;
+    }
 
+    const runId = this.workflowData.runId;
     const checkboxes = resultContent.querySelectorAll('.prompt-checkbox:checked') as NodeListOf<HTMLInputElement>;
     const selectedPromptIds = Array.from(checkboxes).map(cb => {
       const item = cb.closest('.prompt-item') as HTMLElement;
@@ -716,7 +723,7 @@ export class AnalysisWorkflow {
     }
 
     // Get full prompt data
-    const promptsAndSummary = await workflowService.getPromptsAndSummary(this.workflowData.runId);
+    const promptsAndSummary = await workflowService.getPromptsAndSummary(runId);
     const selectedPrompts = promptsAndSummary.prompts.filter((p: any) => selectedPromptIds.includes(p.id));
 
     try {
@@ -726,12 +733,12 @@ export class AnalysisWorkflow {
         executeBtn.textContent = 'Wird ausgeführt...';
       }
 
-      await workflowService.step5ExecutePrompts(this.workflowData.runId, selectedPrompts);
+      await workflowService.step5ExecutePrompts(runId, selectedPrompts);
 
       alert(`✅ ${selectedPrompts.length} Fragen wurden erfolgreich erneut ausgeführt!`);
       
       // Reload results
-      const updatedData = await workflowService.getPromptsAndSummary(this.workflowData.runId);
+      const updatedData = await workflowService.getPromptsAndSummary(runId);
       this.displayResults(updatedData);
     } catch (error) {
       console.error("Error executing selected prompts:", error);
