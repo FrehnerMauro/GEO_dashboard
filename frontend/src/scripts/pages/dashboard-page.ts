@@ -446,17 +446,48 @@ export class DashboardPage {
   }
 
   show(): void {
-    const configurationCard = querySelector(".content-area > .card");
+    // Hide all other sections to prevent chaos
+    const aiAnalysisSection = getElement("aiAnalysisSection");
+    const aiReadabilitySection = getElement("aiReadabilitySection");
     const analysesSection = getElement("analysesSection");
     const analysisDetailSection = getElement("analysisDetailSection");
+    const configurationCard = querySelector(".content-area > .card");
+    const analysisProgress = getElement("analysisProgress");
+    const loading = getElement("loading");
+    const result = getElement("result");
 
-    hideElement(configurationCard);
+    if (aiAnalysisSection) {
+      aiAnalysisSection.style.display = "none";
+      aiAnalysisSection.classList.remove("show");
+    }
+    if (aiReadabilitySection) {
+      aiReadabilitySection.style.display = "none";
+      aiReadabilitySection.classList.remove("show");
+    }
     hideElement(analysesSection);
     hideElement(analysisDetailSection);
+    hideElement(configurationCard);
+    
+    if (analysisProgress) {
+      analysisProgress.style.display = "none";
+    }
+    if (loading) {
+      loading.style.display = "none";
+      loading.classList.remove("show");
+    }
+    if (result) {
+      result.style.display = "none";
+      result.classList.remove("show");
+    }
     
     if (this.dashboardSection) {
       showElement(this.dashboardSection);
+      this.dashboardSection.style.display = "block";
     }
+    
+    // Update header
+    const headerTitle = document.getElementById("headerTitle");
+    if (headerTitle) headerTitle.textContent = "Dashboard";
     
     navigation.setActiveNavItem(0);
     this.render();

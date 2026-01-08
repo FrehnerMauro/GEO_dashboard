@@ -33,11 +33,15 @@ export class App {
     // These functions are called from HTML onclick handlers
     (window as any).showDashboard = (event?: Event) => {
       if (event) event.preventDefault();
+      // Hide all sections first to prevent chaos
+      this.hideAllSections();
       this.dashboardPage.show();
     };
 
     (window as any).showAnalyses = (event?: Event) => {
       if (event) event.preventDefault();
+      // Hide all sections first to prevent chaos
+      this.hideAllSections();
       this.analysesPage.show();
     };
 
@@ -59,15 +63,68 @@ export class App {
     };
   }
 
-  private showAIAnalysisSection(): void {
-    // Hide all sections
-    const dashboardSection = document.getElementById("dashboardSection");
-    const aiAnalysisSection = document.getElementById("aiAnalysisSection");
-    const aiReadabilitySection = document.getElementById("aiReadabilitySection");
-    const analysesSection = document.getElementById("analysesSection");
-    const analysisDetailSection = document.getElementById("analysisDetailSection");
+  /**
+   * Hide all sections and reset state - prevents chaos when switching menus
+   */
+  private hideAllSections(): void {
+    // Hide all main sections
+    const sections = [
+      "dashboardSection",
+      "aiAnalysisSection",
+      "aiReadabilitySection",
+      "analysesSection",
+      "analysisDetailSection",
+    ];
 
-    if (dashboardSection) dashboardSection.style.display = "none";
+    sections.forEach((sectionId) => {
+      const section = document.getElementById(sectionId);
+      if (section) {
+        section.style.display = "none";
+        section.classList.remove("show");
+        section.classList.add("hidden");
+      }
+    });
+
+    // Hide/Reset analysis progress
+    const analysisProgress = document.getElementById("analysisProgress");
+    if (analysisProgress) {
+      analysisProgress.style.display = "none";
+    }
+
+    // Hide/Reset loading states
+    const loading = document.getElementById("loading");
+    if (loading) {
+      loading.style.display = "none";
+      loading.classList.remove("show");
+    }
+
+    // Hide/Reset result sections
+    const result = document.getElementById("result");
+    if (result) {
+      result.style.display = "none";
+      result.classList.remove("show");
+    }
+
+    // Reset configuration card visibility
+    const configurationCard = document.getElementById("configurationCard");
+    if (configurationCard) {
+      configurationCard.style.display = "block";
+      configurationCard.classList.remove("hidden");
+    }
+
+    // Clear any running workflows
+    if (this.analysisWorkflow) {
+      // Reset workflow state if needed
+      (this.analysisWorkflow as any).workflowData = null;
+    }
+  }
+
+  private showAIAnalysisSection(): void {
+    // First, hide all sections to prevent chaos
+    this.hideAllSections();
+
+    // Now show the AI Analysis section
+    const aiAnalysisSection = document.getElementById("aiAnalysisSection");
     if (aiAnalysisSection) {
       aiAnalysisSection.style.display = "flex"; // Use flex to match CSS
       // Make sure the configuration card is visible
@@ -77,9 +134,6 @@ export class App {
         configurationCard.classList.remove("hidden");
       }
     }
-    if (aiReadabilitySection) aiReadabilitySection.style.display = "none";
-    if (analysesSection) analysesSection.style.display = "none";
-    if (analysisDetailSection) analysisDetailSection.style.display = "none";
 
     // Update header
     const headerTitle = document.getElementById("headerTitle");
@@ -93,18 +147,14 @@ export class App {
   }
 
   private showAIReadabilitySection(): void {
-    // Hide all sections
-    const dashboardSection = document.getElementById("dashboardSection");
-    const aiAnalysisSection = document.getElementById("aiAnalysisSection");
-    const aiReadabilitySection = document.getElementById("aiReadabilitySection");
-    const analysesSection = document.getElementById("analysesSection");
-    const analysisDetailSection = document.getElementById("analysisDetailSection");
+    // First, hide all sections to prevent chaos
+    this.hideAllSections();
 
-    if (dashboardSection) dashboardSection.style.display = "none";
-    if (aiAnalysisSection) aiAnalysisSection.style.display = "none";
-    if (aiReadabilitySection) aiReadabilitySection.style.display = "flex"; // Use flex to match CSS
-    if (analysesSection) analysesSection.style.display = "none";
-    if (analysisDetailSection) analysisDetailSection.style.display = "none";
+    // Now show the AI Readability section
+    const aiReadabilitySection = document.getElementById("aiReadabilitySection");
+    if (aiReadabilitySection) {
+      aiReadabilitySection.style.display = "flex"; // Use flex to match CSS
+    }
 
     // Update header
     const headerTitle = document.getElementById("headerTitle");

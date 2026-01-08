@@ -300,13 +300,52 @@ export class AnalysesPage {
   }
 
   show(): void {
+    // Hide all other sections to prevent chaos
+    const dashboardSection = getElement("dashboardSection");
+    const aiAnalysisSection = getElement("aiAnalysisSection");
+    const aiReadabilitySection = getElement("aiReadabilitySection");
     const analysesSection = getElement("analysesSection");
     const analysisDetailSection = getElement("analysisDetailSection");
     const configurationCard = querySelector(".content-area > .card");
+    const analysisProgress = getElement("analysisProgress");
+    const loading = getElement("loading");
+    const result = getElement("result");
 
-    showElement(analysesSection);
+    if (dashboardSection) {
+      dashboardSection.style.display = "none";
+      dashboardSection.classList.remove("show");
+    }
+    if (aiAnalysisSection) {
+      aiAnalysisSection.style.display = "none";
+      aiAnalysisSection.classList.remove("show");
+    }
+    if (aiReadabilitySection) {
+      aiReadabilitySection.style.display = "none";
+      aiReadabilitySection.classList.remove("show");
+    }
     hideElement(analysisDetailSection);
     hideElement(configurationCard);
+    
+    if (analysisProgress) {
+      analysisProgress.style.display = "none";
+    }
+    if (loading) {
+      loading.style.display = "none";
+      loading.classList.remove("show");
+    }
+    if (result) {
+      result.style.display = "none";
+      result.classList.remove("show");
+    }
+
+    showElement(analysesSection);
+    if (analysesSection) {
+      analysesSection.style.display = "block";
+    }
+
+    // Update header
+    const headerTitle = document.getElementById("headerTitle");
+    if (headerTitle) headerTitle.textContent = "Analysen";
 
     navigation.setActiveNavItem(1);
     this.loadAnalyses();
