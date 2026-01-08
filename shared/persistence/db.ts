@@ -796,14 +796,19 @@ export class Database {
 
   // Global view methods
   async getAllGlobalCategories(): Promise<Array<{ name: string; description: string; count: number }>> {
+    // Only show categories that have prompts with web search (citations)
     const result = await this.db
       .prepare(
         `SELECT 
           c.name,
           MAX(c.description) as description,
-          COUNT(DISTINCT c.id) as count
+          COUNT(DISTINCT p.id) as count
          FROM categories c
+         JOIN prompts p ON p.category_id = c.id
+         JOIN llm_responses lr ON lr.prompt_id = p.id
+         JOIN citations cit ON cit.llm_response_id = lr.id
          GROUP BY c.name
+         HAVING count > 0
          ORDER BY count DESC, c.name ASC`
       )
       .all<{
@@ -830,9 +835,10 @@ export class Database {
     analysisRunId: string;
     websiteUrl: string;
   }>> {
+    // Only return prompts that have been executed with web search (have citations)
     const result = await this.db
       .prepare(
-        `SELECT 
+        `SELECT DISTINCT
           p.id,
           p.question,
           p.language,
@@ -845,6 +851,8 @@ export class Database {
          FROM prompts p
          JOIN categories c ON p.category_id = c.id
          JOIN analysis_runs ar ON p.analysis_run_id = ar.id
+         JOIN llm_responses lr ON lr.prompt_id = p.id
+         JOIN citations cit ON cit.llm_response_id = lr.id
          WHERE c.name = ?
          ORDER BY p.created_at DESC`
       )
