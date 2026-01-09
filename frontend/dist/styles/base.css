@@ -1421,3 +1421,220 @@
       background: var(--primary-light);
     }
     
+    /* Welcome Card Enhancements */
+    .welcome-card {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.9) 100%);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      box-shadow: var(--shadow-lg), 0 0 40px rgba(59, 130, 246, 0.1);
+    }
+    
+    /* Enhanced Info Cards */
+    .card[style*="linear-gradient"] {
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .card[style*="linear-gradient"]::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(59, 130, 246, 0.05) 0%, transparent 70%);
+      animation: rotate 20s linear infinite;
+      pointer-events: none;
+    }
+    
+    @keyframes rotate {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
+    /* Better Form Field Focus States */
+    .form-group input:focus + small,
+    .form-group select:focus + small {
+      color: var(--primary);
+    }
+    
+    /* Enhanced Button with Icon */
+    .btn-primary {
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .btn-primary::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.3);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s ease, height 0.6s ease;
+    }
+    
+    .btn-primary:hover::after {
+      width: 300px;
+      height: 300px;
+    }
+    
+    /* Step Indicator Enhancements */
+    .step-number {
+      position: relative;
+    }
+    
+    .step-number::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: var(--radius-lg);
+      background: var(--gradient-primary);
+      opacity: 0.2;
+      z-index: -1;
+      animation: pulse-ring 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-ring {
+      0%, 100% { transform: scale(1); opacity: 0.2; }
+      50% { transform: scale(1.1); opacity: 0.1; }
+    }
+    
+    /* Progress Bar Enhancements */
+    .progress-bar-fill {
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .progress-bar-fill::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.3),
+        transparent
+      );
+      animation: shimmer 2s infinite;
+    }
+    
+    /* Enhanced Card Hover Effects */
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-xl), 0 0 30px rgba(59, 130, 246, 0.15);
+    }
+    
+    /* Better Status Messages */
+    .status-card {
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .status-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: var(--gradient-primary);
+    }
+    
+    /* Improved Empty States */
+    .empty-state {
+      position: relative;
+    }
+    
+    .empty-state::before {
+      font-size: 64px;
+      opacity: 0.1;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 0;
+    }
+    
+    /* Better Loading States */
+    .loading-state .spinner {
+      position: relative;
+    }
+    
+    .loading-state .spinner::after {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      border: 4px solid transparent;
+      border-top-color: var(--primary);
+      opacity: 0.3;
+      animation: spin 1.5s linear infinite reverse;
+    }
+    
+    /* Enhanced Analysis Progress */
+    .analysis-progress {
+      position: relative;
+    }
+    
+    .analysis-progress::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(
+        135deg,
+        rgba(59, 130, 246, 0.03) 0%,
+        rgba(251, 191, 36, 0.03) 100%
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+    
+    .analysis-progress > * {
+      position: relative;
+      z-index: 1;
+    }
+    
+    /* Better Form Labels */
+    .form-group label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    /* Enhanced Small Text */
+    .form-group small {
+      display: block;
+      margin-top: 6px;
+      padding-left: 2px;
+      transition: var(--transition);
+    }
+    
+    /* Better Card Headers */
+    .card-header {
+      position: relative;
+    }
+    
+    .card-header::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(
+        90deg,
+        transparent,
+        var(--border-light),
+        transparent
+      );
+    }
+    

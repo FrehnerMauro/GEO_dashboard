@@ -64,7 +64,7 @@ export class AnalysisWorkflow {
       this.startAnalysisUI();
 
       // Update progress to initial state
-      this.updateAnalysisUI(1, "Starting Analysis", "Preparing...", 5);
+      this.updateAnalysisUI(1, "Starting Analysis", "Initializing analysis workflow and preparing to extract content from your website...", 5);
 
       // Start with step 1
       await this.executeStep1();
@@ -86,7 +86,7 @@ export class AnalysisWorkflow {
       this.updateAnalysisUI(
         1,
         "Finding Sitemap",
-        `Searching for sitemap.xml on ${this.workflowData.websiteUrl}`,
+        `Searching for sitemap.xml on ${this.workflowData.websiteUrl}. A sitemap helps us discover all pages on your website efficiently.`,
         5
       );
 
@@ -106,14 +106,14 @@ export class AnalysisWorkflow {
         this.updateAnalysisUI(
           1,
           "Sitemap Found",
-          `${urlCount} URLs found. Preparing next step...`,
+          `✓ Found ${urlCount} URLs in sitemap. These pages will be analyzed for content extraction.`,
           20
         );
       } else {
         this.updateAnalysisUI(
           1,
           "Sitemap Not Found",
-          `${urlCount} URLs extracted from homepage. Preparing next step...`,
+          `No sitemap found. Extracted ${urlCount} URLs from homepage links. These will be used for analysis.`,
           20
         );
       }
@@ -140,7 +140,7 @@ export class AnalysisWorkflow {
 
     try {
       const urlCount = this.workflowData.urls.length;
-      this.updateAnalysisUI(2, "Fetching Content", `Loading content from ${urlCount} URLs`, 25);
+      this.updateAnalysisUI(2, "Fetching Content", `Extracting text content from ${urlCount} URLs. This content will be analyzed to generate relevant categories and questions.`, 25);
 
       const resultContent = document.getElementById("resultContent");
       if (resultContent) {
@@ -164,7 +164,7 @@ export class AnalysisWorkflow {
         this.updateAnalysisUI(
           2,
           "Fetching Content",
-          `Loading URL ${i + 1} of ${maxUrls}`,
+          `Processing URL ${i + 1} of ${maxUrls}. Extracting and cleaning text content for analysis...`,
           progress
         );
 
@@ -196,7 +196,7 @@ export class AnalysisWorkflow {
       this.updateAnalysisUI(
         2,
         "Content Fetched",
-        `${fetchedCount} pages successfully loaded. Preparing next step...`,
+        `✓ Successfully extracted content from ${fetchedCount} pages. The content is now ready for AI-powered category generation.`,
         40
       );
 
@@ -217,8 +217,8 @@ export class AnalysisWorkflow {
     }
 
     try {
-      this.updateAnalysisUI(3, "Generating Categories", "Analyzing content and generating categories...", 50);
-      this.showLoadingSpinner("Generating categories with GPT...");
+      this.updateAnalysisUI(3, "Generating Categories", "Using AI to analyze your content and identify relevant topic categories. This helps organize questions by theme.", 50);
+      this.showLoadingSpinner("Analyzing content with AI to generate relevant categories...");
 
       const result = await workflowService.step3GenerateCategories(
         this.workflowData.runId,
@@ -240,7 +240,7 @@ export class AnalysisWorkflow {
       this.updateAnalysisUI(
         3,
         "Categories Generated",
-        `${result.categories.length} categories found. Select categories...`,
+        `✓ AI identified ${result.categories.length} relevant categories. Please select which categories you want to analyze. You can select multiple categories.`,
         60
       );
 
@@ -269,9 +269,11 @@ export class AnalysisWorkflow {
     result.classList.add("show");
 
     let html = '<div style="margin-bottom: 20px;">';
-    html += `<h3 style="margin-bottom: 16px; color: var(--gray-900); font-size: 20px;">📋 Select Categories (${categories.length} found):</h3>`;
+    html += `<h3 style="margin-bottom: 16px; color: var(--gray-900); font-size: 20px;">📋 Select Categories (${categories.length} found)</h3>`;
     html +=
-      '<p style="color: var(--gray-600); font-size: 14px; margin-bottom: 20px;">Select the categories for which questions should be generated. You can also add new categories.</p>';
+      '<div style="padding: 16px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(251, 191, 36, 0.08) 100%); border-radius: 8px; border-left: 4px solid var(--primary); margin-bottom: 20px;">';
+    html += '<p style="color: var(--gray-600); font-size: 14px; line-height: 1.6; margin: 0;"><strong>What happens next?</strong> For each selected category, the system will generate questions that test how well your content answers common user queries. Select all categories you want to analyze, or choose specific ones to focus on.</p>';
+    html += '</div>';
     html += "</div>";
 
     html += '<form id="categoryForm" style="margin-top: 20px;">';
@@ -418,17 +420,17 @@ export class AnalysisWorkflow {
       const questionsPerCat = this.workflowData.questionsPerCategory;
       const totalExpected = categoryCount * questionsPerCat;
       
-      this.updateAnalysisUI(4, "Generating Prompts", `Generating ${questionsPerCat} questions for ${categoryCount} categories...`, 70);
-      this.showLoadingSpinner(`Generating questions with GPT (${categoryCount} categories, ${totalExpected} questions total)...`);
+      this.updateAnalysisUI(4, "Generating Questions", `Creating ${questionsPerCat} questions per category for ${categoryCount} selected categories (${totalExpected} total). These questions will test your content's coverage.`, 70);
+      this.showLoadingSpinner(`Using AI to generate ${totalExpected} relevant questions across ${categoryCount} categories. This may take a moment...`);
 
       // Update status as we progress through categories
       let processedCategories = 0;
       statusInterval = setInterval(() => {
         processedCategories++;
         if (processedCategories <= categoryCount) {
-          this.updateDetailedStatus(
-            `Generating questions for category ${processedCategories}/${categoryCount} (${questionsPerCat} questions per category)...`
-          );
+        this.updateDetailedStatus(
+          `Processing category ${processedCategories}/${categoryCount}... Generating ${questionsPerCat} questions tailored to your content.`
+        );
         }
       }, 3000); // Update every 3 seconds to show progress
 
@@ -456,7 +458,7 @@ export class AnalysisWorkflow {
         // Store prompts in workflow data for selection
         this.workflowData.prompts = result.prompts;
         
-        this.updateAnalysisUI(4, "Prompts Generated", `${result.prompts.length} questions created. Please select which ones to execute...`, 75);
+        this.updateAnalysisUI(4, "Questions Generated", `✓ Successfully created ${result.prompts.length} questions. Review and select which questions you want to execute with web search to find mentions and citations.`, 75);
         
         // Show prompts to user for selection BEFORE execution
         setTimeout(() => this.showPromptSelection(result.prompts), 1000);
@@ -488,9 +490,11 @@ export class AnalysisWorkflow {
     result.classList.add("show");
 
     let html = '<div style="margin-bottom: 20px;">';
-    html += `<h3 style="margin-bottom: 16px; color: var(--gray-900); font-size: 20px;">❓ Select Questions (${prompts.length} generated):</h3>`;
+    html += `<h3 style="margin-bottom: 16px; color: var(--gray-900); font-size: 20px;">❓ Select Questions (${prompts.length} generated)</h3>`;
     html +=
-      '<p style="color: var(--gray-600); font-size: 14px; margin-bottom: 20px;">Select the questions that should be sent to GPT with web search.</p>';
+      '<div style="padding: 16px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(251, 191, 36, 0.08) 100%); border-radius: 8px; border-left: 4px solid var(--primary); margin-bottom: 20px;">';
+    html += '<p style="color: var(--gray-600); font-size: 14px; line-height: 1.6; margin: 0;"><strong>What happens next?</strong> Selected questions will be executed with web search to find where your brand is mentioned and cited. This helps measure your content\'s visibility and authority. Select all questions or choose specific ones to analyze.</p>';
+    html += '</div>';
     html += "</div>";
 
     html += '<form id="promptForm" style="margin-top: 20px;">';
@@ -686,8 +690,8 @@ export class AnalysisWorkflow {
       const promptsToExecute = selectedPrompts || this.workflowData.selectedPrompts || [];
       const promptCount = promptsToExecute.length;
       
-      this.updateAnalysisUI(5, "Executing Questions", `Questions are being executed with web search...`, 85);
-      this.showLoadingSpinner(`Question 1/${promptCount} is being sent to GPT with web search...`);
+      this.updateAnalysisUI(5, "Executing Questions", `Running ${promptCount} questions through AI with web search to find brand mentions and citations. This measures your content's visibility and authority.`, 85);
+      this.showLoadingSpinner(`Processing question 1/${promptCount}... Searching the web and analyzing results for mentions and citations.`);
 
       // Update status as prompts are executed
       let executedCount = 0;
@@ -695,7 +699,7 @@ export class AnalysisWorkflow {
         executedCount++;
         if (executedCount <= promptCount) {
           this.updateDetailedStatus(
-            `Question ${executedCount}/${promptCount} is being sent to GPT with web search...`
+            `Processing question ${executedCount}/${promptCount}... Analyzing web search results for brand mentions and citations.`
           );
         }
       }, 2000); // Update every 2 seconds
@@ -708,7 +712,7 @@ export class AnalysisWorkflow {
       if (statusInterval) clearInterval(statusInterval);
       this.hideLoadingSpinner();
 
-      this.updateAnalysisUI(5, "Analysis Completed", "All questions have been executed. Analyzing results...", 95);
+      this.updateAnalysisUI(5, "Analysis Completed", "✓ All questions executed successfully! Compiling results, calculating mentions and citations, and generating insights...", 95);
 
       // Wait a bit for analysis to complete, then load and display results
       setTimeout(async () => {
@@ -932,10 +936,15 @@ export class AnalysisWorkflow {
       this.updateAnalysisUI(5, "Analysis Completed", "Displaying results...", 100);
     
     let html = `
-      <div style="color: green; padding: 20px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4caf50; margin-bottom: 20px;">
-        <h3>✅ Analysis Successfully Completed!</h3>
-        <p><strong>Run ID:</strong> ${this.workflowData?.runId}</p>
-        <p>All questions have been executed and analyzed. The results have been saved.</p>
+      <div style="color: green; padding: 24px; background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%); border-radius: 12px; border-left: 4px solid #22c55e; margin-bottom: 24px; box-shadow: var(--shadow-md);">
+        <div style="display: flex; align-items: start; gap: 16px;">
+          <div style="font-size: 36px; flex-shrink: 0;">✅</div>
+          <div style="flex: 1;">
+            <h3 style="font-size: 20px; font-weight: 700; margin-bottom: 12px; color: #16a34a;">Analysis Successfully Completed!</h3>
+            <p style="margin-bottom: 8px; color: var(--text-secondary);"><strong>Run ID:</strong> <code style="background: rgba(34, 197, 94, 0.1); padding: 4px 8px; border-radius: 4px; font-size: 13px;">${this.workflowData?.runId}</code></p>
+            <p style="color: var(--text-secondary); line-height: 1.6; margin: 0;">All questions have been executed and analyzed. The results show mentions (brand references) and citations (links to your website). Your analysis has been saved and can be viewed anytime in the Dashboard.</p>
+          </div>
+        </div>
       </div>
     `;
 
@@ -944,20 +953,22 @@ export class AnalysisWorkflow {
       html += `
         <div style="background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
           <h3 style="margin-top: 0; color: #333;">📊 Summary</h3>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px;">
-            <div style="padding: 15px; background: #f5f5f5; border-radius: 6px;">
-              <div style="font-size: 24px; font-weight: bold; color: #2196F3;">${summary.totalMentions || 0}</div>
-              <div style="color: #666; font-size: 14px;">Mentions (outside of marked sources)</div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 24px;">
+            <div style="padding: 20px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%); border-radius: 12px; border: 1px solid rgba(59, 130, 246, 0.2); text-align: center;">
+              <div style="font-size: 36px; font-weight: 800; color: #3b82f6; margin-bottom: 8px; font-family: 'Space Grotesk', sans-serif;">${summary.totalMentions || 0}</div>
+              <div style="color: var(--text-secondary); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Brand Mentions</div>
+              <div style="color: var(--text-light); font-size: 12px; margin-top: 6px;">References to your brand in search results</div>
             </div>
-            <div style="padding: 15px; background: #f5f5f5; border-radius: 6px;">
-              <div style="font-size: 24px; font-weight: bold; color: #4CAF50;">${summary.totalCitations || 0}</div>
-              <div style="color: #666; font-size: 14px;">Citations (company link as source)</div>
+            <div style="padding: 20px; background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(34, 197, 94, 0.05) 100%); border-radius: 12px; border: 1px solid rgba(34, 197, 94, 0.2); text-align: center;">
+              <div style="font-size: 36px; font-weight: 800; color: #22c55e; margin-bottom: 8px; font-family: 'Space Grotesk', sans-serif;">${summary.totalCitations || 0}</div>
+              <div style="color: var(--text-secondary); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Citations</div>
+              <div style="color: var(--text-light); font-size: 12px; margin-top: 6px;">Links to your website as a source</div>
             </div>
           </div>
           
           ${summary.bestPrompts && summary.bestPrompts.length > 0 ? `
-            <h4 style="color: #333; margin-top: 20px;">🏆 Best Prompts (Top ${Math.min(summary.bestPrompts.length, 10)})</h4>
-            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">The best questions based on mentions and citations:</p>
+            <h4 style="color: #333; margin-top: 24px; font-size: 18px; font-weight: 700; margin-bottom: 12px;">🏆 Top Performing Questions (Top ${Math.min(summary.bestPrompts.length, 10)})</h4>
+            <p style="color: #666; font-size: 14px; margin-bottom: 16px; line-height: 1.6;">These questions generated the most brand mentions and citations, indicating strong content coverage and visibility:</p>
             <ul style="list-style: none; padding: 0;">
               ${summary.bestPrompts.slice(0, 10).map((p: any, idx: number) => `
                 <li style="padding: 12px; margin: 8px 0; background: #f9f9f9; border-left: 4px solid #4CAF50; border-radius: 4px;">
@@ -974,8 +985,8 @@ export class AnalysisWorkflow {
           ` : ''}
           
           ${summary.otherSources && Object.keys(summary.otherSources).length > 0 ? `
-            <h4 style="color: #333; margin-top: 30px;">🔗 Other Sources (excluding own company)</h4>
-            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">Frequency of sources in the answers:</p>
+            <h4 style="color: #333; margin-top: 32px; font-size: 18px; font-weight: 700; margin-bottom: 12px;">🔗 External Sources Referenced</h4>
+            <p style="color: #666; font-size: 14px; margin-bottom: 16px; line-height: 1.6;">These are other websites that appeared in search results. Understanding competitor sources helps identify content opportunities:</p>
             <div style="display: flex; flex-direction: column; gap: 8px;">
               ${Object.entries(summary.otherSources)
                 .sort(([, a]: [string, any], [, b]: [string, any]) => b - a)

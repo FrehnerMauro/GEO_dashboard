@@ -352,8 +352,13 @@ export class DashboardPage {
           
           return `
             <div class="local-view">
-              <button class="back-btn">← Back</button>
-              <h3 style="margin-bottom: 24px; font-size: 24px; font-weight: 700; color: var(--text); font-family: 'Space Grotesk', sans-serif;">Analysis Details</h3>
+              <button class="back-btn">← Back to Analyses</button>
+              <div style="margin-bottom: 24px; padding: 20px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(251, 191, 36, 0.08) 100%); border-radius: 12px; border-left: 4px solid var(--primary);">
+                <h3 style="margin-bottom: 12px; font-size: 24px; font-weight: 700; color: var(--text); font-family: 'Space Grotesk', sans-serif;">📊 Analysis Details</h3>
+                <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin: 0;">
+                  View all questions asked during this analysis, their answers, and performance metrics including brand mentions and citations.
+                </p>
+              </div>
               ${promptsHtml}
               ${summaryHtml}
             </div>
@@ -381,8 +386,13 @@ export class DashboardPage {
         
         return `
           <div class="local-view">
-            <button class="back-btn">← Back</button>
-            <h3 style="margin-bottom: 24px; font-size: 24px; font-weight: 700; color: var(--text); font-family: 'Space Grotesk', sans-serif;">Analyses: ${company?.name || company?.websiteUrl || "Unknown"}</h3>
+            <button class="back-btn">← Back to Companies</button>
+            <div style="margin-bottom: 24px; padding: 20px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(251, 191, 36, 0.08) 100%); border-radius: 12px; border-left: 4px solid var(--primary);">
+              <h3 style="margin-bottom: 8px; font-size: 24px; font-weight: 700; color: var(--text); font-family: 'Space Grotesk', sans-serif;">📋 Analyses: ${company?.name || company?.websiteUrl || "Unknown"}</h3>
+              <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin: 0;">
+                Click on an analysis to view detailed results including all questions, answers, brand mentions, and citations.
+              </p>
+            </div>
             <div class="analyses-grid">
               ${analyses.length === 0 
                 ? '<div class="empty-state" style="grid-column: 1 / -1; text-align: center; padding: 60px; color: var(--text-secondary);">No analyses found</div>'
@@ -416,10 +426,15 @@ export class DashboardPage {
         // Show company list
         return `
           <div class="local-view">
-            <h3 style="margin-bottom: 24px; font-size: 28px; font-weight: 700; color: var(--text); font-family: 'Space Grotesk', sans-serif;">Available Companies</h3>
+            <div style="margin-bottom: 24px; padding: 20px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(251, 191, 36, 0.08) 100%); border-radius: 12px; border-left: 4px solid var(--primary);">
+              <h3 style="margin-bottom: 12px; font-size: 24px; font-weight: 700; color: var(--text); font-family: 'Space Grotesk', sans-serif;">📊 Local View - Companies</h3>
+              <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin: 0;">
+                Browse analyses organized by company. Click on a company to see all its analyses, then click on an analysis to view detailed results including questions, answers, mentions, and citations.
+              </p>
+            </div>
             <div class="companies-grid">
               ${companies.length === 0 
-                ? '<div class="empty-state" style="grid-column: 1 / -1; text-align: center; padding: 60px; color: var(--text-secondary);">No companies found</div>'
+                ? '<div class="empty-state" style="grid-column: 1 / -1; text-align: center; padding: 60px; color: var(--text-secondary);"><div style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;">📭</div><p style="font-size: 16px; font-weight: 500; margin-bottom: 8px;">No companies found</p><p style="font-size: 14px; color: var(--text-light);">Start a new analysis to create your first company entry.</p></div>'
                 : companies.map(company => `
                   <div class="company-card" data-company-id="${company.id}" style="cursor: pointer;">
                     <div class="company-header">
@@ -470,8 +485,13 @@ export class DashboardPage {
         
         return `
           <div class="global-view">
-            <button class="back-btn">← Back</button>
-            <h3 style="margin-bottom: 24px; font-size: 24px; font-weight: 700; color: var(--text); font-family: 'Space Grotesk', sans-serif;">Category: ${this.selectedCategory}</h3>
+            <button class="back-btn">← Back to Categories</button>
+            <div style="margin-bottom: 24px; padding: 20px; background: linear-gradient(135deg, rgba(251, 191, 36, 0.08) 0%, rgba(59, 130, 246, 0.08) 100%); border-radius: 12px; border-left: 4px solid var(--accent);">
+              <h3 style="margin-bottom: 8px; font-size: 24px; font-weight: 700; color: var(--text); font-family: 'Space Grotesk', sans-serif;">📁 Category: ${this.selectedCategory}</h3>
+              <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin: 0;">
+                View all questions and answers in this category across all analyses. This helps you understand how different websites answer similar questions.
+              </p>
+            </div>
             <div class="prompts-list">
               ${prompts.length === 0 
                 ? '<div class="empty-state">No questions found in this category</div>'
@@ -530,7 +550,12 @@ export class DashboardPage {
         
         return `
           <div class="global-view">
-            <h3 style="margin-bottom: 24px; font-size: 28px; font-weight: 700; color: var(--text); font-family: 'Space Grotesk', sans-serif;">All Categories</h3>
+            <div style="margin-bottom: 24px; padding: 20px; background: linear-gradient(135deg, rgba(251, 191, 36, 0.08) 0%, rgba(59, 130, 246, 0.08) 100%); border-radius: 12px; border-left: 4px solid var(--accent);">
+              <h3 style="margin-bottom: 12px; font-size: 24px; font-weight: 700; color: var(--text); font-family: 'Space Grotesk', sans-serif;">🌐 Global View - All Categories</h3>
+              <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin: 0;">
+                Explore all questions and answers across all analyses, organized by category. This view helps you identify patterns, find common questions, and understand content coverage across different topics.
+              </p>
+            </div>
             <div class="categories-grid">
               ${categories.length === 0 
                 ? '<div class="empty-state">No categories found</div>'

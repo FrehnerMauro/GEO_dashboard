@@ -185,9 +185,14 @@ export class AnalysesPage {
 
     let html = `
       <div style="padding: 20px;">
-        <button class="btn back-btn" id="backToListBtn" style="margin-bottom: 20px; background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border);">
-          ← Back to List
-        </button>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; gap: 12px;">
+          <button class="btn back-btn" id="backToListBtn" style="background: var(--bg-secondary); color: var(--text); border: 1px solid var(--border);">
+            ← Back to List
+          </button>
+          <button class="btn" id="deleteAnalysisBtn" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);">
+            🗑️ Delete Analysis
+          </button>
+        </div>
         
         <div style="color: green; padding: 20px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4caf50; margin-bottom: 20px;">
           <h3>📊 Saved Analysis</h3>
@@ -334,6 +339,19 @@ export class AnalysesPage {
         e.preventDefault();
         e.stopPropagation();
         this.goBackToList();
+      });
+    }
+    
+    // Attach delete button listener
+    const deleteBtn = document.getElementById("deleteAnalysisBtn");
+    if (deleteBtn) {
+      deleteBtn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (confirm(`Are you sure you want to delete this analysis? This action cannot be undone.`)) {
+          await this.deleteAnalysis(runId);
+          this.goBackToList();
+        }
       });
     }
   }
