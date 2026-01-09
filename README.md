@@ -8,7 +8,7 @@ A production-ready **Generative Engine Optimization (GEO)** platform that helps 
 
 ## Overview
 
-This platform answers the core question: **"How does ChatGPT talk about my company today — and how does that change over time?"**
+This platform answers the core question: **"How does ChatGPT talk about my company today"**
 
 The system performs comprehensive analysis by:
 1. Crawling and ingesting website content
