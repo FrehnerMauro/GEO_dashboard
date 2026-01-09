@@ -1,7 +1,6 @@
 # GEO Platform
 
-A production-ready **Generative Engine Optimization (GEO)** platform that helps companies optimize their website, content, and brand visibility for generative AI systems, starting with ChatGPT (GPT-5).
-
+A production-ready **Generative Engine Optimization (GEO)** platform that helps companies optimize their website, content, and brand visibility for generative AI systems, starting with ChatGPT.
 ## Overview
 
 This platform answers the core question: **"How does ChatGPT talk about my company?"**
