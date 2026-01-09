@@ -2,7 +2,7 @@
  * API Types and Interfaces
  */
 
-import { getCorsHeaders as getCorsHeadersFromMiddleware } from "./middleware/cors.js";
+import { getCorsHeaders } from "./middleware/cors.js";
 
 export interface Env {
   geo_db: D1Database;
@@ -10,7 +10,4 @@ export interface Env {
   [key: string]: any;
 }
 
-export type CorsHeaders = ReturnType<typeof getCorsHeadersFromMiddleware>;
-
-// Re-export for backward compatibility
-export { getCorsHeadersFromMiddleware as getCorsHeaders };
+export type CorsHeaders = ReturnType<typeof getCorsHeaders>;

@@ -14,7 +14,6 @@
   },
   "dependencies": {
     "@cloudflare/workers-types": "^4.20241127.0",
-    "cheerio": "^1.0.0",
     "openai": "^4.67.0"
   },
   "devDependencies": {

@@ -2,13 +2,6 @@
  * Sitemap and Link Extraction Utilities
  */
 
-export interface SitemapUrl {
-  loc: string;
-  lastmod?: string;
-  changefreq?: string;
-  priority?: string;
-}
-
 /**
  * Try to fetch sitemap from common locations
  */
