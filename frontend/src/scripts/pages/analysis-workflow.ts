@@ -271,8 +271,8 @@ export class AnalysisWorkflow {
     let html = '<div style="margin-bottom: 20px;">';
     html += `<h3 style="margin-bottom: 16px; color: var(--gray-900); font-size: 20px;">📋 Select Categories (${categories.length} found)</h3>`;
     html +=
-      '<div style="padding: 16px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(251, 191, 36, 0.08) 100%); border-radius: 8px; border-left: 4px solid var(--primary); margin-bottom: 20px;">';
-    html += '<p style="color: var(--gray-600); font-size: 14px; line-height: 1.6; margin: 0;"><strong>What happens next?</strong> For each selected category, the system will generate questions that test how well your content answers common user queries. Select all categories you want to analyze, or choose specific ones to focus on.</p>';
+      '<div class="info-box-compact" style="margin-bottom: 20px;">';
+    html += '<p class="info-box-compact-description" style="margin: 0;"><strong>What happens next?</strong> For each selected category, the system will generate questions that test how well your content answers common user queries. Select all categories you want to analyze, or choose specific ones to focus on.</p>';
     html += '</div>';
     html += "</div>";
 
@@ -492,8 +492,8 @@ export class AnalysisWorkflow {
     let html = '<div style="margin-bottom: 20px;">';
     html += `<h3 style="margin-bottom: 16px; color: var(--gray-900); font-size: 20px;">❓ Select Questions (${prompts.length} generated)</h3>`;
     html +=
-      '<div style="padding: 16px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(251, 191, 36, 0.08) 100%); border-radius: 8px; border-left: 4px solid var(--primary); margin-bottom: 20px;">';
-    html += '<p style="color: var(--gray-600); font-size: 14px; line-height: 1.6; margin: 0;"><strong>What happens next?</strong> Selected questions will be executed with web search to find where your brand is mentioned and cited. This helps measure your content\'s visibility and authority. Select all questions or choose specific ones to analyze.</p>';
+      '<div class="info-box-compact" style="margin-bottom: 20px;">';
+    html += '<p class="info-box-compact-description" style="margin: 0;"><strong>What happens next?</strong> Selected questions will be executed with web search to find where your brand is mentioned and cited. This helps measure your content\'s visibility and authority. Select all questions or choose specific ones to analyze.</p>';
     html += '</div>';
     html += "</div>";
 

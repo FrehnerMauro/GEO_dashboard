@@ -234,17 +234,17 @@
                 your analyses or start a new one.
               </p>
               <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 24px;">
-                <div style="padding: 20px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(59, 130, 246, 0.05) 100%); border-radius: 12px; border-left: 4px solid var(--primary);">
-                  <div style="font-size: 32px; margin-bottom: 12px;">📊</div>
-                  <h4 style="font-size: 18px; font-weight: 700; margin-bottom: 8px; color: var(--text);">Local View</h4>
-                  <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+                <div class="feature-card">
+                  <div class="feature-card-icon">📊</div>
+                  <h4 class="feature-card-title">Local View</h4>
+                  <p class="feature-card-description">
                     Browse analyses organized by company. View detailed results, questions, and summaries for each analysis run.
                   </p>
                 </div>
-                <div style="padding: 20px; background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(251, 191, 36, 0.05) 100%); border-radius: 12px; border-left: 4px solid var(--accent);">
-                  <div style="font-size: 32px; margin-bottom: 12px;">🌐</div>
-                  <h4 style="font-size: 18px; font-weight: 700; margin-bottom: 8px; color: var(--text);">Global View</h4>
-                  <p style="font-size: 14px; color: var(--text-secondary); line-height: 1.6;">
+                <div class="feature-card accent">
+                  <div class="feature-card-icon">🌐</div>
+                  <h4 class="feature-card-title">Global View</h4>
+                  <p class="feature-card-description">
                     Explore all questions and answers across all analyses, organized by category. Perfect for finding patterns and insights.
                   </p>
                 </div>
@@ -258,24 +258,22 @@
       <div id="aiAnalysisSection" class="dashboard-section" style="display: none;">
         <div class="content-area">
           <!-- Info Section -->
-          <div class="card" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(251, 191, 36, 0.08) 100%); border: 1px solid rgba(59, 130, 246, 0.2);">
-            <div class="card-body" style="padding: 24px;">
-              <div style="display: flex; align-items: start; gap: 16px;">
-                <div style="font-size: 32px; flex-shrink: 0;">💡</div>
-                <div style="flex: 1;">
-                  <h4 style="font-size: 18px; font-weight: 700; margin-bottom: 12px; color: var(--text);">How Prompt Analysis Works</h4>
-                  <p style="font-size: 14px; line-height: 1.7; color: var(--text-secondary); margin-bottom: 16px;">
-                    This tool analyzes your website content and generates AI-powered questions to evaluate how well your content 
-                    answers common user queries. The analysis will:
-                  </p>
-                  <ol style="margin: 0; padding-left: 20px; color: var(--text-secondary); font-size: 14px; line-height: 1.8;">
-                    <li><strong>Extract content</strong> from your website (via sitemap or homepage links)</li>
-                    <li><strong>Generate categories</strong> based on your content using AI</li>
-                    <li><strong>Create questions</strong> for each category to test content coverage</li>
-                    <li><strong>Execute questions</strong> with web search to find mentions and citations</li>
-                    <li><strong>Provide insights</strong> on content performance and optimization opportunities</li>
-                  </ol>
-                </div>
+          <div class="info-box">
+            <div class="info-box-content">
+              <div class="info-box-icon">💡</div>
+              <div class="info-box-text">
+                <h4 class="info-box-title">How Prompt Analysis Works</h4>
+                <p class="info-box-description">
+                  This tool analyzes your website content and generates AI-powered questions to evaluate how well your content 
+                  answers common user queries. The analysis will:
+                </p>
+                <ol class="info-box-list">
+                  <li><strong>Extract content</strong> from your website (via sitemap or homepage links)</li>
+                  <li><strong>Generate categories</strong> based on your content using AI</li>
+                  <li><strong>Create questions</strong> for each category to test content coverage</li>
+                  <li><strong>Execute questions</strong> with web search to find mentions and citations</li>
+                  <li><strong>Provide insights</strong> on content performance and optimization opportunities</li>
+                </ol>
               </div>
             </div>
           </div>
@@ -412,23 +410,21 @@
       <div id="aiReadabilitySection" class="dashboard-section" style="display: none;">
         <div class="content-area">
           <!-- Info Section -->
-          <div class="card" style="margin-bottom: 24px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(251, 191, 36, 0.08) 100%); border: 1px solid rgba(59, 130, 246, 0.2);">
-            <div class="card-body" style="padding: 24px;">
-              <div style="display: flex; align-items: start; gap: 16px;">
-                <div style="font-size: 32px; flex-shrink: 0;">🤖</div>
-                <div style="flex: 1;">
-                  <h4 style="font-size: 18px; font-weight: 700; margin-bottom: 12px; color: var(--text);">AI Readiness Analysis</h4>
-                  <p style="font-size: 14px; line-height: 1.7; color: var(--text-secondary); margin-bottom: 16px;">
-                    Evaluate how well your website is optimized for AI search engines and chatbots. This analysis checks:
-                  </p>
-                  <ul style="margin: 0; padding-left: 20px; color: var(--text-secondary); font-size: 14px; line-height: 1.8;">
-                    <li><strong>robots.txt</strong> - Search engine crawling directives</li>
-                    <li><strong>Sitemap availability</strong> - XML sitemap for content discovery</li>
-                    <li><strong>Content structure</strong> - How well your content is organized</li>
-                    <li><strong>AI compatibility</strong> - Readiness score for AI-powered search</li>
-                    <li><strong>Recommendations</strong> - Actionable improvements for better AI visibility</li>
-                  </ul>
-                </div>
+          <div class="info-box">
+            <div class="info-box-content">
+              <div class="info-box-icon">🤖</div>
+              <div class="info-box-text">
+                <h4 class="info-box-title">AI Readiness Analysis</h4>
+                <p class="info-box-description">
+                  Evaluate how well your website is optimized for AI search engines and chatbots. This analysis checks:
+                </p>
+                <ul class="info-box-list">
+                  <li><strong>robots.txt</strong> - Search engine crawling directives</li>
+                  <li><strong>Sitemap availability</strong> - XML sitemap for content discovery</li>
+                  <li><strong>Content structure</strong> - How well your content is organized</li>
+                  <li><strong>AI compatibility</strong> - Readiness score for AI-powered search</li>
+                  <li><strong>Recommendations</strong> - Actionable improvements for better AI visibility</li>
+                </ul>
               </div>
             </div>
           </div>

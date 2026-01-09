@@ -353,9 +353,9 @@ export class DashboardPage {
           return `
             <div class="local-view">
               <button class="back-btn">← Back to Analyses</button>
-              <div style="margin-bottom: 24px; padding: 20px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(251, 191, 36, 0.08) 100%); border-radius: 12px; border-left: 4px solid var(--primary);">
-                <h3 style="margin-bottom: 12px; font-size: 24px; font-weight: 700; color: var(--text); font-family: 'Space Grotesk', sans-serif;">📊 Analysis Details</h3>
-                <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin: 0;">
+              <div class="info-box-compact">
+                <h3 class="info-box-compact-title">📊 Analysis Details</h3>
+                <p class="info-box-compact-description">
                   View all questions asked during this analysis, their answers, and performance metrics including brand mentions and citations.
                 </p>
               </div>
@@ -387,9 +387,9 @@ export class DashboardPage {
         return `
           <div class="local-view">
             <button class="back-btn">← Back to Companies</button>
-            <div style="margin-bottom: 24px; padding: 20px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(251, 191, 36, 0.08) 100%); border-radius: 12px; border-left: 4px solid var(--primary);">
-              <h3 style="margin-bottom: 8px; font-size: 24px; font-weight: 700; color: var(--text); font-family: 'Space Grotesk', sans-serif;">📋 Analyses: ${company?.name || company?.websiteUrl || "Unknown"}</h3>
-              <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin: 0;">
+            <div class="info-box-compact">
+              <h3 class="info-box-compact-title">📋 Analyses: ${company?.name || company?.websiteUrl || "Unknown"}</h3>
+              <p class="info-box-compact-description">
                 Click on an analysis to view detailed results including all questions, answers, brand mentions, and citations.
               </p>
             </div>
@@ -426,9 +426,9 @@ export class DashboardPage {
         // Show company list
         return `
           <div class="local-view">
-            <div style="margin-bottom: 24px; padding: 20px; background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(251, 191, 36, 0.08) 100%); border-radius: 12px; border-left: 4px solid var(--primary);">
-              <h3 style="margin-bottom: 12px; font-size: 24px; font-weight: 700; color: var(--text); font-family: 'Space Grotesk', sans-serif;">📊 Local View - Companies</h3>
-              <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin: 0;">
+            <div class="info-box-compact">
+              <h3 class="info-box-compact-title">📊 Local View - Companies</h3>
+              <p class="info-box-compact-description">
                 Browse analyses organized by company. Click on a company to see all its analyses, then click on an analysis to view detailed results including questions, answers, mentions, and citations.
               </p>
             </div>
@@ -486,9 +486,9 @@ export class DashboardPage {
         return `
           <div class="global-view">
             <button class="back-btn">← Back to Categories</button>
-            <div style="margin-bottom: 24px; padding: 20px; background: linear-gradient(135deg, rgba(251, 191, 36, 0.08) 0%, rgba(59, 130, 246, 0.08) 100%); border-radius: 12px; border-left: 4px solid var(--accent);">
-              <h3 style="margin-bottom: 8px; font-size: 24px; font-weight: 700; color: var(--text); font-family: 'Space Grotesk', sans-serif;">📁 Category: ${this.selectedCategory}</h3>
-              <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin: 0;">
+            <div class="info-box-compact">
+              <h3 class="info-box-compact-title">📁 Category: ${this.selectedCategory}</h3>
+              <p class="info-box-compact-description">
                 View all questions and answers in this category across all analyses. This helps you understand how different websites answer similar questions.
               </p>
             </div>
@@ -550,9 +550,9 @@ export class DashboardPage {
         
         return `
           <div class="global-view">
-            <div style="margin-bottom: 24px; padding: 20px; background: linear-gradient(135deg, rgba(251, 191, 36, 0.08) 0%, rgba(59, 130, 246, 0.08) 100%); border-radius: 12px; border-left: 4px solid var(--accent);">
-              <h3 style="margin-bottom: 12px; font-size: 24px; font-weight: 700; color: var(--text); font-family: 'Space Grotesk', sans-serif;">🌐 Global View - All Categories</h3>
-              <p style="color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin: 0;">
+            <div class="info-box-compact">
+              <h3 class="info-box-compact-title">🌐 Global View - All Categories</h3>
+              <p class="info-box-compact-description">
                 Explore all questions and answers across all analyses, organized by category. This view helps you identify patterns, find common questions, and understand content coverage across different topics.
               </p>
             </div>
