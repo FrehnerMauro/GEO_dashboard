@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { CategoryGenerator } from "../src/categorization/index.js";
-import type { WebsiteContent } from "../src/types.js";
+import { CategoryGenerator } from "../shared/categorization/index.js";
+import type { WebsiteContent } from "../shared/types.js";
 
 describe("CategoryGenerator", () => {
   const generator = new CategoryGenerator();

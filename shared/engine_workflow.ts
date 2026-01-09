@@ -60,55 +60,6 @@ export class WorkflowEngine {
     }
   }
 
-  // Step 2: Fetch content from URLs
-  async step2FetchContent(
-    runId: string,
-    urls: string[],
-    language: string,
-    env: Record<string, any>
-  ): Promise<{ pageCount: number; content: string }> {
-    const db = new Database(env.geo_db as D1Database);
-
-    await db.db
-      .prepare("UPDATE analysis_runs SET step = ?, updated_at = ? WHERE id = ?")
-      .bind("content", new Date().toISOString(), runId)
-      .run();
-
-    // Limit to first 50 URLs for performance
-    const urlsToFetch = urls.slice(0, 50);
-    let pageCount = 0;
-    const allContent: string[] = [];
-
-    for (const url of urlsToFetch) {
-      try {
-        const response = await fetch(url, {
-          headers: { "User-Agent": this.config.crawling.userAgent },
-          signal: AbortSignal.timeout(this.config.crawling.timeout),
-        });
-
-        if (response.ok) {
-          const html = await response.text();
-          // Extract text content (simplified)
-          const textContent = this.extractTextContent(html);
-          allContent.push(textContent);
-          pageCount++;
-        }
-      } catch (error) {
-        // Skip failed URLs
-        continue;
-      }
-    }
-
-    const combinedContent = allContent.join("\n\n");
-
-    await db.db
-      .prepare("UPDATE analysis_runs SET step = ?, updated_at = ? WHERE id = ?")
-      .bind("categories", new Date().toISOString(), runId)
-      .run();
-
-    return { pageCount, content: combinedContent };
-  }
-
   private extractTextContent(html: string): string {
     // Remove script and style tags
     let text = html.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "");
@@ -966,19 +917,5 @@ Kein anderer Text, nur gültiges JSON.`;
   }
 
   // Save user-edited prompts
-  async saveUserPrompts(
-    runId: string,
-    prompts: Prompt[],
-    env: Record<string, any>
-  ): Promise<void> {
-    const db = new Database(env.geo_db as D1Database);
-
-    await db.db
-      .prepare(
-        "UPDATE analysis_runs SET selected_prompts = ?, updated_at = ? WHERE id = ?"
-      )
-      .bind(JSON.stringify(prompts), new Date().toISOString(), runId)
-      .run();
-  }
 }
 

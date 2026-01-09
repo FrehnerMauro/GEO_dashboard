@@ -1,10 +1,10 @@
-man/**
+/**
  * Unit tests for prompt generation
  */
 
 import { describe, it, expect } from "vitest";
-import { PromptGenerator } from "../src/prompt_generation/index.js";
-import type { Category, UserInput } from "../src/types.js";
+import { PromptGenerator } from "../shared/prompt_generation/index.js";
+import type { Category, UserInput } from "../shared/types.js";
 
 describe("PromptGenerator", () => {
   const generator = new PromptGenerator();

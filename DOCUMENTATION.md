@@ -4,45 +4,44 @@
 
 1. [Project Overview](#project-overview)
 2. [Project Background & Evolution](#project-background--evolution)
-3. [State of the Art](#state-of-the-art)
-4. [Architecture](#architecture)
-5. [Technology Stack](#technology-stack)
-6. [Project Structure](#project-structure)
-7. [Core Modules](#core-modules)
-8. [API Documentation](#api-documentation)
-9. [Frontend Documentation](#frontend-documentation)
-10. [Database Schema](#database-schema)
-11. [Configuration](#configuration)
-12. [Development Guide](#development-guide)
-13. [Deployment Guide](#deployment-guide)
-14. [Testing](#testing)
-15. [Workflow Engine](#workflow-engine)
-16. [Analysis Engine](#analysis-engine)
-17. [Implementation Status](#implementation-status)
-18. [Future Enhancements](#future-enhancements)
+3. [Architecture](#architecture)
+4. [Technology Stack](#technology-stack)
+5. [Project Structure](#project-structure)
+6. [Core Modules](#core-modules)
+7. [API Documentation](#api-documentation)
+8. [Frontend Documentation](#frontend-documentation)
+9. [Database Schema](#database-schema)
+10. [Configuration](#configuration)
+11. [Development Guide](#development-guide)
+12. [Deployment Guide](#deployment-guide)
+13. [Testing](#testing)
+14. [Workflow Engine](#workflow-engine)
+15. [Analysis Engine](#analysis-engine)
+16. [Implementation Status](#implementation-status)
+17. [Future Enhancements](#future-enhancements)
 
 ---
 
 ## Project Overview
 
-The **GEO Platform** (Generative Engine Optimization) is a production-ready platform that helps companies optimize their website, content, and brand visibility for generative AI systems, starting with ChatGPT (GPT-4).
+**GEO Platform** (Generative Engine Optimization) analyzes brand visibility in generative AI responses.
 
-**🌐 Live Production:** https://geo.socialhabit.org
+**🌐 Live:** https://geo.socialhabit.org
 
 ### Core Purpose
 
-The platform answers the fundamental question: **"How does ChatGPT talk about my company today — and how does that change over time?"**
+Analyzes how ChatGPT responds to questions about a company and tracks changes over time.
 
-### Key Features
+### Features
 
-- **Website Content Ingestion**: Automated crawling and content extraction
-- **Intelligent Categorization**: Thematic category extraction from website content
-- **Prompt Generation**: High-intent, brand-neutral question generation
-- **LLM Execution**: Integration with OpenAI's GPT models with web search capabilities
-- **Comprehensive Analysis**: Brand mentions, citations, competitor detection, and sentiment analysis
-- **Time-Series Tracking**: Historical trend analysis and visibility monitoring
-- **Interactive Workflow**: Step-by-step analysis process with user control
-- **Multi-Tenant Support**: Company-based organization of analyses
+- Website content crawling and extraction
+- Category generation from content
+- Prompt generation
+- LLM execution with web search (OpenAI API)
+- Analysis: brand mentions, citations, competitors
+- Interactive step-by-step workflow
+- Multi-tenant support (company-based)
+- AI readiness analysis
 
 ---
 
@@ -50,234 +49,45 @@ The platform answers the fundamental question: **"How does ChatGPT talk about my
 
 ### First Project: Bot Observatory
 
-The GEO Platform evolved from an initial project focused on understanding and measuring bot traffic and AI readiness. The first project addressed three key questions:
+The first project (Bot Observatory) addressed three questions:
 
 1. **How can I measure bot traffic?** → Bot Observatory
-   - Developed tools to track and analyze bot traffic patterns
-   - Identified different types of bots and their behavior
+   - Tools for bot traffic analysis
    - Dashboard: https://Bot-dashboard.socialhabit.org
 
-2. **How can I improve my content for AI?** → AI Readiness Evaluation
-   - Created tools to assess content's AI-friendliness
-   - Evaluated technical requirements (sitemap, robots.txt, accessibility)
-   - Analyzed content structure and semantic organization
+2. **How can I improve content for AI?** → AI Readiness Evaluation
+   - Assessment of content's AI-friendliness
 
 3. **How close together are topics on my site?** → Semantic Analysis
-   - Developed semantic analysis tools to understand content relationships
-   - Mapped topic proximity and content clustering
-   - Identified content gaps and opportunities
+   - Analysis of content relationships
+   - Topic proximity and content clustering
 
-**Tools Used in First Project:**
+**Tools used in first project:**
 - ChatGPT for development assistance
-- Cloudflare for hosting and infrastructure
+- Cloudflare for hosting
 
-### Evolution to GEO Platform
+### Origin of GEO Platform Idea
 
-Based on learnings from the first project, the GEO Platform was developed with a focus on:
+After Bot Observatory, new ideas were explored:
 
-**Key Innovations:**
+1. **Research:** Asked GPT: "What are the 5 best LLM optimization sites?"
+2. **Analysis:** Examined what other platforms do (see "State of the Art" section)
+3. **Idea:** Instead of just observing own crawler on own site → **Ask questions to GPT with Web Search**
+   - Generate questions that should make the webpage appear
+   - Check if brand appears as desired in AI responses
+   - Identify which other providers appear in the same context
+   - Analyze competitive positioning
 
-1. **Question-Based Approach (Local)**
-   - Instead of just observing own crawler on own site, the platform works with questions to GPT to see how they answer
-   - Generates questions that one expects should make the webpage appear
-   - Validates if the brand is seen as desired in AI responses
-   - Identifies which other provider links appear in the same context
-   - Analyzes competitive positioning: "Do I get lost among competitors?"
+### Development of GEO Platform
 
-2. **Repeatable Analysis**
-   - Can repeat analysis multiple times with the same questions
-   - Tracks improvements and deteriorations over time
-   - Enables trend analysis and performance monitoring
+**Differences from Bot Observatory:**
+- Question-based approach instead of passive observation
+- Competitive analysis
+- Better architecture (separation of concerns, unit tests)
 
-3. **Competitive Analysis**
-   - Analyzes competitors (other links) more precisely
-   - Helps position better to be mentioned more favorably in relevant questions
-   - Identifies white space opportunities
-
-4. **Global Question Database**
-   - Free access to a large palette of questions in all directions
-   - Covers many topics that can be analyzed once enough data is collected
-   - Enables comprehensive market analysis
-
-5. **AI Readiness Integration**
-   (Local)
-   - Ensures site is reachable for AI, fast without errors
-   - Validates sitemap and robots.txt files
-   - Provides AI readiness testing and recommendations
-
-**Improved Architecture**
-   - Better separation of concerns
-   - Comprehensive unit testing
-   - Clean, appealing UI where analysis can be followed in real-time
-   - Production URL: https://geo.socialhabit.org
-
-### Development Tools Evolution
-
-**Initial Approach:**
-- ChatGPT for development assistance
-- Limitations: GPT loses overview quickly on larger projects
-
-**Current Approach:**
-- **Cursor**: Much better for larger projects, maintains context across files
-- Better code navigation and understanding
-- Improved productivity for complex codebases
-
----
-
-## State of the Art
-
-### Existing GEO & LLM Optimization Platforms
-
-The market for Generative Engine Optimization (GEO) and LLM optimization is rapidly evolving. Here's an overview of the top companies and platforms currently offering GEO solutions:
-
-#### 1. Profound
-
-**What it does:**
-- Monitors and optimizes brand/site visibility in AI search engines and LLM-based "answer engines" (ChatGPT, Google AI Overview, Gemini, Perplexity, etc.)
-
-**Best for:**
-- Comprehensive visibility tracking + actionable insights
-- Shows where and how AI answers cite your content
-- Identifies what's driving citations and what to optimize
-
-**Website:** https://profound.io
-
-#### 2. Semrush (AI + GEO Features)
-
-**What it does:**
-- Combines traditional SEO with AI visibility metrics
-- Integrates SEO data with AI search insights
-- Tracks how brand/content appears in generative responses
-
-**Best for:**
-- Integrated SEO → AI workflow
-- Especially valuable if already using Semrush
-- Provides continuity from keywords to AI visibility strategy
-
-**Website:** https://www.semrush.com
-
-#### 3. Writesonic
-
-**What it does:**
-- Tracks and benchmarks brand's AI visibility across ChatGPT, Gemini, Perplexity, etc.
-- Provides optimization guidance tied to content performance
-
-**Best for:**
-- Practical, content-centric GEO execution
-- Not just dashboards, but helps find content and prompt gaps to close
-- Actionable content optimization recommendations
-
-**Website:** https://writesonic.com
-
-#### 4. Peec AI
-
-**What it does:**
-- AI search analytics platform focusing on brand performance and visibility metrics
-- Covers multiple LLMs with competitive benchmarking
-
-**Best for:**
-- Quick, actionable AI insights
-- Clear signal on which models are driving visibility
-- Identifies where to improve
-
-**Website:** https://peec.ai
-
-#### 5. LLMrefs
-
-**What it does:**
-- Tracks keyword rankings, citations, and competitor performance specifically for AI search/LLM environments
-
-**Best for:**
-- Benchmarking + optimization tracking
-- Focus on how LLMs cite you versus rivals
-- Actionable metrics on competitive positioning
-
-**Website:** https://llmrefs.com
-
-### How GEO Platform Differs
-
-The GEO Platform takes a unique approach compared to existing solutions:
-
-#### 1. **Question-Based Validation Approach**
-
-**Existing Solutions:**
-- Primarily observe and crawl their own sites
-- Monitor AI responses passively
-- Focus on citation tracking
-
-**GEO Platform:**
-- **Active Question Generation**: Generates questions that should trigger brand mentions
-- **Validation Testing**: Tests if brand appears as desired in AI responses
-- **Intent-Based**: Focuses on high-intent, realistic customer queries
-- **Brand-Neutral Generation**: Creates questions without forcing brand mentions
-
-#### 2. **Cost-Effective Methodology**
-
-**Challenge:**
-- Running comprehensive crawlers and monitoring can be expensive
-- API costs for LLM queries add up quickly
-
-**GEO Platform Solution:**
-- Generates targeted questions that should make webpage appear
-- Validates visibility without exhaustive crawling
-- Efficient use of API calls with rate limiting
-- Focuses on high-value questions rather than broad monitoring
-
-#### 3. **Competitive Positioning Analysis**
-
-**Unique Features:**
-- Identifies which other providers appear in the same context
-- Answers: "Do I get lost among competitors?"
-- Analyzes competitor citations and mentions
-- Provides actionable insights for better positioning
-
-#### 4. **Time-Series Tracking**
-
-- Repeats analysis with same questions over time
-- Tracks improvements and deteriorations
-- Enables trend analysis and performance monitoring
-- Historical data for trend analysis
-
-#### 5. **Global Question Database**
-
-- Free access to large palette of questions across many topics
-- Comprehensive market analysis capabilities
-- Community-driven question generation
-- Cross-company insights
-
-#### 6. **Integrated AI Readiness**
-
-- Built-in AI readiness testing
-- Validates technical requirements (sitemap, robots.txt)
-- Ensures site is reachable and fast for AI
-- Provides actionable recommendations
-
-#### 7. **Interactive Workflow**
-
-- Step-by-step analysis process
-- User control at each stage
-- Category and prompt selection/editing
-- Real-time progress tracking
-
-### Competitive Advantages
-
-1. **Question-First Approach**: Validates visibility through targeted questions rather than passive monitoring
-2. **Cost Efficiency**: Optimized API usage and targeted analysis
-3. **Competitive Intelligence**: Deep competitor analysis and positioning insights
-4. **Time-Series Analysis**: Historical tracking and trend analysis
-5. **Open Architecture**: Extensible and customizable
-6. **Developer-Friendly**: Clean codebase with comprehensive testing
-7. **Multi-Tenant Support**: Company-based organization for agencies and enterprises
-
-### Market Position
-
-The GEO Platform fills a gap in the market by:
-
-- Providing a **question-based validation approach** that's more cost-effective than comprehensive crawling
-- Offering **competitive positioning analysis** that goes beyond simple citation tracking
-- Enabling **time-series analysis** for trend monitoring
-- Combining **AI readiness testing** with GEO analysis
-- Providing an **open, extensible platform** for customization
+**Development tools:**
+- **Cursor** instead of ChatGPT (better code navigation, context across multiple files)
+- Cloudflare Workers + D1
 
 ---
 
@@ -356,7 +166,7 @@ Response
 
 ### External Services
 
-- **OpenAI API**: GPT-4o / GPT-5 for LLM execution
+- **OpenAI API**: GPT-4o (default, configurable) for LLM execution
 - **Cloudflare**: Workers, D1, Pages
 
 ---
@@ -482,9 +292,9 @@ shared/
 **Purpose**: Extract thematic categories from website content
 
 **Approach**:
-- **GPT-Based**: Uses GPT-4o-mini to generate categories from content
-- **Traditional Fallback**: Keyword-based category extraction
-- **Hybrid**: Merges GPT and traditional results
+- GPT-based: Uses GPT-4o-mini to generate categories
+- Traditional fallback: Keyword-based extraction
+- Hybrid: Merges GPT and traditional results
 
 **Category Types**:
 - Product
@@ -512,11 +322,11 @@ interface Category {
 **Purpose**: Generate high-intent, brand-neutral questions
 
 **Features**:
-- **Language-Specific**: Supports English, German, French
-- **Region-Aware**: Incorporates country/region context
-- **Brand-Neutral**: No forced self-mentions
-- **Intent-Scored**: High/medium/low intent classification
-- **GPT-Enhanced**: Uses GPT-4o-mini for realistic question generation
+- Language-specific: English, German, French
+- Region-aware: Incorporates country/region context
+- Brand-neutral: No forced self-mentions
+- Intent-scored: High/medium/low classification
+- GPT-based: Uses GPT-4o-mini for question generation
 
 **Example Output**:
 - German: "Wer ist in Zürich für Kassensystem?"
@@ -536,26 +346,28 @@ interface Category {
 **Purpose**: Execute prompts against OpenAI's GPT models with web search
 
 **Features**:
-- **Model Support**: GPT-4o, GPT-5 (configurable)
-- **Web Search**: Native web search integration
-- **Citation Extraction**: Parses citations from responses
-- **Rate Limiting**: Built-in delays between API calls
-- **Error Handling**: Fallback mechanisms for API failures
+- Model support: GPT-4o (default, configurable)
+- Web search: Via OpenAI Responses API (`/v1/responses`)
+- Citation extraction: Parses citations from responses
+- Rate limiting: Built-in delays between API calls
+- Error handling: Fallback mechanisms
+
+**Note**: The system uses two OpenAI APIs:
+- **Responses API** (`/v1/responses`): For prompt execution with web search
+- **Chat Completions API** (`/v1/chat/completions`): For category and prompt generation (GPT-4o-mini)
 
 **API Integration**:
 ```typescript
 {
-  model: "gpt-4o" | "gpt-5",
-  messages: [{ role: "user", content: question }],
+  model: config.openai.model, // Default: "gpt-4o"
   tools: [{ type: "web_search" }],
-  tool_choice: "auto"
+  input: question
 }
 ```
 
 **Response Extraction**:
-- `output_text`: Main response text
-- `citations`: URL citations from web search
-- `web_search_sources`: Web search source URLs
+- `output[].content[].text`: Response text
+- `output[].content[].annotations`: URL citations
 
 ### 5. Analysis Module (`shared/analysis/`)
 
@@ -564,22 +376,22 @@ interface Category {
 **Components**:
 
 #### Brand Mention Detection (`brand_mention.ts`)
-- **Exact Matches**: Direct brand name mentions
-- **Fuzzy Matches**: Similarity-based detection (threshold: 0.7)
-- **Context Extraction**: Surrounding text where brand is mentioned
-- **Citation Analysis**: Detects brand mentions in citation URLs
+- Exact matches: Direct brand name mentions
+- Fuzzy matches: Similarity-based detection (threshold: 0.7)
+- Context extraction: Surrounding text
+- Citation analysis: Detects brand mentions in citation URLs
 
 #### Competitor Detection (`competitor.ts`)
-- **Co-Mention Detection**: Identifies competitors mentioned alongside brand
-- **Comparison Phrases**: Detects comparison language
-- **Mention Counting**: Tracks competitor mention frequency
-- **Context Extraction**: Captures competitor mention contexts
+- Co-mention detection: Identifies competitors mentioned alongside brand
+- Comparison phrases: Detects comparison language
+- Mention counting: Tracks frequency
+- Context extraction: Captures mention contexts
 
 #### Sentiment Analysis (`sentiment.ts`)
-- **Tone Classification**: positive, neutral, negative, mixed
-- **Confidence Scoring**: 0-1 confidence level
-- **Keyword Extraction**: Identifies sentiment-indicating keywords
-- **Keyword-Based**: Uses keyword matching (future: LLM-based)
+- Tone classification: positive, neutral, negative, mixed
+- Confidence scoring: 0-1
+- Keyword extraction: Identifies sentiment keywords
+- Keyword-based: Uses keyword matching (LLM-based planned)
 
 **Output**:
 ```typescript
@@ -638,9 +450,7 @@ interface PromptAnalysis {
 3. Prompt generation
 4. LLM execution
 5. Result analysis
-6. Metrics calculation
-7. Competitive analysis
-8. Time-series data storage
+6. Time-series data storage
 
 **Features**:
 - **Non-Blocking**: Returns runId immediately, processes asynchronously
@@ -1003,7 +813,7 @@ Get analysis status.
   "status": "running",
   "step": "llm_execution",
   "progress": 50,
-  "message": "Executing prompts with GPT-5..."
+  "message": "Executing prompts with LLM..."
 }
 ```
 
@@ -1473,7 +1283,7 @@ Configuration is managed via environment variables and `shared/config.ts`.
 #### Optional Variables
 
 **OpenAI Configuration**:
-- `OPENAI_MODEL`: Model to use (default: `gpt-4o`)
+- `OPENAI_MODEL`: Model to use (default: `gpt-4o`, can be set to `gpt-5` if available)
 - `DEBUG_MODE`: Enable debug mode (default: `false`)
 
 **Crawling Configuration**:
@@ -1830,7 +1640,7 @@ The WorkflowEngine provides an interactive, step-by-step analysis process.
 #### Step 3: Category Generation
 
 - Uses GPT-4o-mini to generate categories from content
-- Falls back to traditional keyword-based extraction
+- Falls back to keyword-based extraction
 - Merges results and deduplicates
 - Ultimate fallback creates basic categories if all else fails
 
@@ -1849,9 +1659,9 @@ The WorkflowEngine provides an interactive, step-by-step analysis process.
 
 #### Step 5: LLM Execution
 
-- Executes all prompts with LLM (GPT-4o or GPT-5)
-- Only saves prompts that have successful responses
-- Extracts citations and web search sources
+- Executes prompts with LLM (default: GPT-4o, configurable)
+- Only saves prompts with successful responses
+- Extracts citations from responses
 - Stores responses in database
 
 ### User Interaction Points
@@ -1878,31 +1688,30 @@ The AnalysisEngine performs comprehensive analysis of LLM responses.
 
 #### 1. Brand Mention Detection
 
-- **Exact Matches**: Direct brand name mentions (case-insensitive)
-- **Fuzzy Matches**: Similarity-based detection using string similarity
-- **Context Extraction**: Captures surrounding text (50 chars before/after)
-- **Citation Analysis**: Checks if brand domain appears in citation URLs
+- Exact matches: Direct brand name mentions (case-insensitive)
+- Fuzzy matches: Similarity-based detection
+- Context extraction: Surrounding text (50 chars before/after)
+- Citation analysis: Checks if brand domain appears in citation URLs
 
 #### 2. Competitor Detection
 
-- **Co-Mention Detection**: Identifies other companies mentioned
-- **Comparison Phrases**: Detects comparison language ("vs", "compared to", etc.)
-- **Mention Counting**: Tracks frequency of competitor mentions
-- **Context Extraction**: Captures contexts where competitors are mentioned
+- Co-mention detection: Identifies other companies mentioned
+- Comparison phrases: Detects comparison language
+- Mention counting: Tracks frequency
+- Context extraction: Captures mention contexts
 
 #### 3. Sentiment Analysis
 
-- **Tone Classification**: positive, neutral, negative, mixed
-- **Keyword-Based**: Uses keyword matching (future: LLM-based)
-- **Confidence Scoring**: 0-1 confidence level
-- **Keyword Extraction**: Identifies sentiment-indicating keywords
+- Tone classification: positive, neutral, negative, mixed
+- Keyword-based: Uses keyword matching (LLM-based planned)
+- Confidence scoring: 0-1
+- Keyword extraction: Identifies sentiment keywords
 
 #### 4. Citation Analysis
 
-- **Citation Counting**: Counts total citations
-- **URL Extraction**: Extracts all citation URLs
-- **Brand Citation Detection**: Identifies citations where brand is mentioned
-- **Source Analysis**: Analyzes citation sources
+- Citation counting: Total citations
+- URL extraction: All citation URLs
+- Brand citation detection: Citations where brand is mentioned
 
 ### Metrics Calculation
 
@@ -1923,18 +1732,18 @@ Normalized to 0-100 scale
 
 #### Category Metrics
 
-- **Visibility Score**: Overall visibility (0-100)
-- **Citation Rate**: Average citations per prompt
-- **Brand Mention Rate**: Percentage of prompts with brand mentions
-- **Competitor Mention Rate**: Percentage of prompts with competitor mentions
+- Visibility score: 0-100
+- Citation rate: Average citations per prompt
+- Brand mention rate: Percentage of prompts with brand mentions
+- Competitor mention rate: Percentage of prompts with competitor mentions
 
 #### Competitive Analysis
 
-- **Brand Share**: Percentage of total mentions (brand vs competitors)
-- **Competitor Shares**: Individual competitor percentages
-- **White Space Topics**: Topics with demand but no dominant brand
-- **Dominated Prompts**: Prompts where competitors dominate
-- **Missing Brand Prompts**: Prompts with no brand mentions
+- Brand share: Percentage of total mentions
+- Competitor shares: Individual percentages
+- White space topics: Topics with demand but no dominant brand
+- Dominated prompts: Prompts where competitors dominate
+- Missing brand prompts: Prompts with no brand mentions
 
 ### Time-Series Tracking
 
@@ -1948,7 +1757,7 @@ Stores historical data for trend analysis:
 
 ## Implementation Status
 
-This section provides a clear overview of what is currently implemented and working in the GEO Platform.
+**Considerations:** What is already implemented, what is not yet? This section provides an overview of the current state.
 
 ### ✅ Fully Implemented Features
 
@@ -1977,8 +1786,8 @@ This section provides a clear overview of what is currently implemented and work
   - Rate limiting between API calls
 
 - ✅ **LLM Execution**
-  - Integration with OpenAI API (GPT-4o, GPT-5)
-  - Web search integration
+  - Integration with OpenAI API (GPT-4o default, configurable)
+  - Web search via Responses API
   - Citation extraction from responses
   - Response parsing and storage
   - Error handling and retries
@@ -2160,7 +1969,7 @@ This section provides a clear overview of what is currently implemented and work
 - ❌ Advanced entity extraction (NER models)
 - ❌ Content recommendations based on analysis
 - ❌ A/B testing for content optimization
-- ❌ Multi-LLM support (Claude, Gemini) - currently only OpenAI
+- ❌ Multi-LLM support (Claude, Gemini) - currently only OpenAI API
 
 #### Performance & Scalability
 
@@ -2189,16 +1998,16 @@ This section provides a clear overview of what is currently implemented and work
 
 ## Future Enhancements
 
-This section outlines potential future improvements and features that could be added to the GEO Platform.
+**Considerations:** Possible future improvements and features. This list should be understood as a collection of ideas, not as a roadmap.
 
 ### High Priority Enhancements
 
 #### 1. Authentication & Security
 
 **User Authentication System**
-- Implement user registration and login
+- User registration and login
 - JWT-based authentication
-- Password reset functionality
+- Password reset
 - Email verification
 - OAuth integration (Google, GitHub)
 
@@ -2211,7 +2020,7 @@ This section outlines potential future improvements and features that could be a
 **Security**
 - Rate limiting per user
 - Request validation
-- SQL injection prevention (already handled by D1, but additional validation)
+- SQL injection prevention (D1 handles this, additional validation possible)
 - XSS protection
 
 #### 2. Scheduled Analysis Runs
@@ -2233,8 +2042,8 @@ This section outlines potential future improvements and features that could be a
 
 **LLM-Based Sentiment**
 - Replace keyword-based with LLM-based sentiment analysis
-- More accurate sentiment detection
-- Nuanced sentiment scoring
+- More accurate detection
+- Nuanced scoring
 - Context-aware sentiment
 
 **Advanced Features**
@@ -2253,20 +2062,20 @@ This section outlines potential future improvements and features that could be a
 **Features**
 - LLM selection per analysis
 - Multi-LLM comparison
-- Cost optimization across providers
+- Cost optimization
 
 #### 5. Advanced Export & Reporting
 
 **Export Formats**
 - PDF reports
-- CSV data export
+- CSV export
 - Excel export
 - JSON API responses
 
 **Report Generation**
 - Custom report templates
-- Scheduled report generation
-- Email report delivery
+- Scheduled generation
+- Email delivery
 - Report history
 
 ### Medium Priority Enhancements
@@ -2274,38 +2083,38 @@ This section outlines potential future improvements and features that could be a
 #### 6. Data Visualization
 
 **Charts & Graphs**
-- Visibility score trends over time
-- Category comparison charts
-- Competitor share pie charts
+- Visibility score trends
+- Category comparison
+- Competitor share charts
 - Citation source distribution
 - Sentiment distribution
 
 **Interactive Dashboards**
-- Customizable dashboard widgets
-- Drag-and-drop dashboard builder
-- Real-time data updates
+- Customizable widgets
+- Drag-and-drop builder
+- Real-time updates
 - Dashboard sharing
 
 #### 7. Content Recommendations
 
 **AI-Powered Recommendations**
 - Content gap analysis
-- Optimization suggestions based on analysis
+- Optimization suggestions
 - Topic suggestions
 - Content structure recommendations
 
 **Features**
 - Actionable insights
-- Priority scoring for recommendations
+- Priority scoring
 - Implementation tracking
 
 #### 8. Advanced Entity Extraction
 
 **NER Models**
 - Named Entity Recognition
-- Product/service entity extraction
-- Person/company entity detection
-- Location entity extraction
+- Product/service extraction
+- Person/company detection
+- Location extraction
 
 **Features**
 - Entity relationship mapping
@@ -2330,8 +2139,8 @@ This section outlines potential future improvements and features that could be a
 **Webhooks**
 - Webhook configuration UI
 - Event-based webhooks (analysis complete, etc.)
-- Webhook retry logic
-- Webhook history and logs
+- Retry logic
+- History and logs
 
 **Use Cases**
 - Integration with external systems
@@ -2344,8 +2153,8 @@ This section outlines potential future improvements and features that could be a
 
 **Search**
 - Full-text search across analyses
-- Advanced search filters
-- Saved search queries
+- Advanced filters
+- Saved queries
 - Search history
 
 **Filtering**
@@ -2368,31 +2177,30 @@ This section outlines potential future improvements and features that could be a
 - Response caching
 - Category/prompt caching
 - Redis integration (if moving beyond Cloudflare)
-- Cache invalidation strategies
+- Cache invalidation
 
 #### 14. Background Job Queue
 
 **Async Processing**
 - Job queue for long-running tasks
 - Job status tracking
-- Job retry logic
-- Job priority system
+- Retry logic
+- Priority system
 
 #### 15. API Versioning
 
 **API Management**
-- Versioned API endpoints
+- Versioned endpoints
 - API documentation (OpenAPI/Swagger)
-- API rate limiting per tier
-- API usage analytics
+- Rate limiting per tier
+- Usage analytics
 
 #### 16. Dark Mode
 
 **UI Enhancement**
-- Dark theme implementation
+- Dark theme
 - Theme persistence
 - System theme detection
-- Smooth theme transitions
 
 #### 17. Mobile App
 
@@ -2405,9 +2213,9 @@ This section outlines potential future improvements and features that could be a
 #### 18. Integration Marketplace
 
 **Third-Party Integrations**
-- Google Analytics integration
-- Google Search Console integration
-- SEMrush integration
+- Google Analytics
+- Google Search Console
+- SEMrush
 - Custom integration framework
 - Integration marketplace UI
 
@@ -2419,7 +2227,6 @@ This section outlines potential future improvements and features that could be a
 - Response time improvements
 - Caching strategies
 - CDN integration
-- Image optimization
 
 #### 20. Monitoring & Observability
 
@@ -2427,7 +2234,7 @@ This section outlines potential future improvements and features that could be a
 - Error tracking (Sentry integration)
 - Log aggregation
 - Metrics dashboard
-- Alerting system
+- Alerting
 
 #### 21. Testing Enhancements
 
@@ -2435,7 +2242,6 @@ This section outlines potential future improvements and features that could be a
 - End-to-end tests
 - Performance tests
 - Load tests
-- Visual regression tests
 
 #### 22. Documentation Improvements
 
@@ -2443,7 +2249,6 @@ This section outlines potential future improvements and features that could be a
 - Interactive API explorer
 - Video tutorials
 - Use case examples
-- Best practices guide
 
 ### Research & Experimental Features
 
@@ -2453,18 +2258,16 @@ This section outlines potential future improvements and features that could be a
 - Domain-specific models
 - Multi-modal analysis (images, videos)
 - Predictive analytics
-- Anomaly detection
 
 #### 24. Collaborative Features
 
 - Team collaboration
 - Comments and annotations
 - Shared workspaces
-- Team analytics
 
 #### 25. Marketplace Features
 
-- Question marketplace (buy/sell questions)
+- Question marketplace
 - Template marketplace
 - Plugin system
 - Custom analysis modules

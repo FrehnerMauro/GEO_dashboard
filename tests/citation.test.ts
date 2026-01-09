@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { LLMExecutor } from "../src/llm_execution/index.js";
-import type { Config, Prompt } from "../src/types.js";
+import { LLMExecutor } from "../shared/llm_execution/index.js";
+import type { Config, Prompt } from "../shared/types.js";
 
 describe("LLMExecutor", () => {
   it("should create executor instance", () => {

@@ -71,13 +71,6 @@ export interface BrandMention {
   citations: number; // Anzahl der Markdown-Citations mit Brand-Domain
 }
 
-export interface CompetitorMention {
-  name: string;
-  count: number;
-  contexts: string[];
-  citations: string[];
-}
-
 export interface SentimentAnalysis {
   tone: "positive" | "neutral" | "negative" | "mixed";
   confidence: number;
@@ -97,7 +90,6 @@ export interface PromptAnalysis {
   citationCount: number;
   citationUrls: string[];
   brandCitations: BrandCitation[]; // Citations where the brand is mentioned
-  competitors: CompetitorMention[];
   sentiment: SentimentAnalysis;
   timestamp: string;
   // Structured answers to the three key questions:
@@ -105,7 +97,6 @@ export interface PromptAnalysis {
   mentionCount: number; // Wie viel?
   isCited: boolean; // Werde ich zitiert?
   citationDetails: Array<{ url: string; title?: string; snippet?: string }>; // Wo und was?
-  competitorDetails: Array<{ name: string; count: number; locations: string[] }>; // Welche anderen Unternehmen und wo?
 }
 
 export interface CategoryMetrics {
@@ -113,13 +104,12 @@ export interface CategoryMetrics {
   visibilityScore: number; // 0-100
   citationRate: number;
   brandMentionRate: number;
-  competitorMentionRate: number;
   timestamp: string;
 }
 
 export interface CompetitiveAnalysis {
   brandShare: number; // percentage
-  competitorShares: Record<string, number>;
+  competitorShares: Record<string, number>; // Kept for compatibility, always empty
   whiteSpaceTopics: string[];
   dominatedPrompts: string[];
   missingBrandPrompts: string[];
@@ -131,7 +121,6 @@ export interface TimeSeriesData {
   visibilityScore: number;
   citationCount: number;
   brandMentionCount: number;
-  competitorMentionCount: number;
 }
 
 export interface AnalysisResult {

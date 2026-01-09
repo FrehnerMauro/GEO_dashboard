@@ -11,24 +11,16 @@ export interface RouteDefinition {
 export const ROUTES: RouteDefinition[] = [
   // Workflow routes (used by frontend)
   { method: "POST", path: "/api/workflow/step1", handler: "workflow.step1" },
-  { method: "POST", path: "/api/workflow/step2", handler: "workflow.step2" },
   { method: "POST", path: "/api/workflow/step3", handler: "workflow.step3" },
   { method: "PUT", path: /^\/api\/workflow\/([^\/]+)\/categories$/, handler: "workflow.saveCategories" },
   { method: "POST", path: "/api/workflow/step4", handler: "workflow.step4" },
-  { method: "PUT", path: /^\/api\/workflow\/([^\/]+)\/prompts$/, handler: "workflow.savePrompts" },
   { method: "POST", path: "/api/workflow/step5", handler: "workflow.step5" },
   { method: "POST", path: "/api/workflow/fetchUrl", handler: "workflow.fetchUrl" },
-  { method: "POST", path: "/api/workflow/executePrompt", handler: "workflow.executePrompt" },
   { method: "POST", path: "/api/workflow/generateSummary", handler: "workflow.generateSummary" },
   { method: "POST", path: "/api/workflow/aiReadiness", handler: "workflow.aiReadiness" },
-  { method: "GET", path: /^\/api\/workflow\/aiReadiness\/([^\/]+)$/, handler: "workflow.getAIReadinessStatus" },
   
   // Analysis routes (used by frontend)
-  { method: "POST", path: "/api/analyze", handler: "analysis.analyze" },
   { method: "GET", path: "/api/analyses", handler: "analysis.getAll" },
-  { method: "GET", path: /^\/api\/analysis\/([^\/]+)$/, handler: "analysis.get" },
-  { method: "GET", path: /^\/api\/analysis\/([^\/]+)\/status$/, handler: "analysis.getStatus" },
-  { method: "GET", path: /^\/api\/analysis\/([^\/]+)\/metrics$/, handler: "analysis.getMetrics" },
   { method: "GET", path: /^\/api\/analysis\/([^\/]+)\/prompts-summary$/, handler: "analysis.getPromptsAndSummary" },
   { method: "DELETE", path: /^\/api\/analysis\/([^\/]+)$/, handler: "analysis.delete" },
   

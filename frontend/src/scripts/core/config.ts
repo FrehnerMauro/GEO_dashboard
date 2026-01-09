@@ -38,10 +38,8 @@ export function getApiBaseUrl(): string {
   // Development: Use relative URLs or localhost
   // Check if we're on localhost
   if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
-    // For local development, you might want to use localhost:8787
-    // return "http://localhost:8787";
-    // Or use relative URLs if running via wrangler pages dev
-    return "";
+    // For local development, point to the backend on port 8787
+    return "http://localhost:8787";
   }
 
   // Default: Use relative URLs (will work if _redirects is configured)

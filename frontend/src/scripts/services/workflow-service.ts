@@ -23,10 +23,6 @@ export class WorkflowService {
     return await apiClient.post<WorkflowStep1Result>("/api/workflow/step1", input);
   }
 
-  async step2FetchContent(runId: string, urls: string[], language: string): Promise<any> {
-    return await apiClient.post("/api/workflow/step2", { runId, urls, language });
-  }
-
   async step3GenerateCategories(runId: string, content: string, language: string): Promise<any> {
     return await apiClient.post("/api/workflow/step3", { runId, content, language });
   }
@@ -56,20 +52,12 @@ export class WorkflowService {
     });
   }
 
-  async savePrompts(runId: string, prompts: any[]): Promise<void> {
-    await apiClient.put(`/api/workflow/${runId}/prompts`, { prompts });
-  }
-
   async step5ExecutePrompts(runId: string, prompts?: any[]): Promise<any> {
     return await apiClient.post("/api/workflow/step5", { runId, prompts });
   }
 
   async fetchUrl(url: string): Promise<any> {
     return await apiClient.post("/api/workflow/fetchUrl", { url });
-  }
-
-  async executePrompt(runId: string, prompt: any, userInput: any): Promise<any> {
-    return await apiClient.post("/api/workflow/executePrompt", { runId, prompt, userInput });
   }
 
   async getPromptsAndSummary(runId: string): Promise<any> {

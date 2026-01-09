@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { BrandMentionDetector } from "../src/analysis/brand_mention.js";
-import type { LLMResponse } from "../src/types.js";
+import { BrandMentionDetector } from "../shared/analysis/brand_mention.js";
+import type { LLMResponse } from "../shared/types.js";
 
 describe("BrandMentionDetector", () => {
   it("should detect exact brand mentions", () => {

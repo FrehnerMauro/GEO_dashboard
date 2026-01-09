@@ -1,8 +1,10 @@
 # Cloudflare Pages redirects file
 # This file is used by Cloudflare Pages for routing
 
-# API routes should be proxied to Workers
-/api/*  https://geo-platform-backend.maurofrehner.workers.dev/api/:splat  200
+# API routes should be proxied to Workers (Production only)
+# Note: In development, the frontend uses http://localhost:8787 directly via config.ts
+# Uncomment this line for production deployment on Cloudflare Pages:
+# /api/*  https://geo-platform-backend.maurofrehner.workers.dev/api/:splat  200
 
 # SPA fallback - serve index.html for all routes
 /*    /index.html   200

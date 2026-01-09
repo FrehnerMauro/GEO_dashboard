@@ -3,9 +3,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { LLMExecutor } from "../src/llm_execution/index.js";
-import type { Config } from "../src/config.js";
-import type { Prompt } from "../src/types.js";
+import { LLMExecutor } from "../shared/llm_execution/index.js";
+import type { Config } from "../shared/config.js";
+import type { Prompt } from "../shared/types.js";
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -54,6 +54,9 @@ describe("LLMExecutor with Web Search", () => {
     it("should use 'input' instead of 'messages' in request body", async () => {
       const mockResponse = {
         ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers(),
         json: async () => [
           {
             type: "web_search_call",
@@ -114,6 +117,9 @@ describe("LLMExecutor with Web Search", () => {
     it("should extract output_text from correct Responses API structure", async () => {
       const mockResponse = {
         ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers(),
         json: async () => [
           {
             type: "web_search_call",
@@ -158,6 +164,9 @@ describe("LLMExecutor with Web Search", () => {
     it("should handle empty output_text gracefully", async () => {
       const mockResponse = {
         ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers(),
         json: async () => [
           {
             type: "message",
@@ -185,9 +194,9 @@ describe("LLMExecutor with Web Search", () => {
         createdAt: new Date().toISOString(),
       };
 
-      const result = await executor.executePrompt(prompt);
-
-      expect(result.outputText).toBe("");
+      await expect(executor.executePrompt(prompt)).rejects.toThrow(
+        "Keine Antwort von GPT-5 erhalten"
+      );
     });
   });
 
@@ -195,6 +204,9 @@ describe("LLMExecutor with Web Search", () => {
     it("should extract citations from annotations array", async () => {
       const mockResponse = {
         ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers(),
         json: async () => [
           {
             type: "web_search_call",
@@ -264,6 +276,9 @@ describe("LLMExecutor with Web Search", () => {
     it("should handle citations without title or snippet", async () => {
       const mockResponse = {
         ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers(),
         json: async () => [
           {
             type: "message",
@@ -311,6 +326,9 @@ describe("LLMExecutor with Web Search", () => {
     it("should deduplicate citations by URL", async () => {
       const mockResponse = {
         ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers(),
         json: async () => [
           {
             type: "message",
@@ -368,6 +386,7 @@ describe("LLMExecutor with Web Search", () => {
         ok: false,
         status: 401,
         statusText: "Unauthorized",
+        headers: new Headers(),
         text: async () => "Invalid API key",
       };
 
@@ -409,6 +428,9 @@ describe("LLMExecutor with Web Search", () => {
     it("should execute multiple prompts sequentially", async () => {
       const mockResponse1 = {
         ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers(),
         json: async () => [
           {
             type: "message",
@@ -426,6 +448,9 @@ describe("LLMExecutor with Web Search", () => {
 
       const mockResponse2 = {
         ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers(),
         json: async () => [
           {
             type: "message",
@@ -479,11 +504,15 @@ describe("LLMExecutor with Web Search", () => {
         ok: false,
         status: 500,
         statusText: "Internal Server Error",
+        headers: new Headers(),
         text: async () => "Server error",
       };
 
       const mockResponse2 = {
         ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers(),
         json: async () => [
           {
             type: "message",
@@ -536,6 +565,9 @@ describe("LLMExecutor with Web Search", () => {
     it("should handle complete Responses API response structure", async () => {
       const mockResponse = {
         ok: true,
+        status: 200,
+        statusText: "OK",
+        headers: new Headers(),
         json: async () => [
           {
             type: "web_search_call",

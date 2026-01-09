@@ -91,6 +91,9 @@ vi.mock("../shared/persistence/index.js", () => ({
         all: vi.fn().mockResolvedValue({ success: true, results: [] }),
       }),
     },
+    retryD1Operation: vi.fn().mockImplementation(async (operation) => {
+      return await operation();
+    }),
     saveAnalysisRun: vi.fn().mockResolvedValue(undefined),
     saveCategories: vi.fn().mockResolvedValue(undefined),
     savePrompts: vi.fn().mockResolvedValue(undefined),
@@ -178,64 +181,6 @@ describe("WorkflowEngine", () => {
       expect(result.runId).toBeDefined();
       expect(result.urls).toBeDefined();
       // Test that the method handles the result correctly regardless of foundSitemap value
-    });
-  });
-
-  describe("step2FetchContent", () => {
-    it("should fetch content from URLs", async () => {
-      mockFetch.mockResolvedValue({
-        ok: true,
-        text: async () => "<html><body>Test content</body></html>",
-      });
-
-      const result = await workflow.step2FetchContent(
-        "test_run_id",
-        ["https://example.com"],
-        "en",
-        mockEnv
-      );
-
-      expect(result.pageCount).toBeGreaterThan(0);
-      expect(result.content).toContain("Test content");
-    });
-
-    it("should limit to 50 URLs for performance", async () => {
-      const manyUrls = Array.from({ length: 100 }, (_, i) => `https://example.com/page${i}`);
-      mockFetch.mockResolvedValue({
-        ok: true,
-        text: async () => "<html><body>Content</body></html>",
-      });
-
-      const result = await workflow.step2FetchContent(
-        "test_run_id",
-        manyUrls,
-        "en",
-        mockEnv
-      );
-
-      expect(result.pageCount).toBeLessThanOrEqual(50);
-    });
-
-    it("should handle failed URL fetches gracefully", async () => {
-      mockFetch
-        .mockResolvedValueOnce({
-          ok: false,
-          status: 404,
-        })
-        .mockResolvedValueOnce({
-          ok: true,
-          text: async () => "<html><body>Success</body></html>",
-        });
-
-      const result = await workflow.step2FetchContent(
-        "test_run_id",
-        ["https://example.com/fail", "https://example.com/success"],
-        "en",
-        mockEnv
-      );
-
-      // Should continue with successful URLs
-      expect(result.pageCount).toBe(1);
     });
   });
 

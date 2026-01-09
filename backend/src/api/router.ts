@@ -9,19 +9,17 @@ import { handleCors, getCorsHeaders, handleError, handleNotFound } from "./middl
 import { WorkflowHandlers } from "./handlers/workflow.js";
 import { AnalysisHandlers } from "./handlers/analysis.js";
 import { WorkflowEngine } from "../../../shared/engine_workflow.js";
-import { GEOEngine } from "../../../shared/engine.js";
 
 export class Router {
   private workflowHandlers: WorkflowHandlers;
   private analysisHandlers: AnalysisHandlers;
 
   constructor(
-    private engine: GEOEngine,
     private env: Env
   ) {
     const workflowEngine = new WorkflowEngine(env);
     this.workflowHandlers = new WorkflowHandlers(workflowEngine);
-    this.analysisHandlers = new AnalysisHandlers(engine);
+    this.analysisHandlers = new AnalysisHandlers();
   }
 
   async route(request: Request, ctx?: ExecutionContext): Promise<Response> {
@@ -75,8 +73,6 @@ export class Router {
     switch (method) {
       case "step1":
         return await this.workflowHandlers.handleStep1(request, this.env, corsHeaders);
-      case "step2":
-        return await this.workflowHandlers.handleStep2(request, this.env, corsHeaders);
       case "step3":
         return await this.workflowHandlers.handleStep3(request, this.env, corsHeaders);
       case "saveCategories":
@@ -88,29 +84,14 @@ export class Router {
         );
       case "step4":
         return await this.workflowHandlers.handleStep4(request, this.env, corsHeaders);
-      case "savePrompts":
-        return await this.workflowHandlers.handleSavePrompts(
-          params.param0 || "",
-          request,
-          this.env,
-          corsHeaders
-        );
       case "step5":
         return await this.workflowHandlers.handleStep5(request, this.env, corsHeaders);
       case "fetchUrl":
         return await this.workflowHandlers.handleFetchUrl(request, this.env, corsHeaders);
-      case "executePrompt":
-        return await this.workflowHandlers.handleExecutePrompt(request, this.env, corsHeaders);
       case "generateSummary":
         return await this.workflowHandlers.handleGenerateSummary(request, this.env, corsHeaders);
       case "aiReadiness":
         return await this.workflowHandlers.handleAIReadiness(request, this.env, corsHeaders);
-      case "getAIReadinessStatus":
-        return await this.workflowHandlers.handleGetAIReadinessStatus(
-          params.param0 || "",
-          this.env,
-          corsHeaders
-        );
       default:
         return handleNotFound(corsHeaders);
     }
@@ -127,16 +108,8 @@ export class Router {
     const categoryName = params.param0 || "";
     
     switch (method) {
-      case "analyze":
-        return await this.analysisHandlers.handleAnalyze(request, this.env, corsHeaders);
       case "getAll":
         return await this.analysisHandlers.handleGetAllAnalyses(request, this.env, corsHeaders);
-      case "get":
-        return await this.analysisHandlers.handleGetAnalysis(runId, this.env, corsHeaders);
-      case "getStatus":
-        return await this.analysisHandlers.handleGetStatus(runId, this.env, corsHeaders);
-      case "getMetrics":
-        return await this.analysisHandlers.handleGetMetrics(runId, this.env, corsHeaders);
       case "getPromptsAndSummary":
         return await this.analysisHandlers.handleGetAnalysisPromptsAndSummary(runId, this.env, corsHeaders);
       case "delete":

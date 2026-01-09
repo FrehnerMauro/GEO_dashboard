@@ -1,22 +1,21 @@
 # GEO Platform
 
-A production-ready **Generative Engine Optimization (GEO)** platform that helps companies optimize their website, content, and brand visibility for generative AI systems, starting with ChatGPT.
+**Generative Engine Optimization (GEO)** platform for analyzing brand visibility in generative AI responses.
 
-**🌐 Live Production:** https://geo.socialhabit.org
+**🌐 Live:** https://geo.socialhabit.org
 
-> 📚 **For comprehensive documentation, see [DOCUMENTATION.md](./DOCUMENTATION.md)**
+> 📚 **Documentation:** [DOCUMENTATION.md](./DOCUMENTATION.md)
 
 ## Overview
 
-This platform answers the core question: **"How does ChatGPT talk about my company today"**
+Analyzes how ChatGPT responds to questions about a company.
 
-The system performs comprehensive analysis by:
-1. Crawling and ingesting website content
-2. Generating thematic categories
-3. Creating high-intent prompts
-4. Executing prompts against GPT-5 with Web Search
-5. Analyzing brand mentions, citations, competitors, and sentiment
-6. Tracking visibility over time
+Workflow:
+1. Crawl and extract website content
+2. Generate thematic categories
+3. Create prompts
+4. Execute prompts with OpenAI API (default: GPT-4o, configurable)
+5. Analyze brand mentions, citations, competitors
 
 ## Architecture
 
@@ -29,7 +28,7 @@ src/
 ├── ingestion/          # Website crawling and scraping
 ├── categorization/     # Thematic category extraction
 ├── prompt_generation/  # High-intent question generation
-├── llm_execution/      # GPT-5 Web Search integration
+├── llm_execution/      # GPT Web Search integration
 ├── analysis/           # Brand mentions, competitors, sentiment
 ├── persistence/        # D1 database operations
 ├── api/                # REST API endpoints
@@ -39,11 +38,13 @@ src/
 
 ### Technology Stack
 
-- **Runtime**: Cloudflare Workers (edge computing)
+- **Runtime**: Cloudflare Workers
 - **Database**: Cloudflare D1 (SQLite)
 - **Language**: TypeScript (strict mode)
 - **Testing**: Vitest
-- **LLM**: OpenAI Responses API with Web Search
+- **LLM**: OpenAI API
+  - Responses API (`/v1/responses`) for prompt execution with web search
+  - Chat Completions API (`/v1/chat/completions`) for category/prompt generation
 
 ## Core Workflow
 
@@ -91,21 +92,19 @@ Example: *"How do companies in Switzerland choose accounting software for SMEs?"
 
 ### Step 4: LLM Execution
 
-Executes each prompt against GPT-5 with Web Search enabled via the OpenAI Responses API:
+Executes prompts via OpenAI Responses API with web search:
 
 ```typescript
 {
-  model: "gpt-5",
-  messages: [{ role: "user", content: question }],
+  model: config.openai.model, // Default: "gpt-4o", configurable
   tools: [{ type: "web_search" }],
-  tool_choice: "auto"
+  input: question
 }
 ```
 
 Extracts:
-- `message.output_text` - Main response text
-- `message.content[].annotations` - URL citations
-- `message.web_search_call.action.sources` - Web search sources (if included)
+- `output[].content[].text` - Response text
+- `output[].content[].annotations` - URL citations
 
 **Module**: `src/llm_execution/`
 
@@ -131,7 +130,7 @@ The platform uses Cloudflare D1 with the following main tables:
 - `analysis_runs` - User inputs and run metadata
 - `categories` - Generated categories
 - `prompts` - Generated questions
-- `llm_responses` - GPT-5 responses
+- `llm_responses` - LLM responses
 - `citations` - Web search citations
 - `prompt_analyses` - Analysis results per prompt
 - `competitor_mentions` - Detected competitors
@@ -151,8 +150,6 @@ See `migrations/0001_initial_schema.sql` for full schema.
   categories: Category[];
   prompts: Prompt[];
   analyses: PromptAnalysis[];
-  categoryMetrics: CategoryMetrics[];
-  competitiveAnalysis: CompetitiveAnalysis;
   timeSeries: TimeSeriesData[];
   createdAt: string;
   updatedAt: string;
@@ -240,39 +237,6 @@ Configuration is managed via environment variables and `src/config.ts`:
 }
 ```
 
-## GEO Metrics
-
-### Visibility Score
-
-Calculated per category based on:
-- Brand mentions (exact: 10 points, fuzzy: 5 points)
-- Citation count (2 points per citation)
-- Sentiment (positive: +5, negative: -5)
-
-Normalized to 0-100 scale.
-
-### Citation Rate
-
-Average number of citations per prompt in a category.
-
-### Brand Mention Rate
-
-Percentage of prompts in a category where the brand is mentioned.
-
-### Competitive Share
-
-- **Brand Share**: Percentage of total mentions (brand vs all competitors)
-- **Competitor Shares**: Individual competitor percentages
-
-### White Space Detection
-
-Topics with:
-- High search demand (prompts generated)
-- No brand mentions
-- No dominant competitor mentions
-
-## Installation & Setup
-
 ### Prerequisites
 
 - Node.js 18+
@@ -356,21 +320,21 @@ npm test
 
 ### Why Responses API?
 
-- **Web Search**: Native integration with web search
-- **Citations**: Structured citation format
-- **Future-Proof**: Designed for GPT-5 and beyond
+- Web search integration
+- Structured citation format
+- Supports GPT-4o and newer models
 
 ### Why Deterministic Categories?
 
-- **Explainable**: Users understand why categories were chosen
-- **Reproducible**: Same website = same categories
-- **Testable**: Can verify category extraction logic
+- Explainable category selection
+- Reproducible results
+- Testable logic
 
 ### Why Language-Aware Prompts?
 
-- **Realistic**: Matches how users actually query
-- **Regional**: Incorporates country/region context
-- **Brand-Neutral**: Avoids forced self-mentions
+- Language-specific question generation
+- Region-aware context
+- Brand-neutral (no forced mentions)
 
 ## Limitations & Future Enhancements
 
@@ -378,7 +342,6 @@ npm test
 
 - Simplified HTML parsing (no full DOM parsing in Workers)
 - Basic entity extraction (could use NER models)
-- Sentiment analysis uses keyword matching (could use LLM-based)
 
 ### Future Enhancements
 
@@ -391,7 +354,7 @@ npm test
 
 ## Contributing
 
-This is a production-ready system. When contributing:
+When contributing:
 
 1. Maintain strict TypeScript types
 2. Add tests for new logic

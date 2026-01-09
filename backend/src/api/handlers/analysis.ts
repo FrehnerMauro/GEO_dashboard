@@ -2,59 +2,10 @@
  * Analysis API Handlers
  */
 
-import type { UserInput } from "../../../shared/types.js";
 import type { Env, CorsHeaders } from "../types.js";
-import { GEOEngine } from "../../../shared/engine.js";
 
 export class AnalysisHandlers {
-  constructor(private engine: GEOEngine) {}
-
-  async handleAnalyze(
-    request: Request,
-    env: Env,
-    corsHeaders: CorsHeaders
-  ): Promise<Response> {
-    const body = await request.json();
-    let websiteUrl = body.websiteUrl?.trim();
-    // Auto-add https:// if missing
-    if (websiteUrl) {
-      const urlPattern = new RegExp('^https?:\\/\\/', 'i');
-      if (!urlPattern.test(websiteUrl)) {
-        websiteUrl = 'https://' + websiteUrl;
-      }
-    }
-    const userInput: UserInput = {
-      websiteUrl: websiteUrl,
-      country: body.country,
-      region: body.region,
-      language: body.language,
-    };
-
-    // Validate input
-    if (!userInput.websiteUrl || !userInput.country || !userInput.language) {
-      return new Response(
-        JSON.stringify({ error: "Missing required fields" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    const runId = await this.engine.runAnalysis(userInput, env);
-
-    return new Response(
-      JSON.stringify({
-        runId,
-        status: "started",
-        message: "Analysis started successfully",
-      }),
-      {
-        status: 202,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
-  }
+  constructor() {}
 
   async handleGetAllAnalyses(
     request: Request,
@@ -190,72 +141,6 @@ export class AnalysisHandlers {
         }
       );
     }
-  }
-
-  async handleGetAnalysis(
-    runId: string,
-    env: Env,
-    corsHeaders: CorsHeaders
-  ): Promise<Response> {
-    const result = await this.engine.getAnalysisResult(runId, env);
-
-    if (!result) {
-      return new Response(JSON.stringify({ error: "Analysis not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  async handleGetStatus(
-    runId: string,
-    env: Env,
-    corsHeaders: CorsHeaders
-  ): Promise<Response> {
-    const { Database } = await import("../../../shared/persistence/index.js");
-    const db = new Database(env.geo_db as any);
-    const status = await db.getAnalysisStatus(runId);
-
-    if (!status) {
-      return new Response(JSON.stringify({ error: "Analysis not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(JSON.stringify(status), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  async handleGetMetrics(
-    runId: string,
-    env: Env,
-    corsHeaders: CorsHeaders
-  ): Promise<Response> {
-    const result = await this.engine.getAnalysisResult(runId, env);
-
-    if (!result) {
-      return new Response(JSON.stringify({ error: "Analysis not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(
-      JSON.stringify({
-        categoryMetrics: result.categoryMetrics,
-        competitiveAnalysis: result.competitiveAnalysis,
-        timeSeries: result.timeSeries,
-      }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
   }
 
   async handleDeleteAnalysis(

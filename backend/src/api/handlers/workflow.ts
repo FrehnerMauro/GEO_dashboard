@@ -69,30 +69,6 @@ export class WorkflowHandlers {
     }
   }
 
-  async handleStep2(
-    request: Request,
-    env: Env,
-    corsHeaders: CorsHeaders
-  ): Promise<Response> {
-    const body = await request.json() as {
-      runId: string;
-      urls: string[];
-      language?: string;
-    };
-    const { runId, urls } = body;
-
-    const result = await this.workflowEngine.step2FetchContent(
-      runId,
-      urls,
-      body.language || 'de',
-      env
-    );
-
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
   async handleStep3(
     request: Request,
     env: Env,
@@ -204,24 +180,6 @@ export class WorkflowHandlers {
         }
       );
     }
-  }
-
-  async handleSavePrompts(
-    runId: string,
-    request: Request,
-    env: Env,
-    corsHeaders: CorsHeaders
-  ): Promise<Response> {
-    const body = await request.json() as {
-      prompts?: any[];
-    };
-    const { prompts } = body;
-
-    await this.workflowEngine.saveUserPrompts(runId, prompts || [], env);
-
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
   }
 
   async handleStep5(
@@ -395,29 +353,8 @@ export class WorkflowHandlers {
         categoryMetrics = { results: [] };
       }
 
-      console.log(`[D1 DEBUG] Calculating competitive analysis for runId: ${runId}`);
-      const startComp = Date.now();
-      let competitiveAnalysis;
-      try {
-        competitiveAnalysis = await db.retryD1Operation(async () => {
-          return await db.db
-            .prepare(`
-              SELECT cm.competitor_name, COUNT(*) as mention_count
-              FROM competitor_mentions cm
-              INNER JOIN prompt_analyses pa ON cm.prompt_analysis_id = pa.id
-              INNER JOIN prompts p ON pa.prompt_id = p.id
-              WHERE p.analysis_run_id = ?
-              GROUP BY cm.competitor_name
-              ORDER BY mention_count DESC
-            `)
-            .bind(runId)
-            .all<any>();
-        }, 3, 200, "calculateCompetitiveAnalysis");
-        console.log(`[D1 DEBUG] Competitive analysis calculated in ${Date.now() - startComp}ms`);
-      } catch (error: any) {
-        console.error(`[D1 ERROR] Failed to calculate competitive analysis:`, error.message);
-        competitiveAnalysis = { results: [] };
-      }
+      // Competitive analysis (no competitors tracked anymore)
+      const competitiveAnalysis = { results: [] };
 
       console.log(`[D1 DEBUG] Calculating time series for runId: ${runId}`);
       const startTS = Date.now();
@@ -612,109 +549,6 @@ export class WorkflowHandlers {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         }
       );
-    }
-  }
-
-  async handleExecutePrompt(
-    request: Request,
-    env: Env,
-    corsHeaders: CorsHeaders
-  ): Promise<Response> {
-    const body = await request.json() as {
-      runId?: string;
-      prompt?: any;
-      userInput?: any;
-    };
-    const { runId, prompt, userInput } = body;
-
-    if (!runId || !prompt) {
-      return new Response(
-        JSON.stringify({ error: "runId and prompt are required" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    try {
-      const config = getConfig(env);
-      const executor = new LLMExecutor(config);
-
-      // Execute prompt with GPT-5 Web Search
-      const response = await executor.executePrompt(prompt);
-
-      // Only save prompt if response is valid and has output text
-      if (!response || !response.outputText || response.outputText.trim().length === 0) {
-        throw new Error("Prompt execution failed: No valid response received");
-      }
-
-      // Extract brand name from website URL
-      const websiteUrl = userInput?.websiteUrl || '';
-      const brandName = extractBrandName(websiteUrl);
-
-      // Save prompt, response, and analysis immediately (with timestamps)
-      // Only prompts with successful responses are saved
-      const db = new Database(env.geo_db as any);
-      
-      // Ensure prompt has an ID and required fields
-      if (!prompt.id) {
-        prompt.id = `prompt_${runId}_${Date.now()}`;
-      }
-      if (!prompt.language) {
-        prompt.language = userInput?.language || 'de';
-      }
-      if (!prompt.country) {
-        prompt.country = userInput?.country || '';
-      }
-      if (!prompt.region) {
-        prompt.region = userInput?.region || null;
-      }
-      if (!prompt.intent) {
-        prompt.intent = 'high';
-      }
-      if (!prompt.createdAt) {
-        prompt.createdAt = new Date().toISOString();
-      }
-      
-      // Save prompt only after successful execution with valid response
-      await db.savePrompts(runId, [prompt]);
-      
-      // Ensure response has correct promptId
-      response.promptId = prompt.id;
-
-      // Save response and citations using the proper method
-      await db.saveLLMResponses([response]);
-
-      // Perform analysis: Brand mentions, Citations, Competitors, Sentiment
-      const analysisEngine = new AnalysisEngine(brandName, 0.7);
-      const analyses = analysisEngine.analyzeResponses([prompt], [response]);
-      
-      if (!analyses || analyses.length === 0) {
-        throw new Error("Analysis failed: No analysis result returned");
-      }
-      
-      const analysis = analyses[0];
-
-      // Save analysis using the proper method
-      await db.savePromptAnalyses([analysis]);
-
-      return new Response(JSON.stringify({
-        success: true,
-        response,
-        analysis,
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    } catch (error) {
-      console.error('Error in handleExecutePrompt:', error);
-      return new Response(JSON.stringify({
-        error: error instanceof Error ? error.message : "Unknown error",
-        details: error instanceof Error ? error.stack : undefined
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
     }
   }
 
@@ -1264,18 +1098,4 @@ Average Load Time: ${Math.round(
     return text;
   }
 
-  async handleGetAIReadinessStatus(
-    runId: string,
-    env: Env,
-    corsHeaders: CorsHeaders
-  ): Promise<Response> {
-    // For now, return a simple status
-    // This can be extended to store status in database if needed
-    return new Response(
-      JSON.stringify({ status: "completed", message: "AI Readiness analysis completed" }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
-  }
 }
