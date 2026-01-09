@@ -71,7 +71,7 @@ The first project (Bot Observatory) addressed three questions:
 After Bot Observatory, new ideas were explored:
 
 1. **Research:** Asked GPT: "What are the 5 best LLM optimization sites?"
-2. **Analysis:** Examined what other platforms do (see "State of the Art" section)
+2. **Analysis:** Examined what other platforms do
 3. **Idea:** Instead of just observing own crawler on own site → **Ask questions to GPT with Web Search**
    - Generate questions that should make the webpage appear
    - Check if brand appears as desired in AI responses
@@ -127,7 +127,7 @@ Router (backend/src/api/router.ts)
     ↓
 Handler (backend/src/api/handlers/)
     ↓
-Engine (shared/engine.ts or shared/engine_workflow.ts)
+Engine (shared/engine_workflow.ts)
     ↓
 Business Logic (shared/*/)
     ↓
@@ -146,7 +146,7 @@ Response
 - **Database**: Cloudflare D1 (SQLite)
 - **Language**: TypeScript 5.5+ (strict mode)
 - **HTTP Framework**: Native Fetch API
-- **HTML Parsing**: Cheerio
+- **HTML Parsing**: Native DOM APIs and regex-based text extraction
 - **LLM Integration**: OpenAI API
 
 ### Frontend
@@ -239,7 +239,6 @@ shared/
 ├── categorization/
 │   └── index.ts                    # Category generation
 ├── config.ts                       # Configuration management
-├── engine.ts                       # Main GEO engine
 ├── engine_workflow.ts              # Interactive workflow engine
 ├── ingestion/                      # Website crawling
 │   ├── crawler.ts                  # Website crawler
@@ -440,33 +439,15 @@ interface PromptAnalysis {
 
 ### 7. Engine Modules
 
-#### GEOEngine (`shared/engine.ts`)
-
-**Purpose**: Main orchestrator for automated analysis runs
-
-**Workflow**:
-1. Website ingestion
-2. Category generation
-3. Prompt generation
-4. LLM execution
-5. Result analysis
-6. Time-series data storage
-
-**Features**:
-- **Non-Blocking**: Returns runId immediately, processes asynchronously
-- **Status Updates**: Real-time progress tracking
-- **Error Handling**: Graceful error handling with status updates
-
 #### WorkflowEngine (`shared/engine_workflow.ts`)
 
 **Purpose**: Interactive, step-by-step workflow engine
 
 **Steps**:
 1. **Step 1**: Find and parse sitemap
-2. **Step 2**: Fetch content from URLs
-3. **Step 3**: Generate categories (with GPT)
-4. **Step 4**: Generate prompts (with GPT, rate-limited)
-5. **Step 5**: Execute prompts with LLM
+2. **Step 3**: Generate categories (with GPT) - Content is fetched via `/api/workflow/fetchUrl` as needed
+3. **Step 4**: Generate prompts (with GPT, rate-limited)
+4. **Step 5**: Execute prompts with LLM
 
 **Features**:
 - **Interactive**: User can control each step
@@ -517,27 +498,6 @@ Find and parse sitemap for a website.
   "runId": "run_1234567890_abc123",
   "urls": ["https://example.com/page1", "https://example.com/page2"],
   "foundSitemap": true
-}
-```
-
-#### POST `/api/workflow/step2`
-
-Fetch content from URLs.
-
-**Request**:
-```json
-{
-  "runId": "run_1234567890_abc123",
-  "urls": ["https://example.com/page1", "https://example.com/page2"],
-  "language": "de"
-}
-```
-
-**Response**:
-```json
-{
-  "pageCount": 2,
-  "content": "Extracted text content..."
 }
 ```
 
@@ -668,34 +628,6 @@ Fetch content from a single URL.
 }
 ```
 
-#### POST `/api/workflow/executePrompt`
-
-Execute a single prompt.
-
-**Request**:
-```json
-{
-  "prompt": "Who offers POS systems in New York?",
-  "language": "en"
-}
-```
-
-**Response**:
-```json
-{
-  "response": {
-    "outputText": "LLM response text...",
-    "citations": [
-      {
-        "url": "https://example.com",
-        "title": "Example",
-        "snippet": "Snippet text"
-      }
-    ]
-  }
-}
-```
-
 #### POST `/api/workflow/generateSummary`
 
 Generate analysis summary.
@@ -733,50 +665,26 @@ Start AI Readiness analysis.
 **Response**:
 ```json
 {
-  "statusId": "status_123",
-  "status": "processing"
-}
-```
-
-#### GET `/api/workflow/aiReadiness/:statusId`
-
-Get AI Readiness status.
-
-**Response**:
-```json
-{
-  "status": "completed",
-  "result": {
-    "score": 85,
-    "recommendations": [...]
-  }
+  "success": true,
+  "protocol": {
+    "timestamp": "2024-01-01T00:00:00Z",
+    "baseUrl": "https://example.com",
+    "robotsTxt": { "found": true, "content": "..." },
+    "sitemap": { "found": true, "urls": [...], "content": "..." },
+    "pages": [...],
+    "analysis": {
+      "summary": "AI readability analysis...",
+      "score": 85,
+      "recommendations": [...],
+      "issues": [...],
+      "strengths": [...]
+    }
+  },
+  "protocolText": "Formatted protocol text..."
 }
 ```
 
 ### Analysis Endpoints
-
-#### POST `/api/analyze`
-
-Start a new automated analysis run.
-
-**Request**:
-```json
-{
-  "websiteUrl": "https://example.com",
-  "country": "CH",
-  "region": "Zurich",
-  "language": "de"
-}
-```
-
-**Response**:
-```json
-{
-  "runId": "run_1234567890_abc123",
-  "status": "started",
-  "message": "Analysis started successfully"
-}
-```
 
 #### GET `/api/analyses`
 
@@ -795,39 +703,6 @@ Get all analysis runs.
     "updatedAt": "2024-01-01T01:00:00Z"
   }
 ]
-```
-
-#### GET `/api/analysis/:runId`
-
-Get full analysis results.
-
-**Response**: Complete `AnalysisResult` object (see Types section)
-
-#### GET `/api/analysis/:runId/status`
-
-Get analysis status.
-
-**Response**:
-```json
-{
-  "status": "running",
-  "step": "llm_execution",
-  "progress": 50,
-  "message": "Executing prompts with LLM..."
-}
-```
-
-#### GET `/api/analysis/:runId/metrics`
-
-Get metrics only.
-
-**Response**:
-```json
-{
-  "categoryMetrics": [...],
-  "competitiveAnalysis": {...},
-  "timeSeries": [...]
-}
 ```
 
 #### GET `/api/analysis/:runId/prompts-summary`
@@ -959,19 +834,19 @@ Main application entry point that:
 #### 1. Interactive Analysis Workflow
 
 1. User enters website URL, country, region, language
-2. **Step 1**: System finds sitemap
-3. **Step 2**: System fetches content from URLs
-4. **Step 3**: System generates categories (user can select/edit)
+2. **Step 1**: System finds sitemap and returns URLs
+3. User can fetch content from specific URLs via `/api/workflow/fetchUrl` as needed
+4. **Step 3**: System generates categories from content (user can select/edit)
 5. **Step 4**: System generates prompts (user can select/edit)
 6. **Step 5**: System executes prompts with LLM
 7. Results are displayed with analysis
 
-#### 2. Automated Analysis
+#### 2. Analysis Dashboard
 
-1. User enters website URL, country, region, language
-2. System runs complete analysis automatically
-3. Progress is shown in real-time
-4. Results are displayed when complete
+1. User views all completed analyses
+2. User can view analysis details (prompts, summary, citations)
+3. User can delete analyses
+4. User can filter by company
 
 #### 3. AI Readiness Analysis
 
@@ -1483,7 +1358,7 @@ When debug mode is enabled:
 
 **🌐 Live Production URL:** https://geo.socialhabit.org
 
-The platform is deployed and accessible at the above URL. The backend API and frontend are both served through this domain.
+The platform is deployed and accessible at the above URL. 
 
 ### Prerequisites
 
@@ -1551,7 +1426,6 @@ npm run db:migrate:remote
 
 Tests are in `tests/` directory:
 
-- `engine.test.ts`: GEOEngine tests
 - `workflow-engine.test.ts`: WorkflowEngine tests
 - `analysis-engine.test.ts`: AnalysisEngine tests
 - `crawler.test.ts`: Website crawler tests
@@ -1571,7 +1445,7 @@ Tests are in `tests/` directory:
 npm test
 
 # Run specific test file
-npm test tests/engine.test.ts
+npm test tests/workflow-engine.test.ts
 
 # Run in watch mode
 npm run test:watch
@@ -1591,7 +1465,6 @@ The test suite covers:
 - Prompt generation
 - LLM execution
 - Brand mention detection
-- Competitor detection
 - Citation extraction
 - Configuration management
 - Utility functions
@@ -1631,11 +1504,12 @@ The WorkflowEngine provides an interactive, step-by-step analysis process.
 - Parses sitemap to extract URLs
 - Returns list of URLs for content fetching
 
-#### Step 2: Content Fetching
+#### Content Fetching (via `/api/workflow/fetchUrl`)
 
-- Fetches content from URLs (limited to 50 for performance)
+- Content is fetched on-demand via the `/api/workflow/fetchUrl` endpoint
+- Fetches content from individual URLs as needed
 - Extracts text content from HTML
-- Combines content for analysis
+- Used when user selects specific URLs or when content is needed for category/prompt generation
 
 #### Step 3: Category Generation
 
@@ -1815,21 +1689,15 @@ Stores historical data for trend analysis:
 
 - ✅ **Workflow Endpoints**
   - Step 1: Sitemap discovery
-  - Step 2: Content fetching
   - Step 3: Category generation
   - Step 4: Prompt generation
   - Step 5: LLM execution
-  - URL fetching
-  - Single prompt execution
+  - URL fetching (on-demand via `/api/workflow/fetchUrl`)
   - Summary generation
   - AI Readiness analysis
 
 - ✅ **Analysis Endpoints**
-  - Start analysis
   - Get all analyses
-  - Get analysis by ID
-  - Get analysis status
-  - Get metrics
   - Get prompts and summary
   - Delete analysis
 

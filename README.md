@@ -158,9 +158,10 @@ See `migrations/0001_initial_schema.sql` for full schema.
 
 ## API Endpoints
 
-### POST `/api/analyze`
+### Workflow Endpoints
 
-Start a new analysis run.
+#### POST `/api/workflow/step1`
+Find and parse sitemap for a website.
 
 **Request**:
 ```json
@@ -176,33 +177,94 @@ Start a new analysis run.
 ```json
 {
   "runId": "run_1234567890_abc123",
-  "status": "started",
-  "message": "Analysis started successfully"
+  "urls": ["https://example.com/page1", "https://example.com/page2"],
+  "foundSitemap": true,
+  "message": "Sitemap found: 50 URLs"
 }
 ```
 
-### GET `/api/analysis/:runId`
+#### POST `/api/workflow/step3`
+Generate categories from content.
 
-Get full analysis results.
+**Request**:
+```json
+{
+  "runId": "run_1234567890_abc123",
+  "content": "Website content...",
+  "language": "de"
+}
+```
 
-**Response**: Full `AnalysisResult` object
+#### PUT `/api/workflow/:runId/categories`
+Save selected categories.
 
-### GET `/api/analysis/:runId/metrics`
+#### POST `/api/workflow/step4`
+Generate prompts for categories.
 
-Get metrics only (category metrics, competitive analysis, time series).
+#### POST `/api/workflow/step5`
+Execute prompts with LLM.
+
+#### POST `/api/workflow/fetchUrl`
+Fetch content from a single URL.
+
+#### POST `/api/workflow/generateSummary`
+Generate analysis summary.
+
+#### POST `/api/workflow/aiReadiness`
+Start AI Readiness analysis.
+
+### Analysis Endpoints
+
+#### GET `/api/analyses`
+Get all analysis runs.
+
+#### GET `/api/analysis/:runId/prompts-summary`
+Get prompts and summary for an analysis.
 
 **Response**:
 ```json
 {
-  "categoryMetrics": [...],
-  "competitiveAnalysis": {...},
-  "timeSeries": [...]
+  "prompts": [...],
+  "summary": {
+    "totalMentions": 42,
+    "totalCitations": 15,
+    "bestPrompts": [...],
+    "otherSources": {...}
+  }
 }
 ```
 
-### GET `/api/health`
+#### DELETE `/api/analysis/:runId`
+Delete an analysis run.
 
+### Dashboard Endpoints
+
+#### GET `/api/companies`
+Get all companies.
+
+#### GET `/api/companies/:companyId/analyses`
+Get all analyses for a company.
+
+#### GET `/api/global/categories`
+Get global categories across all analyses.
+
+#### GET `/api/global/categories/:categoryName/prompts`
+Get prompts for a global category.
+
+### System Endpoints
+
+#### GET `/api/health`
 Health check endpoint.
+
+**Response**:
+```json
+{
+  "status": "ok",
+  "timestamp": "2024-01-01T00:00:00Z"
+}
+```
+
+> 📚 **Full API Documentation**: See [DOCUMENTATION.md](./DOCUMENTATION.md) for complete endpoint details.
 
 ## Configuration
 
