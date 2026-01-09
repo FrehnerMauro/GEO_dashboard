@@ -1,0 +1,20 @@
+name = "geo-platform-backend"
+main = "src/index.ts"
+compatibility_date = "2024-11-27"
+
+[env.production]
+name = "geo-platform-backend-prod"
+
+[[d1_databases]]
+binding = "geo_db"
+database_name = "geo-db"
+database_id = "7e73f7d1-492d-4ca3-a5f9-916139ddebec"
+migrations_dir = "../migrations"
+
+[vars]
+ENVIRONMENT = "production"
+DEBUG_MODE = "false"
+OPENAI_MODEL = "gpt-4o"
+MAX_PAGES = "50"
+MAX_DEPTH = "3"
+RE_RUN_SCHEDULE = "weekly"

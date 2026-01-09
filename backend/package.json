@@ -1,0 +1,24 @@
+{
+  "name": "geo-platform-backend",
+  "version": "1.0.0",
+  "description": "Backend API for GEO Platform - Cloudflare Workers",
+  "type": "module",
+  "scripts": {
+    "build": "echo 'Build skipped - Wrangler handles TypeScript compilation during deploy'",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "db:migrate": "wrangler d1 migrations apply geo-db",
+    "db:migrate:remote": "wrangler d1 migrations apply geo-db --remote",
+    "db:create": "wrangler d1 create geo-db"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "^4.20241127.0",
+    "openai": "^4.67.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0",
+    "wrangler": "^3.60.0"
+  }
+}

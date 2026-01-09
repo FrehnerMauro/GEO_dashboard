@@ -1,0 +1,51 @@
+/**
+ * Navigation Component
+ */
+import { getElement, querySelector } from "../utils/dom-utils.js";
+export class Navigation {
+    sidebar;
+    mainContent;
+    toggleBtn;
+    constructor() {
+        this.sidebar = getElement("sidebar") || querySelector(".sidebar");
+        this.mainContent = querySelector(".main-content");
+        this.toggleBtn = getElement("sidebarToggle");
+    }
+    toggleSidebar() {
+        if (!this.sidebar)
+            return;
+        const isCollapsed = this.sidebar.classList.contains("collapsed");
+        if (isCollapsed) {
+            this.sidebar.classList.remove("collapsed");
+            document.body.classList.remove("sidebar-collapsed");
+            if (this.toggleBtn) {
+                this.toggleBtn.textContent = "◀";
+                this.toggleBtn.title = "Hide menu";
+            }
+        }
+        else {
+            this.sidebar.classList.add("collapsed");
+            document.body.classList.add("sidebar-collapsed");
+            if (this.toggleBtn) {
+                this.toggleBtn.textContent = "▶";
+                this.toggleBtn.title = "Show menu";
+            }
+        }
+    }
+    setActiveNavItem(index) {
+        const navItems = document.querySelectorAll(".nav-item");
+        navItems.forEach((item, i) => {
+            if (i === index) {
+                item.classList.add("active");
+            }
+            else {
+                item.classList.remove("active");
+            }
+        });
+    }
+}
+// Global navigation instance
+export const navigation = new Navigation();
+// Note: toggleSidebar is defined in global.ts for immediate availability
+// This ensures it's available before DOMContentLoaded for HTML onclick handlers
+//# sourceMappingURL=navigation.js.map
