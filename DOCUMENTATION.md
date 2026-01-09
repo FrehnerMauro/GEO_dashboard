@@ -100,11 +100,12 @@ Based on learnings from the first project, the GEO Platform was developed with a
    - Enables comprehensive market analysis
 
 5. **AI Readiness Integration**
+   (Local)
    - Ensures site is reachable for AI, fast without errors
    - Validates sitemap and robots.txt files
    - Provides AI readiness testing and recommendations
 
-6. **Improved Architecture**
+**Improved Architecture**
    - Better separation of concerns
    - Comprehensive unit testing
    - Clean, appealing UI where analysis can be followed in real-time
