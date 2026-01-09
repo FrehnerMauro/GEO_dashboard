@@ -4,7 +4,7 @@ A production-ready **Generative Engine Optimization (GEO)** platform that helps 
 
 ## Overview
 
-This platform answers the core question: **"How does ChatGPT talk about my company today — and how does that change over time?"**
+This platform answers the core question: **"How does ChatGPT talk about my company?"**
 
 The system performs comprehensive analysis by:
 1. Crawling and ingesting website content
@@ -12,7 +12,7 @@ The system performs comprehensive analysis by:
 3. Creating high-intent prompts
 4. Executing prompts against GPT-5 with Web Search
 5. Analyzing brand mentions, citations, competitors, and sentiment
-6. Tracking visibility over time
+
 
 ## Architecture
 
@@ -49,7 +49,7 @@ src/
 - Extracts:
   - Main pages
   - Headings (H1-H6)
-  - Key topics (frequency-based)
+  - Key topics 
   - Product/service entities (capitalized phrases)
 - Normalizes content with language-aware processing
 
@@ -87,11 +87,11 @@ Example: *"How do companies in Switzerland choose accounting software for SMEs?"
 
 ### Step 4: LLM Execution
 
-Executes each prompt against GPT-5 with Web Search enabled via the OpenAI Responses API:
+Executes each prompt against GPT-4 with Web Search enabled via the OpenAI Responses API:
 
 ```typescript
 {
-  model: "gpt-5",
+  model: "gpt-4o",
   messages: [{ role: "user", content: question }],
   tools: [{ type: "web_search" }],
   tool_choice: "auto"
@@ -112,32 +112,8 @@ For each prompt execution, extracts:
 - **Brand Mentions**: Exact and fuzzy (similarity-based) matches
 - **Citations**: Count and URLs from web search
 - **Competitors**: Detected from comparison phrases and co-mentions
-- **Sentiment**: Tone (positive/neutral/negative/mixed) with confidence
 
 **Module**: `src/analysis/`
-
-### Step 6: Competitive & Niche Analysis
-
-- **Competitor Identification**: Based on co-mentions and comparison phrases
-- **Brand Share**: Percentage of total mentions
-- **White Space Topics**: Prompts with demand but no dominant brand
-- **Dominated Prompts**: Where competitors are mentioned more than brand
-- **Missing Brand Prompts**: Where brand is not mentioned at all
-
-**Module**: `src/analysis/index.ts` (CompetitiveAnalysis)
-
-### Step 7: Time-Series Tracking
-
-Stores all results with timestamps for trend analysis:
-
-- Visibility score over time
-- Citation growth/decline
-- Brand vs competitor share changes
-- Competitive displacement detection
-
-Re-run schedule: Daily or weekly (configurable)
-
-**Module**: `src/persistence/` (time_series table)
 
 ## Data Model
 
@@ -258,37 +234,6 @@ Configuration is managed via environment variables and `src/config.ts`:
 }
 ```
 
-## GEO Metrics
-
-### Visibility Score
-
-Calculated per category based on:
-- Brand mentions (exact: 10 points, fuzzy: 5 points)
-- Citation count (2 points per citation)
-- Sentiment (positive: +5, negative: -5)
-
-Normalized to 0-100 scale.
-
-### Citation Rate
-
-Average number of citations per prompt in a category.
-
-### Brand Mention Rate
-
-Percentage of prompts in a category where the brand is mentioned.
-
-### Competitive Share
-
-- **Brand Share**: Percentage of total mentions (brand vs all competitors)
-- **Competitor Shares**: Individual competitor percentages
-
-### White Space Detection
-
-Topics with:
-- High search demand (prompts generated)
-- No brand mentions
-- No dominant competitor mentions
-
 ## Installation & Setup
 
 ### Prerequisites
@@ -324,7 +269,6 @@ Set in Cloudflare Workers dashboard or `wrangler.toml`:
 OPENAI_API_KEY = "your-api-key"
 MAX_PAGES = "50"
 MAX_DEPTH = "3"
-RE_RUN_SCHEDULE = "weekly"
 ```
 
 ### Development
@@ -361,20 +305,6 @@ Run tests:
 npm test
 ```
 
-## Re-Run Logic
-
-The platform supports scheduled re-runs for trend analysis:
-
-1. **Daily**: Re-executes all prompts and updates metrics
-2. **Weekly**: Full analysis re-run
-
-Re-runs:
-- Use same prompts (deterministic)
-- Store new timestamped results
-- Enable trend analysis via time_series table
-
-To trigger a re-run, call `/api/analyze` with the same website URL. The system will create a new run or update existing one based on configuration.
-
 ## Architecture Decisions
 
 ### Why Cloudflare Workers?
@@ -382,7 +312,7 @@ To trigger a re-run, call `/api/analyze` with the same website URL. The system w
 - **Edge Computing**: Low latency globally
 - **Stateless**: Perfect for GEO analysis jobs
 - **D1 Integration**: Native SQLite database
-- **Cost-Effective**: Pay-per-request model
+- **Cost-Effective**: 
 
 ### Why Responses API?
 
@@ -418,16 +348,6 @@ To trigger a re-run, call `/api/analyze` with the same website URL. The system w
 - Real-time monitoring dashboard
 - Automated content recommendations
 - A/B testing for content optimization
-
-## Contributing
-
-This is a production-ready system. When contributing:
-
-1. Maintain strict TypeScript types
-2. Add tests for new logic
-3. Follow separation of concerns
-4. Document architectural decisions
-5. Ensure Cloudflare Workers compatibility
 
 ## License
 
